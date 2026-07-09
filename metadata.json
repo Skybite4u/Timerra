@@ -1,0 +1,6 @@
+{
+  "name": "Timerra",
+  "description": "A highly modern, aesthetic, and functional Focus Timer with custom clock views, distraction-free fullscreen mode, custom ambient audio, and advanced client-side encrypted local-first backup & sync.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

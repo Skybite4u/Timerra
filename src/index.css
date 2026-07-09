@@ -1,0 +1,191 @@
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap');
+@import "tailwindcss";
+
+@layer base {
+  body {
+    background-color: #06040a;
+    color: #f8fafc;
+    font-family: 'Plus Jakarta Sans', -apple-system, sans-serif;
+  }
+}
+
+@theme {
+  --color-bg-deep: #06040a;
+  --color-glass-bg: rgba(255, 255, 255, 0.02);
+  --color-glass-border: rgba(255, 255, 255, 0.06);
+  --color-text-dim: #94a3b8;
+  --font-sans: 'Plus Jakarta Sans', -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+  --font-futuristic: 'Orbitron', sans-serif;
+}
+
+/* Custom Atmospheric Blur & Glow effects in Pink & Purple */
+.atmosphere-gradient {
+  background: radial-gradient(circle at 5% 10%, rgba(236, 72, 153, 0.12) 0%, transparent 50%),
+              radial-gradient(circle at 95% 90%, rgba(168, 85, 247, 0.15) 0%, transparent 50%),
+              radial-gradient(circle at 50% 50%, rgba(99, 102, 241, 0.05) 0%, transparent 60%),
+              #06040a;
+  min-height: 100vh;
+}
+
+.atmosphere-glow {
+  background: radial-gradient(circle at 50% 50%, rgba(168, 85, 247, 0.08) 0%, transparent 75%);
+  filter: blur(100px);
+}
+
+.glass-card {
+  background: rgba(15, 10, 25, 0.4) !important;
+  backdrop-filter: blur(24px) !important;
+  border: 1px solid rgba(244, 63, 94, 0.12) !important;
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.5) !important;
+}
+
+/* Glassy and Glossy Premium Effects with Pink/Purple Accents */
+.glossy-panel {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.04) 0%, rgba(255, 255, 255, 0.01) 100%) !important;
+  backdrop-filter: blur(32px) saturate(200%) !important;
+  border: 1px solid rgba(168, 85, 247, 0.18) !important;
+  box-shadow: 
+    0 16px 45px rgba(0, 0, 0, 0.6),
+    inset 0 1px 0px rgba(255, 255, 255, 0.1) !important;
+  position: relative;
+  overflow: hidden;
+}
+
+.glossy-panel::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 50%;
+  background: linear-gradient(to bottom, rgba(255, 255, 255, 0.03) 0%, rgba(255, 255, 255, 0) 100%);
+  pointer-events: none;
+  z-index: 1;
+}
+
+.glossy-panel-hover {
+  transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.glossy-panel-hover:hover {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.06) 0%, rgba(255, 255, 255, 0.02) 100%) !important;
+  border-color: rgba(236, 72, 153, 0.35) !important;
+  box-shadow: 
+    0 24px 60px rgba(0, 0, 0, 0.7),
+    0 0 30px rgba(168, 85, 247, 0.25),
+    0 0 10px rgba(236, 72, 153, 0.15),
+    inset 0 1px 0px rgba(255, 255, 255, 0.2) !important;
+  transform: translateY(-3px);
+}
+
+.glossy-button {
+  background: linear-gradient(180deg, rgba(236, 72, 153, 0.6) 0%, rgba(168, 85, 247, 0.4) 100%) !important;
+  backdrop-filter: blur(12px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.2) !important;
+  box-shadow: 
+    0 6px 16px rgba(168, 85, 247, 0.2),
+    inset 0 1px 0px rgba(255, 255, 255, 0.3) !important;
+  transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.glossy-button::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 40%;
+  background: linear-gradient(to bottom, rgba(255, 255, 255, 0.2) 0%, rgba(255, 255, 255, 0) 100%);
+  pointer-events: none;
+}
+
+.glossy-button:hover {
+  background: linear-gradient(180deg, rgba(236, 72, 153, 0.75) 0%, rgba(168, 85, 247, 0.55) 100%) !important;
+  box-shadow: 
+    0 12px 24px rgba(168, 85, 247, 0.4),
+    0 0 20px rgba(236, 72, 153, 0.3),
+    inset 0 1px 0px rgba(255, 255, 255, 0.4) !important;
+  border-color: rgba(255, 255, 255, 0.35) !important;
+  transform: translateY(-1px);
+}
+
+.glossy-button:active {
+  transform: translateY(1px);
+  box-shadow: 
+    0 2px 8px rgba(168, 85, 247, 0.2),
+    inset 0 1px 0px rgba(255, 255, 255, 0.2) !important;
+}
+
+.glossy-button-danger {
+  background: linear-gradient(180deg, rgba(244, 63, 94, 0.5) 0%, rgba(225, 29, 72, 0.3) 100%) !important;
+  backdrop-filter: blur(8px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+  box-shadow: 
+    0 4px 12px rgba(225, 29, 72, 0.15),
+    inset 0 1px 0px rgba(255, 255, 255, 0.2) !important;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.glossy-button-danger:hover {
+  background: linear-gradient(180deg, rgba(244, 63, 94, 0.7) 0%, rgba(225, 29, 72, 0.5) 100%) !important;
+  box-shadow: 
+    0 12px 24px rgba(225, 29, 72, 0.3),
+    inset 0 1px 0px rgba(255, 255, 255, 0.35) !important;
+  border-color: rgba(255, 255, 255, 0.25) !important;
+}
+
+.glass-card-hover {
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.glass-card-hover:hover {
+  background: rgba(255, 255, 255, 0.05) !important;
+  border-color: rgba(236, 72, 153, 0.25) !important;
+  box-shadow: 
+    0 16px 48px 0 rgba(0, 0, 0, 0.5), 
+    0 0 25px rgba(168, 85, 247, 0.15) !important;
+}
+
+/* Neon Glow Texts and Components */
+.neon-glow-pink {
+  text-shadow: 
+    0 0 8px rgba(236, 72, 153, 0.6),
+    0 0 20px rgba(236, 72, 153, 0.3);
+}
+
+.neon-glow-purple {
+  text-shadow: 
+    0 0 8px rgba(168, 85, 247, 0.6),
+    0 0 20px rgba(168, 85, 247, 0.3);
+}
+
+.neon-border-pink {
+  box-shadow: 0 0 15px rgba(236, 72, 153, 0.3), inset 0 0 8px rgba(236, 72, 153, 0.15);
+}
+
+.neon-border-purple {
+  box-shadow: 0 0 15px rgba(168, 85, 247, 0.3), inset 0 0 8px rgba(168, 85, 247, 0.15);
+}
+
+/* Scrollbar Styling */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.01);
+  border-radius: 999px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(168, 85, 247, 0.2);
+  border-radius: 999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(236, 72, 153, 0.4);
+}
