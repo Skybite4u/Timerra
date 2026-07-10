@@ -169,6 +169,50 @@ export const TimerraDB = {
     }
   },
 
+  async deleteSubject(name: string): Promise<void> {
+    inMemoryStore.subjects = inMemoryStore.subjects.filter(s => s !== name);
+    try {
+      const db = await openDB();
+      await new Promise<void>((resolve, reject) => {
+        try {
+          const transaction = db.transaction('subjects', 'readwrite');
+          const store = transaction.objectStore('subjects');
+          const request = store.delete(name);
+          request.onsuccess = () => resolve();
+          request.onerror = () => reject(request.error);
+        } catch (err) {
+          reject(err);
+        }
+      });
+    } catch (e) {
+      console.warn('DB warning: Subject deleted in memory only', e);
+    }
+  },
+
+  async renameSubject(oldName: string, newName: string): Promise<void> {
+    inMemoryStore.subjects = inMemoryStore.subjects.map(s => s === oldName ? newName : s);
+    try {
+      const db = await openDB();
+      await new Promise<void>((resolve, reject) => {
+        try {
+          const tx = db.transaction('subjects', 'readwrite');
+          const store = tx.objectStore('subjects');
+          const deleteReq = store.delete(oldName);
+          deleteReq.onsuccess = () => {
+            const putReq = store.put({ name: newName });
+            putReq.onsuccess = () => resolve();
+            putReq.onerror = () => reject(putReq.error);
+          };
+          deleteReq.onerror = () => reject(deleteReq.error);
+        } catch (err) {
+          reject(err);
+        }
+      });
+    } catch (e) {
+      console.warn('DB warning: Subject renamed in memory only', e);
+    }
+  },
+
   async clearAll(): Promise<void> {
     inMemoryStore.settings = null;
     inMemoryStore.sessions = [];

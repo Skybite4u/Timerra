@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Sparkles, BookOpen, Sliders, Volume2, Check, Plus, AlertCircle } from 'lucide-react';
+import { X, Sparkles, BookOpen, Sliders, Volume2, Check, Plus, AlertCircle, Edit2, Trash2 } from 'lucide-react';
 import { TimerSettings, ThemeName } from '../types';
 import { THEMES } from '../lib/themes';
 
@@ -8,6 +8,8 @@ interface SettingsPanelProps {
   subjects: string[];
   onSaveSettings: (newSettings: TimerSettings) => void;
   onAddSubject: (subject: string) => void;
+  onRenameSubject?: (oldName: string, newName: string) => void;
+  onDeleteSubject?: (name: string) => void;
   onClose: () => void;
 }
 
@@ -16,6 +18,8 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
   subjects,
   onSaveSettings,
   onAddSubject,
+  onRenameSubject,
+  onDeleteSubject,
   onClose,
 }) => {
   const [focusVal, setFocusVal] = useState(settings.focusMinutes);
@@ -28,6 +32,39 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
   const [activeSub, setActiveSub] = useState(settings.subject);
 
   const [newSubInput, setNewSubInput] = useState('');
+
+  const [editingSub, setEditingSub] = useState<string | null>(null);
+  const [editingSubValue, setEditingSubValue] = useState('');
+
+  const handleStartRename = (sub: string) => {
+    setEditingSub(sub);
+    setEditingSubValue(sub);
+  };
+
+  const handleSaveRename = (oldName: string) => {
+    const clean = editingSubValue.trim();
+    if (clean && clean !== oldName) {
+      if (onRenameSubject) {
+        onRenameSubject(oldName, clean);
+      }
+      if (activeSub === oldName) {
+        setActiveSub(clean);
+      }
+    }
+    setEditingSub(null);
+  };
+
+  const handleDeleteClick = (sub: string) => {
+    if (onDeleteSubject) {
+      onDeleteSubject(sub);
+      if (activeSub === sub) {
+        const remaining = subjects.filter(s => s !== sub);
+        if (remaining.length > 0) {
+          setActiveSub(remaining[0]);
+        }
+      }
+    }
+  };
 
   // Built-in professional presets (Section 13)
   const presets = [
@@ -195,22 +232,91 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
               Focus Subjects Board
             </h3>
             
-            <div className="flex flex-wrap gap-1.5 p-3 rounded-2xl bg-white/[0.01] border border-white/5">
+            <div className="flex flex-wrap gap-2 p-3 rounded-2xl bg-white/[0.01] border border-white/5">
               {subjects.map((sub) => {
                 const isSelected = activeSub === sub;
+                const isEditing = editingSub === sub;
+
+                if (isEditing) {
+                  return (
+                    <div
+                      key={sub}
+                      className="flex items-center gap-1.5 bg-white/10 border border-tm-primary/50 rounded-xl px-2 py-1 text-xs"
+                    >
+                      <input
+                        type="text"
+                        value={editingSubValue}
+                        onChange={(e) => setEditingSubValue(e.target.value)}
+                        className="bg-transparent text-white border-none focus:outline-none w-28 text-xs font-medium"
+                        maxLength={25}
+                        autoFocus
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            handleSaveRename(sub);
+                          } else if (e.key === 'Escape') {
+                            setEditingSub(null);
+                          }
+                        }}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleSaveRename(sub)}
+                        className="p-1 rounded hover:bg-emerald-500/20 text-emerald-400 cursor-pointer transition-colors"
+                        title="Save name"
+                      >
+                        <Check className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setEditingSub(null)}
+                        className="p-1 rounded hover:bg-rose-500/20 text-rose-400 cursor-pointer transition-colors"
+                        title="Cancel"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  );
+                }
+
                 return (
-                  <button
+                  <div
                     key={sub}
-                    type="button"
-                    onClick={() => setActiveSub(sub)}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-medium cursor-pointer transition-all ${
+                    className={`group flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-medium transition-all ${
                       isSelected
                         ? 'bg-tm-primary text-white shadow-md'
                         : 'bg-white/5 hover:bg-white/10 text-slate-300'
                     }`}
                   >
-                    {sub}
-                  </button>
+                    <button
+                      type="button"
+                      onClick={() => setActiveSub(sub)}
+                      className="cursor-pointer font-semibold text-left"
+                    >
+                      {sub}
+                    </button>
+                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity ml-1 pl-1 border-l border-white/10">
+                      <button
+                        type="button"
+                        onClick={() => handleStartRename(sub)}
+                        className={`p-0.5 rounded hover:bg-white/10 cursor-pointer ${
+                          isSelected ? 'text-white/80 hover:text-white' : 'text-slate-400 hover:text-white'
+                        }`}
+                        title="Rename"
+                      >
+                        <Edit2 className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteClick(sub)}
+                        className={`p-0.5 rounded hover:bg-white/10 cursor-pointer ${
+                          isSelected ? 'text-white/80 hover:text-white' : 'text-slate-400 hover:text-rose-400'
+                        }`}
+                        title="Delete"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
                 );
               })}
             </div>

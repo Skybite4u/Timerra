@@ -67,69 +67,147 @@ export const WeeklyBarChart: React.FC<WeeklyBarChartProps> = ({ sessions }) => {
     return null;
   };
 
+  const getGradientId = (minutes: number, isToday: boolean) => {
+    if (minutes === 0) return isToday ? 'intensityTodayLow' : 'intensityLow';
+    if (minutes < 15) return isToday ? 'intensityTodayLow' : 'intensityLow';
+    if (minutes < 45) return isToday ? 'intensityTodayMedium' : 'intensityMedium';
+    if (minutes < 90) return isToday ? 'intensityTodayHigh' : 'intensityHigh';
+    return isToday ? 'intensityTodayEpic' : 'intensityEpic';
+  };
+
+  const getStrokeOpacity = (minutes: number, isToday: boolean) => {
+    if (minutes === 0) return 0.05;
+    if (isToday) return 0.9;
+    if (minutes < 15) return 0.2;
+    if (minutes < 45) return 0.45;
+    if (minutes < 90) return 0.7;
+    return 0.95;
+  };
+
   return (
-    <div className="w-full h-48 select-none" id="weekly-recharts-container">
-      <ResponsiveContainer width="100%" height="100%">
-        <BarChart
-          data={chartData}
-          margin={{ top: 10, right: 10, left: -25, bottom: 0 }}
-        >
-          <defs>
-            <linearGradient id="todayBarGrad" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="var(--tm-primary)" stopOpacity={0.8} />
-              <stop offset="100%" stopColor="var(--tm-accent)" stopOpacity={0.8} />
-            </linearGradient>
-            <linearGradient id="otherBarGrad" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="rgba(255, 255, 255, 0.08)" stopOpacity={0.4} />
-              <stop offset="100%" stopColor="rgba(255, 255, 255, 0.02)" stopOpacity={0.6} />
-            </linearGradient>
-          </defs>
-
-          <CartesianGrid 
-            strokeDasharray="3 3" 
-            vertical={false} 
-            stroke="rgba(255, 255, 255, 0.02)" 
-          />
-
-          <XAxis 
-            dataKey="name" 
-            axisLine={false} 
-            tickLine={false} 
-            tick={{ fill: 'rgba(255, 255, 255, 0.4)', fontSize: 10, fontFamily: 'monospace' }}
-            dy={8}
-          />
-          <YAxis 
-            axisLine={false} 
-            tickLine={false} 
-            tick={{ fill: 'rgba(255, 255, 255, 0.2)', fontSize: 9, fontFamily: 'monospace' }}
-            allowDecimals={false}
-          />
-
-          <Tooltip 
-            content={<CustomTooltip />} 
-            cursor={{ fill: 'rgba(255, 255, 255, 0.01)', radius: 8 }}
-          />
-
-          <Bar 
-            dataKey="minutes" 
-            radius={[4, 4, 0, 0]} 
-            maxBarSize={32}
-            isAnimationActive={true}
-            animationDuration={1000}
-            animationEasing="ease-out"
+    <div className="w-full space-y-4" id="weekly-recharts-wrapper">
+      <div className="w-full h-44 select-none" id="weekly-recharts-container">
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart
+            data={chartData}
+            margin={{ top: 10, right: 10, left: -25, bottom: 0 }}
           >
-            {chartData.map((entry, index) => (
-              <Cell 
-                key={`cell-${index}`} 
-                fill={entry.isToday ? "url(#todayBarGrad)" : "url(#otherBarGrad)"}
-                stroke={entry.isToday ? "var(--tm-primary)" : "rgba(255,255,255,0.05)"}
-                strokeWidth={1}
-                className="transition-all duration-300 hover:opacity-90"
-              />
-            ))}
-          </Bar>
-        </BarChart>
-      </ResponsiveContainer>
+            <defs>
+              {/* Low Intensity: < 15 mins */}
+              <linearGradient id="intensityLow" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="var(--tm-primary)" stopOpacity={0.25} />
+                <stop offset="100%" stopColor="var(--tm-primary)" stopOpacity={0.08} />
+              </linearGradient>
+              
+              {/* Medium Intensity: 15 - 44 mins */}
+              <linearGradient id="intensityMedium" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="var(--tm-primary)" stopOpacity={0.55} />
+                <stop offset="100%" stopColor="var(--tm-accent)" stopOpacity={0.25} />
+              </linearGradient>
+              
+              {/* High Intensity: 45 - 89 mins */}
+              <linearGradient id="intensityHigh" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="var(--tm-primary)" stopOpacity={0.8} />
+                <stop offset="100%" stopColor="var(--tm-accent)" stopOpacity={0.45} />
+              </linearGradient>
+              
+              {/* Epic Intensity: >= 90 mins */}
+              <linearGradient id="intensityEpic" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="var(--tm-primary)" stopOpacity={1.0} />
+                <stop offset="100%" stopColor="var(--tm-accent)" stopOpacity={0.8} />
+              </linearGradient>
+
+              {/* Special Today Highlight variants with extra vibrancy */}
+              <linearGradient id="intensityTodayLow" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="var(--tm-primary)" stopOpacity={0.4} />
+                <stop offset="100%" stopColor="var(--tm-accent)" stopOpacity={0.15} />
+              </linearGradient>
+              <linearGradient id="intensityTodayMedium" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="var(--tm-primary)" stopOpacity={0.7} />
+                <stop offset="100%" stopColor="var(--tm-accent)" stopOpacity={0.35} />
+              </linearGradient>
+              <linearGradient id="intensityTodayHigh" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="var(--tm-primary)" stopOpacity={0.9} />
+                <stop offset="100%" stopColor="var(--tm-accent)" stopOpacity={0.55} />
+              </linearGradient>
+              <linearGradient id="intensityTodayEpic" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="var(--tm-primary)" stopOpacity={1.0} />
+                <stop offset="100%" stopColor="var(--tm-accent)" stopOpacity={0.9} />
+              </linearGradient>
+            </defs>
+
+            <CartesianGrid 
+              strokeDasharray="3 3" 
+              vertical={false} 
+              stroke="rgba(255, 255, 255, 0.02)" 
+            />
+
+            <XAxis 
+              dataKey="name" 
+              axisLine={false} 
+              tickLine={false} 
+              tick={{ fill: 'rgba(255, 255, 255, 0.4)', fontSize: 10, fontFamily: 'monospace' }}
+              dy={8}
+            />
+            <YAxis 
+              axisLine={false} 
+              tickLine={false} 
+              tick={{ fill: 'rgba(255, 255, 255, 0.2)', fontSize: 9, fontFamily: 'monospace' }}
+              allowDecimals={false}
+            />
+
+            <Tooltip 
+              content={<CustomTooltip />} 
+              cursor={{ fill: 'rgba(255, 255, 255, 0.01)', radius: 8 }}
+            />
+
+            <Bar 
+              dataKey="minutes" 
+              radius={[4, 4, 0, 0]} 
+              maxBarSize={32}
+              isAnimationActive={true}
+              animationDuration={1000}
+              animationEasing="ease-out"
+            >
+              {chartData.map((entry, index) => {
+                const gradId = getGradientId(entry.minutes, entry.isToday);
+                const strokeOpacity = getStrokeOpacity(entry.minutes, entry.isToday);
+                return (
+                  <Cell 
+                    key={`cell-${index}`} 
+                    fill={`url(#${gradId})`}
+                    stroke={entry.isToday ? "var(--tm-primary)" : "var(--tm-accent)"}
+                    strokeOpacity={strokeOpacity}
+                    strokeWidth={entry.isToday ? 1.5 : 1}
+                    className="transition-all duration-300 hover:opacity-95 cursor-pointer"
+                  />
+                );
+              })}
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+
+      {/* Visual Work Intensity Legend */}
+      <div className="flex items-center justify-center gap-4 text-[9px] uppercase tracking-wider font-semibold text-slate-500 pt-1.5 border-t border-white/[0.03]">
+        <span className="text-[8px] font-bold text-slate-600">Intensity:</span>
+        <div className="flex items-center gap-1.5">
+          <span className="w-2.5 h-2 rounded bg-tm-primary/20 border border-tm-primary/10" />
+          <span>Low</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <span className="w-2.5 h-2 rounded bg-tm-primary/50 border border-tm-accent/20" />
+          <span>Med</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <span className="w-2.5 h-2 rounded bg-tm-primary/80 border border-tm-accent/45" />
+          <span>High</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <span className="w-2.5 h-2 rounded bg-tm-primary border border-tm-accent" />
+          <span>Epic</span>
+        </div>
+      </div>
     </div>
   );
 };

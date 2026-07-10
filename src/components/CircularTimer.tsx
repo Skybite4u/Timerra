@@ -10,6 +10,7 @@ interface CircularTimerProps {
   totalDurationSec: number;
   cycle: number;
   subject: string;
+  isFullscreen?: boolean;
 }
 
 export const CircularTimer: React.FC<CircularTimerProps> = ({
@@ -20,6 +21,7 @@ export const CircularTimer: React.FC<CircularTimerProps> = ({
   totalDurationSec,
   cycle,
   subject,
+  isFullscreen = false,
 }) => {
   const [explosionActive, setExplosionActive] = useState(false);
   const prevModeRef = useRef<TimerMode>(mode);
@@ -68,15 +70,15 @@ export const CircularTimer: React.FC<CircularTimerProps> = ({
       <div className="flex items-baseline justify-center font-mono text-white select-text cursor-default tabular-nums">
         {h > 0 && (
           <>
-            <span className="text-4xl sm:text-5xl md:text-6xl font-black">{pad(h)}</span>
-            <span className="text-xl sm:text-2xl md:text-3xl font-medium mx-0.5 text-white/50">:</span>
+            <span className={isFullscreen ? "text-5xl sm:text-7xl md:text-8xl lg:text-9xl font-black" : "text-4xl sm:text-5xl md:text-6xl font-black"}>{pad(h)}</span>
+            <span className={isFullscreen ? "text-2xl sm:text-4xl md:text-5xl font-medium mx-1 text-white/50" : "text-xl sm:text-2xl md:text-3xl font-medium mx-0.5 text-white/50"}>:</span>
           </>
         )}
-        <span className="text-4xl sm:text-5xl md:text-6xl font-black">{pad(m)}</span>
-        <span className="text-xl sm:text-2xl md:text-3xl font-medium mx-0.5 text-white/50">:</span>
-        <span className="text-4xl sm:text-5xl md:text-6xl font-black">{pad(s)}</span>
-        <span className="text-xl sm:text-2xl md:text-3xl font-medium mx-0.5 text-tm-primary">.</span>
-        <span className="text-2xl sm:text-3xl md:text-4xl font-extrabold text-tm-primary/80">{pad(ms)}</span>
+        <span className={isFullscreen ? "text-5xl sm:text-7xl md:text-8xl lg:text-9xl font-black" : "text-4xl sm:text-5xl md:text-6xl font-black"}>{pad(m)}</span>
+        <span className={isFullscreen ? "text-2xl sm:text-4xl md:text-5xl font-medium mx-1 text-white/50" : "text-xl sm:text-2xl md:text-3xl font-medium mx-0.5 text-white/50"}>:</span>
+        <span className={isFullscreen ? "text-5xl sm:text-7xl md:text-8xl lg:text-9xl font-black" : "text-4xl sm:text-5xl md:text-6xl font-black"}>{pad(s)}</span>
+        <span className={isFullscreen ? "text-2xl sm:text-4xl md:text-5xl font-medium mx-1 text-tm-primary" : "text-xl sm:text-2xl md:text-3xl font-medium mx-0.5 text-tm-primary"}>.</span>
+        <span className={isFullscreen ? "text-3xl sm:text-5xl md:text-6xl lg:text-7xl font-extrabold text-tm-primary/80" : "text-2xl sm:text-3xl md:text-4xl font-extrabold text-tm-primary/80"}>{pad(ms)}</span>
       </div>
     );
   };
@@ -93,7 +95,11 @@ export const CircularTimer: React.FC<CircularTimerProps> = ({
 
     return (
       <h1 
-        className="font-mono text-5xl sm:text-6xl md:text-7xl font-bold tracking-tight text-white select-text cursor-default tabular-nums"
+        className={`font-mono font-bold tracking-tight text-white select-text cursor-default tabular-nums ${
+          isFullscreen 
+            ? 'text-6xl sm:text-8xl md:text-[8rem] lg:text-[10rem] leading-none' 
+            : 'text-5xl sm:text-6xl md:text-7xl'
+        }`}
         style={{ textShadow: '0 4px 20px rgba(0, 0, 0, 0.5), 0 0 16px var(--tm-glow)' }}
       >
         {h > 0 ? `${pad(h)}:${pad(m)}:${pad(s)}` : `${pad(m)}:${pad(s)}`}
@@ -202,7 +208,11 @@ export const CircularTimer: React.FC<CircularTimerProps> = ({
 
       {/* 3D Orbit Perspective Container */}
       <div 
-        className="relative flex items-center justify-center w-72 h-72 sm:w-80 sm:h-80 md:w-96 md:h-96"
+        className={`relative flex items-center justify-center transition-all duration-700 ${
+          isFullscreen 
+            ? 'w-[320px] h-[320px] xs:w-[420px] xs:h-[420px] sm:w-[520px] sm:h-[520px] md:w-[620px] md:h-[620px] lg:w-[680px] lg:h-[680px]' 
+            : 'w-72 h-72 sm:w-80 sm:h-80 md:w-96 md:h-96'
+        }`}
         style={{ perspective: '1200px', transformStyle: 'preserve-3d' }}
       >
         
@@ -380,7 +390,7 @@ export const CircularTimer: React.FC<CircularTimerProps> = ({
           {/* 3. Floating 3D Crystal Core (Crystal Core Theme) */}
           {mode === 'deepFocus' && (
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0 scale-90 sm:scale-105">
-              <svg className="w-48 h-48 opacity-80" viewBox="0 0 100 100" fill="none">
+              <svg className={`${isFullscreen ? 'w-80 h-80 sm:w-96 sm:h-96' : 'w-48 h-48'} opacity-80 transition-all duration-500`} viewBox="0 0 100 100" fill="none">
                 <polygon points="50,12 72,40 50,60 28,40" fill="url(#crysTopGrad)" opacity="0.85" />
                 <polygon points="28,40 50,60 50,92 14,54" fill="url(#crysSideLGrad)" opacity="0.75" />
                 <polygon points="72,40 50,60 50,92 86,54" fill="url(#crysSideRGrad)" opacity="0.85" />
@@ -412,7 +422,7 @@ export const CircularTimer: React.FC<CircularTimerProps> = ({
                   filter: `brightness(${1 + Math.min(1.2, elapsedSec / 1200)}) saturate(${1 + Math.min(0.8, elapsedSec / 1800)})`
                 }}
               >
-                <svg className="w-56 h-56 animate-sun-spin" viewBox="0 0 100 100" fill="none">
+                <svg className={`${isFullscreen ? 'w-80 h-80 sm:w-[420px] sm:h-[420px]' : 'w-56 h-56'} animate-sun-spin transition-all duration-500`} viewBox="0 0 100 100" fill="none">
                   {/* Outer spiral */}
                   <path d="M50 50 Q66 30 60 12 T32 8" stroke="url(#galCorePink)" strokeWidth="4.5" strokeLinecap="round" opacity="0.8" />
                   <path d="M50 50 Q34 70 40 88 T68 92" stroke="url(#galCorePink)" strokeWidth="4.5" strokeLinecap="round" opacity="0.8" />
@@ -444,7 +454,7 @@ export const CircularTimer: React.FC<CircularTimerProps> = ({
                 style={{ transform: `translateY(${Math.sin(Date.now() / 3000) * 10}px)` }}
               />
               {/* Silver Moon */}
-              <div className="absolute top-10 right-10 w-24 h-24 rounded-full bg-gradient-to-br from-slate-100 to-slate-400 opacity-30 shadow-[0_0_25px_rgba(255,255,255,0.2)] flex items-center justify-center">
+              <div className={`absolute top-10 right-10 rounded-full bg-gradient-to-br from-slate-100 to-slate-400 opacity-30 shadow-[0_0_25px_rgba(255,255,255,0.2)] flex items-center justify-center transition-all duration-500 ${isFullscreen ? 'w-36 h-36 sm:w-44 sm:h-44' : 'w-24 h-24'}`}>
                 {/* Subtle moon craters */}
                 <span className="absolute w-4 h-4 rounded-full bg-black/5 top-3 left-6" />
                 <span className="absolute w-3 h-3 rounded-full bg-black/5 bottom-4 left-4" />
@@ -499,7 +509,11 @@ export const CircularTimer: React.FC<CircularTimerProps> = ({
             style={{ transform: 'translateZ(40px)' }}
           >
             {/* Subject Indicator */}
-            <span className="text-[10px] sm:text-xs font-semibold tracking-[0.3em] uppercase text-white/50 mb-1 drop-shadow-md truncate max-w-[190px] sm:max-w-[240px]">
+            <span className={`text-[10px] sm:text-xs font-bold tracking-[0.3em] uppercase mb-1 drop-shadow-md truncate max-w-[190px] sm:max-w-[240px] px-3 py-1 rounded-full transition-all duration-300 ${
+              status === 'running'
+                ? 'text-tm-primary bg-tm-primary/10 border border-tm-primary/30 shadow-[0_0_15px_rgba(var(--tm-glow-rgb),0.2)] animate-pulse'
+                : 'text-white/50 bg-white/[0.02] border border-white/5'
+            }`}>
               {subject || 'No Subject'}
             </span>
 

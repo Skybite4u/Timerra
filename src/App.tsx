@@ -13,7 +13,11 @@ import {
   BarChart2,
   Calendar,
   Flame,
-  Award
+  Award,
+  Minimize2,
+  Play,
+  Pause,
+  RotateCcw
 } from 'lucide-react';
 
 // Subcomponents
@@ -190,7 +194,7 @@ export default function App() {
   const lastTimeRef = useRef<number | null>(null);
 
   // Advance to next cycle phase
-  const advancePhase = useCallback(async () => {
+  const advancePhase = useCallback(async (isNaturalComplete = true) => {
     playComplete();
 
     // Determine what duration the completed phase had
@@ -206,7 +210,7 @@ export default function App() {
     const isStudyMode = mode === 'focus' || mode === 'deepFocus' || mode === 'sprint' || mode === 'marathon' || mode === 'zen';
 
     // Persist only focused study periods in history
-    if (isStudyMode) {
+    if (isStudyMode && isNaturalComplete) {
       const newSession: Session = {
         mode: 'focus', // backwards compatible with Recharts/D3 stats dashboard
         subject: settings.subject,
@@ -327,6 +331,22 @@ export default function App() {
     }
   }, [mode, elapsedSec, settings.subject]);
 
+  // Log actual elapsed study seconds in history so users get exact credit if they stop or skip early
+  const logActualFocusSession = useCallback(async (seconds: number) => {
+    const isStudyMode = mode === 'focus' || mode === 'deepFocus' || mode === 'sprint' || mode === 'marathon' || mode === 'zen';
+    if (isStudyMode && seconds >= 5) {
+      const newSession: Session = {
+        mode: 'focus', // backwards compatible with stats charts
+        subject: settings.subject,
+        durationSec: Math.floor(seconds),
+        completedAt: Date.now(),
+      };
+      await TimerraDB.addSession(newSession);
+      const updatedSessions = await TimerraDB.allSessions();
+      setSessions(updatedSessions);
+    }
+  }, [mode, settings.subject]);
+
   // --- Event Handlers ---
   const handleTogglePlay = useCallback(() => {
     playClick();
@@ -342,10 +362,13 @@ export default function App() {
     }
   }, [status, mode, logInfinityFocusSessionIfAny]);
 
-  const handleReset = useCallback(() => {
+  const handleReset = useCallback(async () => {
     playClick();
     if (mode === 'infinityFocus') {
       logInfinityFocusSessionIfAny();
+    } else {
+      const elapsed = totalDurationSec - remainingSec;
+      await logActualFocusSession(elapsed);
     }
     setStatus('idle');
     if (mode === 'stopwatch' || mode === 'infinityFocus') {
@@ -362,18 +385,23 @@ export default function App() {
       setRemainingSec(durSec);
       setTotalDurationSec(durSec);
     }
-  }, [mode, settings, logInfinityFocusSessionIfAny]);
+  }, [mode, settings, logInfinityFocusSessionIfAny, totalDurationSec, remainingSec, logActualFocusSession]);
 
-  const handleSkip = useCallback(() => {
+  const handleSkip = useCallback(async () => {
     playClick();
-    advancePhase();
-  }, [advancePhase]);
+    const elapsed = totalDurationSec - remainingSec;
+    await logActualFocusSession(elapsed);
+    advancePhase(false);
+  }, [advancePhase, totalDurationSec, remainingSec, logActualFocusSession]);
 
   // Fluid transition between modes (seamless morphing triggers)
-  const handleModeChange = useCallback((newMode: TimerMode) => {
+  const handleModeChange = useCallback(async (newMode: TimerMode) => {
     playClick();
     if (mode === 'infinityFocus') {
       logInfinityFocusSessionIfAny();
+    } else {
+      const elapsed = totalDurationSec - remainingSec;
+      await logActualFocusSession(elapsed);
     }
     
     setMode(newMode);
@@ -394,7 +422,7 @@ export default function App() {
       setRemainingSec(duration);
       setTotalDurationSec(duration);
     }
-  }, [mode, settings, logInfinityFocusSessionIfAny]);
+  }, [mode, settings, logInfinityFocusSessionIfAny, totalDurationSec, remainingSec, logActualFocusSession]);
 
   const handleToggleStopwatchMode = useCallback(() => {
     playClick();
@@ -456,6 +484,34 @@ export default function App() {
     await TimerraDB.addSubject(sub);
     const loadedSubjects = await TimerraDB.allSubjects();
     setSubjects(loadedSubjects);
+  };
+
+  const handleRenameSubject = async (oldName: string, newName: string) => {
+    if (oldName === newName || !newName.trim()) return;
+    await TimerraDB.renameSubject(oldName, newName.trim());
+    const loadedSubjects = await TimerraDB.allSubjects();
+    setSubjects(loadedSubjects);
+    if (settings.subject === oldName) {
+      const updatedSettings = { ...settings, subject: newName.trim() };
+      setSettings(updatedSettings);
+      await TimerraDB.saveSettings(updatedSettings);
+    }
+  };
+
+  const handleDeleteSubject = async (name: string) => {
+    if (subjects.length <= 1) {
+      alert("At least one subject must remain in your list.");
+      return;
+    }
+    await TimerraDB.deleteSubject(name);
+    const loadedSubjects = await TimerraDB.allSubjects();
+    setSubjects(loadedSubjects);
+    if (settings.subject === name) {
+      const remaining = loadedSubjects.filter(s => s !== name);
+      const updatedSettings = { ...settings, subject: remaining[0] || 'Deep Work' };
+      setSettings(updatedSettings);
+      await TimerraDB.saveSettings(updatedSettings);
+    }
   };
 
   // Clear focus database log history
@@ -552,7 +608,17 @@ export default function App() {
     return sDate === todayStr && s.mode === 'focus';
   });
 
-  const totalMinutesToday = Math.round(todaySessions.reduce((sum, s) => sum + (s.durationSec / 60), 0));
+  const liveCurrentSessionMinutes = (status === 'running')
+    ? ((mode === 'stopwatch' || mode === 'infinityFocus')
+      ? elapsedSec / 60
+      : (['focus', 'deepFocus', 'sprint', 'marathon', 'zen'].includes(mode)
+        ? (totalDurationSec - remainingSec) / 60
+        : 0))
+    : 0;
+
+  const totalMinutesToday = Math.round(
+    todaySessions.reduce((sum, s) => sum + (s.durationSec / 60), 0) + liveCurrentSessionMinutes
+  );
   const focusGoalPercent = Math.min(100, Math.round((todaySessions.length / settings.cyclesBeforeLongBreak) * 100));
 
   // Study Streak Days
@@ -607,56 +673,60 @@ export default function App() {
     <div className={`min-h-screen theme-${settings.theme} bg-gradient-to-b from-tm-bg-from to-tm-bg-to text-white font-sans transition-all duration-700 ease-in-out`}>
       
       {/* HEADER NAVBAR */}
-      <header className="px-4 sm:px-6 py-5 flex items-center justify-between border-b border-white/[0.03] max-w-7xl mx-auto">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-tm-primary to-tm-accent flex items-center justify-center shadow-[0_0_15px_-2px_var(--tm-glow)]">
-            <Clock className="w-4 h-4 text-white" />
+      {!isFullscreen && (
+        <header className="px-4 sm:px-6 py-5 flex items-center justify-between border-b border-white/[0.03] max-w-7xl mx-auto animate-fade-in">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-tm-primary to-tm-accent flex items-center justify-center shadow-[0_0_15px_-2px_var(--tm-glow)]">
+              <Clock className="w-4 h-4 text-white" />
+            </div>
+            <div>
+              <span className="font-mono text-base font-extrabold tracking-[0.25em] text-white uppercase">
+                TIME<span className="text-tm-primary">RRA</span>
+              </span>
+              <span className="hidden xs:inline-block text-[8px] bg-white/5 text-slate-400 font-bold px-1.5 py-0.5 rounded ml-2 border border-white/5">v1.1</span>
+            </div>
           </div>
-          <div>
-            <span className="font-mono text-base font-extrabold tracking-[0.25em] text-white uppercase">
-              TIME<span className="text-tm-primary">RRA</span>
-            </span>
-            <span className="hidden xs:inline-block text-[8px] bg-white/5 text-slate-400 font-bold px-1.5 py-0.5 rounded ml-2 border border-white/5">v1.1</span>
-          </div>
-        </div>
 
-        {/* Subjects board Selector widget in Navbar */}
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-1.5 bg-white/[0.02] border border-white/5 rounded-2xl px-3 py-1.5 text-xs text-slate-300">
-            <BookOpen className="w-3.5 h-3.5 text-tm-primary" />
-            <span className="font-bold">Subject:</span>
-            <select
-              value={settings.subject}
-              onChange={(e) => handleSaveSettings({ ...settings, subject: e.target.value })}
-              className="bg-transparent border-none text-white focus:outline-none focus:ring-0 font-medium ml-1 cursor-pointer"
-            >
-              {subjects.map(s => (
-                <option key={s} value={s} className="bg-[#0b1020] text-white">{s}</option>
-              ))}
-            </select>
+          {/* Subjects board Selector widget in Navbar */}
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-1.5 bg-white/[0.02] border border-white/5 rounded-2xl px-3 py-1.5 text-xs text-slate-300">
+              <BookOpen className="w-3.5 h-3.5 text-tm-primary" />
+              <span className="font-bold">Subject:</span>
+              <select
+                value={settings.subject}
+                onChange={(e) => handleSaveSettings({ ...settings, subject: e.target.value })}
+                className="bg-transparent border-none text-white focus:outline-none focus:ring-0 font-medium ml-1 cursor-pointer"
+              >
+                {subjects.map(s => (
+                  <option key={s} value={s} className="bg-[#0b1020] text-white">{s}</option>
+                ))}
+              </select>
+            </div>
           </div>
-        </div>
-      </header>
+        </header>
+      )}
 
       {/* CENTRAL TIMER GRID */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-12 flex flex-col items-center w-full">
+      <main className={`max-w-7xl mx-auto px-4 sm:px-6 flex flex-col items-center w-full transition-all duration-500 ${isFullscreen ? 'justify-center min-h-screen py-12' : 'py-6 sm:py-12'}`}>
         
         {/* Dynamic 9-Mode Navigation Dock */}
         <ModeSelector activeMode={mode} onChangeMode={handleModeChange} />
 
         {/* Progress Summary at a Glance */}
-        <div className="flex items-center gap-6 mt-6 mb-4 sm:mb-8 bg-white/[0.01] border border-white/5 rounded-3xl px-6 py-3 text-xs leading-none">
-          <div className="flex items-center gap-2 border-r border-white/5 pr-6">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-            <span className="text-slate-400 font-medium">Daily Goal:</span>
-            <span className="text-white font-bold font-mono">{todaySessions.length}/{settings.cyclesBeforeLongBreak}</span>
+        {!isFullscreen && (
+          <div className="flex items-center gap-6 mt-6 mb-4 sm:mb-8 bg-white/[0.01] border border-white/5 rounded-3xl px-6 py-3 text-xs leading-none animate-fade-in">
+            <div className="flex items-center gap-2 border-r border-white/5 pr-6">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+              <span className="text-slate-400 font-medium">Daily Goal:</span>
+              <span className="text-white font-bold font-mono">{todaySessions.length}/{settings.cyclesBeforeLongBreak}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <TrendingUp className="w-3.5 h-3.5 text-tm-primary" />
+              <span className="text-slate-400 font-medium">Focused:</span>
+              <span className="text-white font-bold font-mono">{totalMinutesToday} mins</span>
+            </div>
           </div>
-          <div className="flex items-center gap-2">
-            <TrendingUp className="w-3.5 h-3.5 text-tm-primary" />
-            <span className="text-slate-400 font-medium">Focused:</span>
-            <span className="text-white font-bold font-mono">{totalMinutesToday} mins</span>
-          </div>
-        </div>
+        )}
 
         {/* 3D Glass Orb Timer Display */}
         <CircularTimer
@@ -667,22 +737,51 @@ export default function App() {
           totalDurationSec={totalDurationSec}
           cycle={cycle}
           subject={settings.subject}
+          isFullscreen={isFullscreen}
         />
 
         {/* Curved Buttons Deck */}
-        <ArcuateDeck
-          status={status}
-          isFullscreen={isFullscreen}
-          onTogglePlay={handleTogglePlay}
-          onReset={handleReset}
-          onSkip={handleSkip}
-          onOpenSettings={handleOpenSettings}
-          onOpenBackup={handleOpenBackup}
-          onToggleFullscreen={handleToggleFS}
-        />
+        {!isFullscreen ? (
+          <ArcuateDeck
+            status={status}
+            isFullscreen={isFullscreen}
+            onTogglePlay={handleTogglePlay}
+            onReset={handleReset}
+            onSkip={handleSkip}
+            onOpenSettings={handleOpenSettings}
+            onOpenBackup={handleOpenBackup}
+            onToggleFullscreen={handleToggleFS}
+          />
+        ) : (
+          /* Minimalist Fullscreen Floating Control Panel (highly elegant, glassmorphic, zero distractions) */
+          <div className="fixed bottom-8 flex items-center gap-4 bg-black/45 backdrop-blur-md px-6 py-3 rounded-full border border-white/10 shadow-[0_0_30px_rgba(0,0,0,0.5)] z-50 transition-all duration-300 hover:scale-105">
+            <button
+              onClick={handleTogglePlay}
+              className="p-2.5 rounded-full hover:bg-white/10 text-white transition-colors cursor-pointer active:scale-95"
+              title={status === 'running' ? 'Pause' : 'Play'}
+            >
+              {status === 'running' ? <Pause className="w-5 h-5 text-tm-primary animate-pulse" /> : <Play className="w-5 h-5" />}
+            </button>
+            <button
+              onClick={handleReset}
+              className="p-2.5 rounded-full hover:bg-white/10 text-white transition-colors cursor-pointer active:scale-95"
+              title="Reset"
+            >
+              <RotateCcw className="w-5 h-5" />
+            </button>
+            <button
+              onClick={handleToggleFS}
+              className="p-2.5 rounded-full hover:bg-white/10 text-white transition-colors cursor-pointer active:scale-95"
+              title="Exit Fullscreen"
+            >
+              <Minimize2 className="w-5 h-5 text-tm-accent" />
+            </button>
+          </div>
+        )}
 
         {/* STATIONS & STATISTICS DIVISION ROW */}
-        <div className="w-full grid grid-cols-1 lg:grid-cols-3 gap-6 mt-16">
+        {!isFullscreen && (
+          <div className="w-full grid grid-cols-1 lg:grid-cols-3 gap-6 mt-16 animate-fade-in">
           
           {/* Column 1: Multi-track audio ambient mixer */}
           <div className="lg:col-span-1">
@@ -827,14 +926,17 @@ export default function App() {
           </div>
 
         </div>
+        )}
 
       </main>
 
       {/* FOOTER STRAPLINE */}
-      <footer className="w-full text-center py-10 mt-16 border-t border-white/[0.03] select-none text-[10px] text-slate-500 uppercase font-semibold tracking-[0.2em] max-w-7xl mx-auto px-4 sm:px-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <span>Timerra — Advanced End-to-End Encrypted Offline Sync</span>
-        <span>Secure Local Client • PBKDF2 + AES-GCM</span>
-      </footer>
+      {!isFullscreen && (
+        <footer className="w-full text-center py-10 mt-16 border-t border-white/[0.03] select-none text-[10px] text-slate-500 uppercase font-semibold tracking-[0.2em] max-w-7xl mx-auto px-4 sm:px-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 animate-fade-in">
+          <span>Timerra — Advanced End-to-End Encrypted Offline Sync</span>
+          <span>Secure Local Client • PBKDF2 + AES-GCM</span>
+        </footer>
+      )}
 
       {/* CONFIGURATION MODAL */}
       {showSettings && (
@@ -843,6 +945,8 @@ export default function App() {
           subjects={subjects}
           onSaveSettings={handleSaveSettings}
           onAddSubject={handleAddSubject}
+          onRenameSubject={handleRenameSubject}
+          onDeleteSubject={handleDeleteSubject}
           onClose={() => setShowSettings(false)}
         />
       )}
