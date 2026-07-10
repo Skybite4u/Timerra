@@ -41,7 +41,7 @@ export const ArcuateDeck: React.FC<ArcuateDeckProps> = ({
     { id: 'reset', label: 'Reset Timer', icon: RotateCcw, action: onReset },
     { id: 'play', label: status === 'running' ? 'Pause' : 'Play', icon: status === 'running' ? Pause : Play, action: onTogglePlay, isCenter: true },
     { id: 'skip', label: 'Skip Cycle', icon: SkipForward, action: onSkip },
-    { id: 'backup', label: 'Backup & Restore', icon: Database, action: onOpenBackup },
+    { id: 'backup', label: 'Timerra Capsule', icon: Database, action: onOpenBackup },
     { id: 'fullscreen', label: 'Fullscreen', icon: isFullscreen ? Minimize2 : Maximize2, action: onToggleFullscreen },
   ];
 
