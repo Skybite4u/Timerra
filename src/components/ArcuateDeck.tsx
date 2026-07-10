@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Settings, RotateCcw, Play, Pause, SkipForward, Database, Maximize2, Minimize2 } from 'lucide-react';
-import { TimerStatus } from '../types';
+import { TimerStatus, TimerMode } from '../types';
 
 interface ArcuateDeckProps {
   status: TimerStatus;
+  mode: TimerMode;
   isFullscreen: boolean;
   onTogglePlay: () => void;
   onReset: () => void;
@@ -15,6 +16,7 @@ interface ArcuateDeckProps {
 
 export const ArcuateDeck: React.FC<ArcuateDeckProps> = ({
   status,
+  mode,
   isFullscreen,
   onTogglePlay,
   onReset,
@@ -35,10 +37,13 @@ export const ArcuateDeck: React.FC<ArcuateDeckProps> = ({
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
+  const isStudy = ['focus', 'deepFocus', 'sprint', 'marathon', 'zen'].includes(mode);
+  const resetLabel = isStudy ? 'Stop & Break' : 'Reset Timer';
+
   // Configuration for 6 buttons along the deck
   const buttons = [
     { id: 'settings', label: 'Settings', icon: Settings, action: onOpenSettings },
-    { id: 'reset', label: 'Reset Timer', icon: RotateCcw, action: onReset },
+    { id: 'reset', label: resetLabel, icon: RotateCcw, action: onReset },
     { id: 'play', label: status === 'running' ? 'Pause' : 'Play', icon: status === 'running' ? Pause : Play, action: onTogglePlay, isCenter: true },
     { id: 'skip', label: 'Skip Cycle', icon: SkipForward, action: onSkip },
     { id: 'backup', label: 'Timerra Capsule', icon: Database, action: onOpenBackup },

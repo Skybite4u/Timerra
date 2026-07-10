@@ -32,6 +32,12 @@ import { encryptBackup, decryptBackup } from '../lib/crypto';
 import { BackupPayload, EncryptedBackupFile, TimerSettings, Session } from '../types';
 import { CapsuleDB, SavedCapsule } from '../lib/capsuleDb';
 import { playClick, playComplete } from '../lib/audio';
+import { 
+  ExportCapsuleIcon, 
+  ImportCapsuleIcon, 
+  RestoreCapsuleIcon, 
+  ManageCapsuleIcon 
+} from './CapsuleIcons';
 
 interface AuthModalProps {
   onClose: () => void;
@@ -426,11 +432,16 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
   const handleExportCSVFile = async () => {
     try {
+      playClick();
       setCsvStatus('Preparing CSV study history export...');
       const payload = await onGetBackupPayload();
       
       if (!payload.sessions || payload.sessions.length === 0) {
         setCsvStatus('No sessions available to export.');
+        setStatus({
+          type: 'error',
+          text: 'No focus sessions found in history. Start tracking some focus cycles first!'
+        });
         return;
       }
 
@@ -473,8 +484,17 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       URL.revokeObjectURL(url);
       
       setCsvStatus(`Successfully exported CSV file with ${payload.sessions.length} rows.`);
+      setStatus({
+        type: 'success',
+        text: `CSV exported successfully! Saved ${payload.sessions.length} records to ${filename}`
+      });
+      playComplete();
     } catch (err) {
       setCsvStatus(`CSV Export failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
+      setStatus({
+        type: 'error',
+        text: `CSV Export failed: ${err instanceof Error ? err.message : 'Unknown error'}`
+      });
     }
   };
 
@@ -626,10 +646,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 {/* CARD 1: EXPORT */}
                 <button
                   onClick={() => { playClick(); setActiveTab('export'); }}
-                  className="p-4 rounded-2xl bg-white/[0.01] border border-white/5 hover:border-white/15 text-left transition-all duration-300 group hover:bg-white/[0.02] flex items-start gap-4 relative overflow-hidden cursor-pointer"
+                  className="p-4 rounded-2xl bg-white/[0.01] border border-white/5 hover:border-white/15 text-left transition-all duration-300 group hover:bg-white/[0.02] flex items-center gap-4 relative overflow-hidden cursor-pointer"
                 >
-                  <div className="p-2.5 rounded-xl bg-tm-primary/10 border border-tm-primary/10 text-tm-primary group-hover:scale-110 transition-transform">
-                    <FileDown className="w-5 h-5" />
+                  <div className="flex-shrink-0 group-hover:scale-110 transition-transform">
+                    <ExportCapsuleIcon size={52} />
                   </div>
                   <div className="flex-1">
                     <span className="text-xs font-bold text-white block group-hover:text-tm-primary transition-colors">Export Capsule</span>
@@ -640,10 +660,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 {/* CARD 2: IMPORT */}
                 <button
                   onClick={() => { playClick(); setActiveTab('import'); }}
-                  className="p-4 rounded-2xl bg-white/[0.01] border border-white/5 hover:border-white/15 text-left transition-all duration-300 group hover:bg-white/[0.02] flex items-start gap-4 relative overflow-hidden cursor-pointer"
+                  className="p-4 rounded-2xl bg-white/[0.01] border border-white/5 hover:border-white/15 text-left transition-all duration-300 group hover:bg-white/[0.02] flex items-center gap-4 relative overflow-hidden cursor-pointer"
                 >
-                  <div className="p-2.5 rounded-xl bg-tm-accent/10 border border-tm-accent/10 text-tm-accent group-hover:scale-110 transition-transform">
-                    <UploadCloud className="w-5 h-5" />
+                  <div className="flex-shrink-0 group-hover:scale-110 transition-transform">
+                    <ImportCapsuleIcon size={52} />
                   </div>
                   <div className="flex-1">
                     <span className="text-xs font-bold text-white block group-hover:text-tm-accent transition-colors">Import Capsule</span>
@@ -654,10 +674,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 {/* CARD 3: RESTORE */}
                 <button
                   onClick={() => { playClick(); setActiveTab('restore'); }}
-                  className="p-4 rounded-2xl bg-white/[0.01] border border-white/5 hover:border-white/15 text-left transition-all duration-300 group hover:bg-white/[0.02] flex items-start gap-4 relative overflow-hidden cursor-pointer"
+                  className="p-4 rounded-2xl bg-white/[0.01] border border-white/5 hover:border-white/15 text-left transition-all duration-300 group hover:bg-white/[0.02] flex items-center gap-4 relative overflow-hidden cursor-pointer"
                 >
-                  <div className="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/10 text-emerald-400 group-hover:scale-110 transition-transform">
-                    <Sparkles className="w-5 h-5" />
+                  <div className="flex-shrink-0 group-hover:scale-110 transition-transform">
+                    <RestoreCapsuleIcon size={52} />
                   </div>
                   <div className="flex-1">
                     <span className="text-xs font-bold text-white block group-hover:text-emerald-400 transition-colors">Restore Snapshot</span>
@@ -668,10 +688,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 {/* CARD 4: MANAGE */}
                 <button
                   onClick={() => { playClick(); setActiveTab('manage'); }}
-                  className="p-4 rounded-2xl bg-white/[0.01] border border-white/5 hover:border-white/15 text-left transition-all duration-300 group hover:bg-white/[0.02] flex items-start gap-4 relative overflow-hidden cursor-pointer"
+                  className="p-4 rounded-2xl bg-white/[0.01] border border-white/5 hover:border-white/15 text-left transition-all duration-300 group hover:bg-white/[0.02] flex items-center gap-4 relative overflow-hidden cursor-pointer"
                 >
-                  <div className="p-2.5 rounded-xl bg-purple-500/10 border border-purple-500/10 text-purple-400 group-hover:scale-110 transition-transform">
-                    <Database className="w-5 h-5" />
+                  <div className="flex-shrink-0 group-hover:scale-110 transition-transform">
+                    <ManageCapsuleIcon size={52} />
                   </div>
                   <div className="flex-1">
                     <span className="text-xs font-bold text-white block group-hover:text-purple-400 transition-colors">Manage Capsules</span>

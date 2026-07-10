@@ -17,11 +17,15 @@ import {
   Minimize2,
   Play,
   Pause,
-  RotateCcw
+  RotateCcw,
+  Eye
 } from 'lucide-react';
 
 // Subcomponents
 import { CircularTimer } from './components/CircularTimer';
+import { MilestoneCeremony } from './components/MilestoneCeremony';
+import { MilestoneVault } from './components/MilestoneVault';
+import { LegacyCardCenter } from './components/LegacyCardCenter';
 import { ArcuateDeck } from './components/ArcuateDeck';
 import { SettingsPanel } from './components/SettingsPanel';
 import { AuthModal } from './components/AuthModal';
@@ -29,10 +33,14 @@ import { WeeklyBarChart } from './components/WeeklyBarChart';
 import { SubjectPieChart } from './components/SubjectPieChart';
 import { AmbientMixer } from './components/AmbientMixer';
 import { ModeSelector } from './components/ModeSelector';
+import { ImmersiveFocus } from './components/ImmersiveFocus';
+import { BrandedDefs } from './components/BrandedIcons';
 
 // Custom Libs and Hooks
 import { TimerraDB } from './lib/db';
 import { playClick, playTick, playComplete, vibrateStart, vibratePause } from './lib/audio';
+import { VaultManager } from './lib/vaultManager';
+import { CapsuleDB } from './lib/capsuleDb';
 import { useFullscreen } from './hooks/useFullscreen';
 import { useHotkeys } from './hooks/useHotkeys';
 import { useHydrated } from './hooks/useHydrated';
@@ -71,9 +79,105 @@ export default function App() {
   // --- Modal Open States ---
   const [showSettings, setShowSettings] = useState<boolean>(false);
   const [showBackup, setShowBackup] = useState<boolean>(false);
+  const [showMilestoneVault, setShowMilestoneVault] = useState<boolean>(false);
+  const [showLegacyCardCenter, setShowLegacyCardCenter] = useState<boolean>(false);
+  const [isImmersiveFocus, setIsImmersiveFocus] = useState<boolean>(false);
+
+  // --- Milestone Ceremony Queue ---
+  const [ceremonyQueue, setCeremonyQueue] = useState<any[]>([]);
 
   // --- Fullscreen Handling ---
   const { isFullscreen, toggleFullscreen } = useFullscreen();
+
+  // --- Unlogged Study Duration Tracking Ref ---
+  const unloggedStudySecRef = useRef<number>(0);
+
+  // Helper to commit accumulated study seconds to IndexedDB sessions history
+  const commitUnloggedStudySec = useCallback(async (forceAll = false) => {
+    const isStudyMode = mode === 'focus' || mode === 'deepFocus' || mode === 'sprint' || mode === 'marathon' || mode === 'zen' || mode === 'infinityFocus';
+    if (!isStudyMode) return;
+
+    let secondsToCommit = 0;
+    if (forceAll) {
+      secondsToCommit = unloggedStudySecRef.current;
+    } else {
+      // Periodic commit: save completed 1-minute blocks (60 seconds) in real-time
+      if (unloggedStudySecRef.current >= 60) {
+        secondsToCommit = Math.floor(unloggedStudySecRef.current / 60) * 60;
+      }
+    }
+
+    if (secondsToCommit >= 5) {
+      const newSession: Session = {
+        mode: 'focus', // backwards compatible with Recharts/D3 stats dashboard
+        subject: settings.subject,
+        durationSec: Math.floor(secondsToCommit),
+        completedAt: Date.now(),
+      };
+      await TimerraDB.addSession(newSession);
+      const updatedSessions = await TimerraDB.allSessions();
+      setSessions(updatedSessions);
+      
+      // Evaluate milestone triggers
+      try {
+        const numBackupExports = parseInt(localStorage.getItem('timerra_backup_exports_count') || '0');
+        const numBackupRestores = parseInt(localStorage.getItem('timerra_backup_restores_count') || '0');
+        const capsulesList = await CapsuleDB.getAll().catch(() => []);
+        const capsulesCount = capsulesList ? capsulesList.length : 0;
+        
+        const checkResult = VaultManager.checkNewMilestones(
+          updatedSessions,
+          settings,
+          capsulesCount,
+          numBackupExports,
+          numBackupRestores,
+          {}
+        );
+        if (checkResult.newlyUnlocked.length > 0) {
+          setCeremonyQueue(prev => [...prev, ...checkResult.newlyUnlocked]);
+        }
+      } catch (e) {
+        console.error('Milestone evaluation failed', e);
+      }
+      
+      // Subtract the committed amount
+      unloggedStudySecRef.current = Math.max(0, unloggedStudySecRef.current - secondsToCommit);
+      
+      // Persist the remaining fraction to localStorage
+      const savedStateStr = localStorage.getItem('timerra_live_timer_state');
+      if (savedStateStr) {
+        try {
+          const saved = JSON.parse(savedStateStr);
+          saved.unloggedStudySec = unloggedStudySecRef.current;
+          saved.lastSaved = Date.now();
+          localStorage.setItem('timerra_live_timer_state', JSON.stringify(saved));
+        } catch (e) {
+          // ignore
+        }
+      }
+    }
+  }, [mode, settings, setCeremonyQueue]);
+
+  // Synchronize unlogged study seconds to localStorage on tab close / unload
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      const savedStateStr = localStorage.getItem('timerra_live_timer_state');
+      if (savedStateStr) {
+        try {
+          const saved = JSON.parse(savedStateStr);
+          saved.unloggedStudySec = unloggedStudySecRef.current;
+          saved.lastSaved = Date.now();
+          localStorage.setItem('timerra_live_timer_state', JSON.stringify(saved));
+        } catch (e) {
+          // ignore
+        }
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, []);
 
   // Load state on mount from IndexedDB and LocalStorage
   useEffect(() => {
@@ -92,6 +196,24 @@ export default function App() {
         const loadedSessions = await TimerraDB.allSessions();
         setSessions(loadedSessions);
 
+        // Silent initial evaluation of milestones
+        try {
+          const numBackupExports = parseInt(localStorage.getItem('timerra_backup_exports_count') || '0');
+          const numBackupRestores = parseInt(localStorage.getItem('timerra_backup_restores_count') || '0');
+          const capsulesList = await CapsuleDB.getAll().catch(() => []);
+          const capsulesCount = capsulesList ? capsulesList.length : 0;
+          VaultManager.checkNewMilestones(
+            loadedSessions,
+            loadedSettings || defaultSettings,
+            capsulesCount,
+            numBackupExports,
+            numBackupRestores,
+            {}
+          );
+        } catch (e) {
+          console.error('Milestone silent load check failed', e);
+        }
+
         // Recover live active state if it exists (Pristine same IP / same browser state recovery)
         const savedStateStr = localStorage.getItem('timerra_live_timer_state');
         if (savedStateStr) {
@@ -99,9 +221,15 @@ export default function App() {
             const saved = JSON.parse(savedStateStr);
             const secondsPassed = (Date.now() - saved.lastSaved) / 1000;
 
+            // Restore unlogged study seconds
+            unloggedStudySecRef.current = saved.unloggedStudySec || 0;
+
             if (saved.mode === 'stopwatch' || saved.mode === 'infinityFocus') {
               if (saved.status === 'running') {
                 setElapsedSec(saved.elapsedSec + secondsPassed);
+                if (saved.mode === 'infinityFocus') {
+                  unloggedStudySecRef.current += secondsPassed;
+                }
                 setStatus('running');
               } else {
                 setElapsedSec(saved.elapsedSec);
@@ -116,17 +244,20 @@ export default function App() {
                   // Timer completed while away! Log it if it's a study mode
                   const isStudy = saved.mode === 'focus' || saved.mode === 'deepFocus' || saved.mode === 'sprint' || saved.mode === 'marathon' || saved.mode === 'zen';
                   if (isStudy) {
-                    const duration = saved.totalDurationSec;
-                    const newSession: Session = {
-                      mode: 'focus',
-                      subject: saved.subject || loadedSettings?.subject || defaultSettings.subject,
-                      durationSec: duration,
-                      completedAt: Date.now(),
-                    };
-                    await TimerraDB.addSession(newSession);
-                    const freshSessions = await TimerraDB.allSessions();
-                    setSessions(freshSessions);
+                    const remainingToLog = Math.round(saved.remainingSec + unloggedStudySecRef.current);
+                    if (remainingToLog >= 5) {
+                      const newSession: Session = {
+                        mode: 'focus',
+                        subject: saved.subject || loadedSettings?.subject || defaultSettings.subject,
+                        durationSec: remainingToLog,
+                        completedAt: Date.now(),
+                      };
+                      await TimerraDB.addSession(newSession);
+                      const freshSessions = await TimerraDB.allSessions();
+                      setSessions(freshSessions);
+                    }
                   }
+                  unloggedStudySecRef.current = 0;
                   
                   // Reset to idle focus
                   setMode('focus');
@@ -136,6 +267,7 @@ export default function App() {
                 } else {
                   setRemainingSec(newRemaining);
                   setTotalDurationSec(saved.totalDurationSec);
+                  unloggedStudySecRef.current += secondsPassed;
                   setStatus('running');
                   setMode(saved.mode);
                 }
@@ -184,6 +316,7 @@ export default function App() {
       totalDurationSec,
       cycle,
       subject: settings.subject,
+      unloggedStudySec: unloggedStudySecRef.current,
       lastSaved: Date.now()
     };
     localStorage.setItem('timerra_live_timer_state', JSON.stringify(stateToSave));
@@ -197,29 +330,11 @@ export default function App() {
   const advancePhase = useCallback(async (isNaturalComplete = true) => {
     playComplete();
 
-    // Determine what duration the completed phase had
-    let sessionDuration = settings.focusMinutes * 60;
-    if (mode === 'focus') sessionDuration = settings.focusMinutes * 60;
-    else if (mode === 'deepFocus') sessionDuration = Math.max(settings.focusMinutes, 45) * 60;
-    else if (mode === 'shortBreak') sessionDuration = settings.shortBreakMinutes * 60;
-    else if (mode === 'longBreak') sessionDuration = settings.longBreakMinutes * 60;
-    else if (mode === 'sprint') sessionDuration = 10 * 60;
-    else if (mode === 'marathon') sessionDuration = 60 * 60;
-    else if (mode === 'zen') sessionDuration = 20 * 60;
-
     const isStudyMode = mode === 'focus' || mode === 'deepFocus' || mode === 'sprint' || mode === 'marathon' || mode === 'zen';
 
-    // Persist only focused study periods in history
-    if (isStudyMode && isNaturalComplete) {
-      const newSession: Session = {
-        mode: 'focus', // backwards compatible with Recharts/D3 stats dashboard
-        subject: settings.subject,
-        durationSec: sessionDuration,
-        completedAt: Date.now(),
-      };
-      await TimerraDB.addSession(newSession);
-      const updatedSessions = await TimerraDB.allSessions();
-      setSessions(updatedSessions);
+    // Persist all accumulated study time up to this natural complete phase
+    if (isStudyMode) {
+      await commitUnloggedStudySec(true);
     }
 
     // Phase progression logic (focus/study -> shortBreak -> focus/study -> longBreak)
@@ -275,11 +390,28 @@ export default function App() {
       const dt = (time - lastTimeRef.current) / 1000;
       lastTimeRef.current = time;
 
+      const isStudyMode = mode === 'focus' || mode === 'deepFocus' || mode === 'sprint' || mode === 'marathon' || mode === 'zen' || mode === 'infinityFocus';
+
       if (mode === 'stopwatch' || mode === 'infinityFocus') {
-        setElapsedSec((prev) => prev + dt);
+        setElapsedSec((prev) => {
+          const next = prev + dt;
+          if (mode === 'infinityFocus') {
+            unloggedStudySecRef.current += dt;
+            if (unloggedStudySecRef.current >= 60) {
+              commitUnloggedStudySec(false);
+            }
+          }
+          return next;
+        });
       } else {
         setRemainingSec((prev) => {
           const next = prev - dt;
+          if (isStudyMode) {
+            unloggedStudySecRef.current += dt;
+            if (unloggedStudySecRef.current >= 60) {
+              commitUnloggedStudySec(false);
+            }
+          }
           if (next <= 0) {
             // Completed focus timer session
             setTimeout(() => {
@@ -301,7 +433,7 @@ export default function App() {
         cancelAnimationFrame(requestRef.current);
       }
     };
-  }, [status, mode, advancePhase]);
+  }, [status, mode, advancePhase, commitUnloggedStudySec]);
 
   // Metronome study ticking trigger
   const lastSecondRef = useRef<number>(-1);
@@ -315,94 +447,71 @@ export default function App() {
     }
   }, [remainingSec, elapsedSec, status, settings.tickSound, mode]);
 
-  // Log infinityFocus open-ended session if elapsed work is substantial (>= 10 seconds)
-  const logInfinityFocusSessionIfAny = useCallback(async () => {
-    if (mode === 'infinityFocus' && elapsedSec >= 10) {
-      const newSession: Session = {
-        mode: 'focus',
-        subject: settings.subject,
-        durationSec: Math.floor(elapsedSec),
-        completedAt: Date.now(),
-      };
-      await TimerraDB.addSession(newSession);
-      const updatedSessions = await TimerraDB.allSessions();
-      setSessions(updatedSessions);
-      setElapsedSec(0);
-    }
-  }, [mode, elapsedSec, settings.subject]);
-
-  // Log actual elapsed study seconds in history so users get exact credit if they stop or skip early
-  const logActualFocusSession = useCallback(async (seconds: number) => {
-    const isStudyMode = mode === 'focus' || mode === 'deepFocus' || mode === 'sprint' || mode === 'marathon' || mode === 'zen';
-    if (isStudyMode && seconds >= 5) {
-      const newSession: Session = {
-        mode: 'focus', // backwards compatible with stats charts
-        subject: settings.subject,
-        durationSec: Math.floor(seconds),
-        completedAt: Date.now(),
-      };
-      await TimerraDB.addSession(newSession);
-      const updatedSessions = await TimerraDB.allSessions();
-      setSessions(updatedSessions);
-    }
-  }, [mode, settings.subject]);
-
   // --- Event Handlers ---
-  const handleTogglePlay = useCallback(() => {
+  const handleTogglePlay = useCallback(async () => {
     playClick();
     if (status === 'running') {
       setStatus('paused');
       vibratePause();
-      if (mode === 'infinityFocus') {
-        logInfinityFocusSessionIfAny();
-      }
+      await commitUnloggedStudySec(true);
     } else {
       setStatus('running');
       vibrateStart();
     }
-  }, [status, mode, logInfinityFocusSessionIfAny]);
+  }, [status, mode, commitUnloggedStudySec]);
 
   const handleReset = useCallback(async () => {
     playClick();
-    if (mode === 'infinityFocus') {
-      logInfinityFocusSessionIfAny();
-    } else {
-      const elapsed = totalDurationSec - remainingSec;
-      await logActualFocusSession(elapsed);
-    }
-    setStatus('idle');
-    if (mode === 'stopwatch' || mode === 'infinityFocus') {
-      setElapsedSec(0);
-    } else {
-      let durSec = settings.focusMinutes * 60;
-      if (mode === 'shortBreak') durSec = settings.shortBreakMinutes * 60;
-      else if (mode === 'longBreak') durSec = settings.longBreakMinutes * 60;
-      else if (mode === 'deepFocus') durSec = Math.max(settings.focusMinutes, 45) * 60;
-      else if (mode === 'sprint') durSec = 10 * 60;
-      else if (mode === 'marathon') durSec = 60 * 60;
-      else if (mode === 'zen') durSec = 20 * 60;
+    const isStudyMode = mode === 'focus' || mode === 'deepFocus' || mode === 'sprint' || mode === 'marathon' || mode === 'zen' || mode === 'infinityFocus';
+    
+    if (isStudyMode) {
+      await commitUnloggedStudySec(true);
 
-      setRemainingSec(durSec);
-      setTotalDurationSec(durSec);
+      // Transition to next break mode automatically
+      let nextMode: TimerMode = 'shortBreak';
+      let nextCycle = cycle;
+
+      if (cycle >= settings.cyclesBeforeLongBreak) {
+        nextMode = 'longBreak';
+        nextCycle = 1;
+      } else {
+        nextMode = 'shortBreak';
+        nextCycle = cycle + 1;
+      }
+
+      setMode(nextMode);
+      setCycle(nextCycle);
+
+      let nextDurSec = settings.shortBreakMinutes * 60;
+      if (nextMode === 'longBreak') {
+        nextDurSec = settings.longBreakMinutes * 60;
+      }
+
+      setRemainingSec(nextDurSec);
+      setTotalDurationSec(nextDurSec);
+      setStatus('running'); // Start break immediately!
+      vibrateStart();
+    } else {
+      // If already a break, reset to idle focus mode
+      setStatus('idle');
+      setMode('focus');
+      const focusMinutes = settings.focusMinutes;
+      setRemainingSec(focusMinutes * 60);
+      setTotalDurationSec(focusMinutes * 60);
+      unloggedStudySecRef.current = 0;
     }
-  }, [mode, settings, logInfinityFocusSessionIfAny, totalDurationSec, remainingSec, logActualFocusSession]);
+  }, [mode, cycle, settings, commitUnloggedStudySec]);
 
   const handleSkip = useCallback(async () => {
     playClick();
-    const elapsed = totalDurationSec - remainingSec;
-    await logActualFocusSession(elapsed);
+    await commitUnloggedStudySec(true);
     advancePhase(false);
-  }, [advancePhase, totalDurationSec, remainingSec, logActualFocusSession]);
+  }, [advancePhase, commitUnloggedStudySec]);
 
   // Fluid transition between modes (seamless morphing triggers)
   const handleModeChange = useCallback(async (newMode: TimerMode) => {
     playClick();
-    if (mode === 'infinityFocus') {
-      logInfinityFocusSessionIfAny();
-    } else {
-      const elapsed = totalDurationSec - remainingSec;
-      await logActualFocusSession(elapsed);
-    }
+    await commitUnloggedStudySec(true);
     
     setMode(newMode);
     setStatus('idle');
@@ -422,7 +531,7 @@ export default function App() {
       setRemainingSec(duration);
       setTotalDurationSec(duration);
     }
-  }, [mode, settings, logInfinityFocusSessionIfAny, totalDurationSec, remainingSec, logActualFocusSession]);
+  }, [settings, commitUnloggedStudySec]);
 
   const handleToggleStopwatchMode = useCallback(() => {
     playClick();
@@ -450,11 +559,11 @@ export default function App() {
 
   // Bind keydown hotkeys
   useHotkeys({
-    onTogglePlay: handleTogglePlay,
-    onReset: handleReset,
-    onToggleFullscreen: handleToggleFS,
-    onToggleSettings: handleOpenSettings,
-    onToggleStopwatchMode: handleToggleStopwatchMode,
+    onTogglePlay: isImmersiveFocus ? () => {} : handleTogglePlay,
+    onReset: isImmersiveFocus ? () => {} : handleReset,
+    onToggleFullscreen: isImmersiveFocus ? () => {} : handleToggleFS,
+    onToggleSettings: isImmersiveFocus ? () => {} : handleOpenSettings,
+    onToggleStopwatchMode: isImmersiveFocus ? () => {} : handleToggleStopwatchMode,
   });
 
   // Save Config update handler
@@ -672,6 +781,9 @@ export default function App() {
   return (
     <div className={`min-h-screen theme-${settings.theme} bg-gradient-to-b from-tm-bg-from to-tm-bg-to text-white font-sans transition-all duration-700 ease-in-out`}>
       
+      {/* Branded Defs Gradients */}
+      <BrandedDefs />
+      
       {/* HEADER NAVBAR */}
       {!isFullscreen && (
         <header className="px-4 sm:px-6 py-5 flex items-center justify-between border-b border-white/[0.03] max-w-7xl mx-auto animate-fade-in">
@@ -688,7 +800,37 @@ export default function App() {
           </div>
 
           {/* Subjects board Selector widget in Navbar */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2.5 sm:gap-3">
+            {/* Vault Milestone button */}
+            <button
+              onClick={() => { playClick(); setShowMilestoneVault(true); }}
+              className="flex items-center gap-1.5 bg-white/[0.02] hover:bg-white/5 border border-white/5 rounded-2xl px-3 py-1.5 text-xs text-slate-300 hover:text-white transition-all cursor-pointer"
+              title="Milestone Vault"
+            >
+              <Award className="w-3.5 h-3.5 text-amber-400 animate-pulse" />
+              <span className="hidden sm:inline font-bold">Vault</span>
+            </button>
+
+            {/* Legacy Cards button */}
+            <button
+              onClick={() => { playClick(); setShowLegacyCardCenter(true); }}
+              className="flex items-center gap-1.5 bg-white/[0.02] hover:bg-white/5 border border-white/5 rounded-2xl px-3 py-1.5 text-xs text-slate-300 hover:text-white transition-all cursor-pointer"
+              title="Legacy Cards"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
+              <span className="hidden sm:inline font-bold">Legacy Cards</span>
+            </button>
+
+            {/* Immersive Focus button */}
+            <button
+              onClick={() => { playClick(); setIsImmersiveFocus(true); }}
+              className="flex items-center gap-1.5 bg-white/[0.02] hover:bg-white/5 border border-white/5 rounded-2xl px-3 py-1.5 text-xs text-slate-300 hover:text-white transition-all cursor-pointer animate-pulse"
+              title="Immersive Focus"
+            >
+              <Eye className="w-3.5 h-3.5 text-tm-primary" />
+              <span className="hidden sm:inline font-bold text-white">Immersive</span>
+            </button>
+
             <div className="flex items-center gap-1.5 bg-white/[0.02] border border-white/5 rounded-2xl px-3 py-1.5 text-xs text-slate-300">
               <BookOpen className="w-3.5 h-3.5 text-tm-primary" />
               <span className="font-bold">Subject:</span>
@@ -744,6 +886,7 @@ export default function App() {
         {!isFullscreen ? (
           <ArcuateDeck
             status={status}
+            mode={mode}
             isFullscreen={isFullscreen}
             onTogglePlay={handleTogglePlay}
             onReset={handleReset}
@@ -957,6 +1100,54 @@ export default function App() {
           onClose={() => setShowBackup(false)}
           onGetBackupPayload={handleGetBackupPayload}
           onImportPayload={handleImportPayload}
+        />
+      )}
+
+      {/* MILESTONE VAULT MODAL */}
+      {showMilestoneVault && (
+        <MilestoneVault
+          onClose={() => setShowMilestoneVault(false)}
+          sessions={sessions}
+          streakDays={streakDays}
+          totalFocusHours={totalOverallFocusHours}
+        />
+      )}
+
+      {/* LEGACY CARDS CENTER MODAL */}
+      {showLegacyCardCenter && (
+        <LegacyCardCenter
+          onClose={() => setShowLegacyCardCenter(false)}
+          sessions={sessions}
+          streakDays={streakDays}
+          totalFocusHours={totalOverallFocusHours}
+        />
+      )}
+
+      {/* CINEMATIC CEREMONY OVERLAY */}
+      {ceremonyQueue.length > 0 && (
+        <MilestoneCeremony
+          milestone={ceremonyQueue[0]}
+          onClose={() => setCeremonyQueue(prev => prev.slice(1))}
+        />
+      )}
+
+      {/* IMMERSIVE FOCUS STUDY ENVIRONMENT */}
+      {isImmersiveFocus && (
+        <ImmersiveFocus
+          mode={mode}
+          status={status}
+          remainingSec={remainingSec}
+          elapsedSec={elapsedSec}
+          totalDurationSec={totalDurationSec}
+          cycle={cycle}
+          subject={settings.subject}
+          settings={settings}
+          todaySessionsCount={todaySessions.length}
+          totalMinutesToday={totalMinutesToday}
+          onTogglePlay={handleTogglePlay}
+          onReset={handleReset}
+          onSkip={handleSkip}
+          onExit={() => setIsImmersiveFocus(false)}
         />
       )}
 
