@@ -410,7 +410,7 @@ export function CircularTimer({
       `}</style>
 
       {/* --- HUD HEADER --- */}
-      <div className={`w-full max-w-md flex items-center justify-between gap-3 mb-6 relative z-30 ${isNativeFullscreen ? 'opacity-80 scale-105' : ''}`}>
+      <div className={`w-full max-w-md flex flex-wrap items-center justify-center sm:justify-between gap-2.5 mb-6 relative z-30 ${isNativeFullscreen ? 'opacity-80 scale-105' : ''}`}>
         {/* SUBJECT SELECTION PANEL */}
         <div className="flex items-center gap-1.5">
           <button 
@@ -517,8 +517,8 @@ export function CircularTimer({
       <div 
         className={`relative flex items-center justify-center transition-all duration-1000 ${
           isNativeFullscreen 
-            ? 'w-[320px] h-[320px] sm:w-[380px] sm:h-[380px] md:w-[420px] md:h-[420px] my-10' 
-            : 'w-[260px] h-[260px] sm:w-[290px] sm:h-[290px] md:w-[310px] md:h-[310px] my-4'
+            ? 'w-[280px] h-[280px] min-[360px]:w-[320px] min-[360px]:h-[320px] sm:w-[380px] sm:h-[380px] md:w-[420px] md:h-[420px] my-10' 
+            : 'w-[210px] h-[210px] min-[360px]:w-[240px] min-[360px]:h-[240px] min-[400px]:w-[260px] min-[400px]:h-[260px] sm:w-[290px] sm:h-[290px] md:w-[310px] md:h-[310px] my-4'
         }`}
       >
         {/* Under-Glow Radial Backlight Aura (matching theme colors) */}

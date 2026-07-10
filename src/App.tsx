@@ -28,9 +28,8 @@ import { BackgroundSystem } from './components/BackgroundSystem';
 import { TaskPanel } from './components/TaskPanel';
 import { BackgroundSettingsPanel } from './components/BackgroundSettingsPanel';
 
-// Vercel Speed Insights & Analytics
+// Vercel Speed Insights
 import { SpeedInsights } from '@vercel/speed-insights/react';
-import { Analytics } from '@vercel/analytics/react';
 
 // Cryptography & API
 import { encryptData, decryptData } from './utils/crypto';
@@ -632,7 +631,7 @@ export default function App() {
       if (permission === 'granted') {
         setNotificationsEnabled(true);
         setSyncFeedback('🎉 System notifications enabled successfully!');
-        new Notification('Zenith Focus Enabled 🌸', {
+        new Notification('Timerra Enabled 🌸', {
           body: 'You will receive native alerts when your study sessions or breaks complete.',
           icon: 'https://cdn-icons-png.flaticon.com/512/1164/1164620.png',
         });
@@ -686,11 +685,11 @@ export default function App() {
 
       const plainText = JSON.stringify(payload, null, 2);
       let fileContent = plainText;
-      let filename = `zenith_focus_autobackup_${new Date().toISOString().split('T')[0]}.json`;
+      let filename = `timerra_autobackup_${new Date().toISOString().split('T')[0]}.json`;
       
       if (syncPassword) {
         fileContent = encryptData(plainText, syncPassword);
-        filename = `zenith_focus_encrypted_autobackup_${new Date().toISOString().split('T')[0]}.json`;
+        filename = `timerra_encrypted_autobackup_${new Date().toISOString().split('T')[0]}.json`;
       }
 
       const blob = new Blob([fileContent], { type: 'application/json' });
@@ -1078,11 +1077,11 @@ export default function App() {
 
       const plainText = JSON.stringify(payload, null, 2);
       let fileContent = plainText;
-      let filename = 'zenithfocus_backup.json';
+      let filename = 'timerra_backup.json';
       
       if (syncPassword) {
         fileContent = encryptData(plainText, syncPassword);
-        filename = 'zenithfocus_encrypted_backup.json';
+        filename = 'timerra_encrypted_backup.json';
       }
 
       const blob = new Blob([fileContent], { type: 'application/json' });
@@ -1183,12 +1182,11 @@ export default function App() {
       {/* Dynamic Animated Ambient Background Layer */}
       <BackgroundSystem config={backgroundConfig} />
       <SpeedInsights />
-      <Analytics />
 
       {/* --- HEADER --- */}
       {!isFullscreen && (
-        <header className="w-full max-w-7xl mx-auto px-4 sm:px-6 py-5 flex items-center justify-between border-b border-white/5 relative z-20">
-          <div className="flex items-center gap-4 select-none">
+        <header className="w-full max-w-7xl mx-auto px-4 sm:px-6 py-4 sm:py-5 flex flex-col sm:flex-row items-center justify-between gap-4 sm:gap-2 border-b border-white/5 relative z-20">
+          <div className="w-full sm:w-auto flex items-center justify-between sm:justify-start gap-4 select-none">
             <div className="text-2xl font-black tracking-tight text-white font-futuristic">
               TIME<span className="text-pink-500 neon-glow-pink">RRA</span>
             </div>
@@ -1197,75 +1195,80 @@ export default function App() {
               <div className={`w-2 h-2 rounded-full ${user ? 'bg-pink-500 shadow-[0_0_8px_rgba(236,72,153,0.6)]' : 'bg-slate-600'}`}></div>
               <span>{user ? 'Cloud Synced: Drive' : 'Local Workspace'}</span>
             </div>
+            {/* Mobile-only Sync badge */}
+            <div className="sm:hidden flex items-center gap-1.5 text-[10px] text-slate-400 bg-white/5 px-2.5 py-1 rounded-full border border-white/5">
+              <div className={`w-1.5 h-1.5 rounded-full ${user ? 'bg-pink-500' : 'bg-slate-600'}`}></div>
+              <span>{user ? 'Drive' : 'Local'}</span>
+            </div>
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="w-full sm:w-auto flex flex-wrap items-center justify-between sm:justify-end gap-2.5 sm:gap-4">
             {/* Clock styles Selector */}
-            <div className="flex bg-white/[0.02] p-1 border border-white/5 rounded-xl text-xs font-semibold text-slate-400">
+            <div className="flex bg-white/[0.02] p-0.5 border border-white/5 rounded-xl text-[10px] sm:text-xs font-semibold text-slate-400">
               <button
                 id="btn-style-min"
                 onClick={() => setClockStyle('minimalist')}
-                className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${clockStyle === 'minimalist' ? 'bg-white/10 text-white shadow-md' : 'hover:text-slate-200'}`}
+                className={`px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg transition-all cursor-pointer ${clockStyle === 'minimalist' ? 'bg-white/10 text-white shadow-md' : 'hover:text-slate-200'}`}
               >
                 Minimal
               </button>
               <button
                 id="btn-style-circ"
                 onClick={() => setClockStyle('circular')}
-                className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${clockStyle === 'circular' ? 'bg-white/10 text-white shadow-md' : 'hover:text-slate-200'}`}
+                className={`px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg transition-all cursor-pointer ${clockStyle === 'circular' ? 'bg-white/10 text-white shadow-md' : 'hover:text-slate-200'}`}
               >
                 Ring
               </button>
               <button
                 id="btn-style-flip"
                 onClick={() => setClockStyle('flip')}
-                className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${clockStyle === 'flip' ? 'bg-white/10 text-white shadow-md' : 'hover:text-slate-200'}`}
+                className={`px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg transition-all cursor-pointer ${clockStyle === 'flip' ? 'bg-white/10 text-white shadow-md' : 'hover:text-slate-200'}`}
               >
                 Flip
               </button>
             </div>
 
             {/* Config, Notification & Fullscreen buttons */}
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5 sm:gap-2">
               <button
                 id="btn-notifications-toggle"
                 onClick={handleToggleNotifications}
-                className={`p-2.5 rounded-xl border transition-all active:scale-95 cursor-pointer ${
+                className={`p-2 sm:p-2.5 rounded-xl border transition-all active:scale-95 cursor-pointer ${
                   notificationsEnabled 
                     ? 'bg-pink-500/15 text-pink-400 border-pink-500/30 shadow-[0_0_15px_rgba(236,72,153,0.15)]' 
                     : 'bg-white/5 border-white/5 hover:bg-white/10 text-slate-400 hover:text-white'
                 }`}
                 title={notificationsEnabled ? "System Notifications Enabled" : "Enable System Notifications"}
               >
-                {notificationsEnabled ? <Bell size={18} /> : <BellOff size={18} />}
+                {notificationsEnabled ? <Bell size={16} /> : <BellOff size={16} />}
               </button>
 
               <button
                 id="btn-settings-toggle"
                 onClick={() => setShowSettings(!showSettings)}
-                className={`p-2.5 rounded-xl border transition-all active:scale-95 cursor-pointer ${showSettings ? 'bg-pink-500/15 text-pink-400 border-pink-500/30 shadow-[0_0_15px_rgba(236,72,153,0.15)]' : 'bg-white/5 border-white/5 hover:bg-white/10 text-slate-400 hover:text-white'}`}
+                className={`p-2 sm:p-2.5 rounded-xl border transition-all active:scale-95 cursor-pointer ${showSettings ? 'bg-pink-500/15 text-pink-400 border-pink-500/30 shadow-[0_0_15px_rgba(236,72,153,0.15)]' : 'bg-white/5 border-white/5 hover:bg-white/10 text-slate-400 hover:text-white'}`}
                 title="Configurations"
               >
-                <Settings size={18} />
+                <Settings size={16} />
               </button>
 
               <button
                 id="btn-fullscreen-enter"
                 onClick={() => setIsFullscreen(true)}
-                className="p-2.5 rounded-xl bg-white/5 border border-white/5 hover:bg-white/10 hover:text-white transition-all text-slate-400 active:scale-95 cursor-pointer"
+                className="p-2 sm:p-2.5 rounded-xl bg-white/5 border border-white/5 hover:bg-white/10 hover:text-white transition-all text-slate-400 active:scale-95 cursor-pointer"
                 title="Fullscreen Mode"
               >
-                <Maximize2 size={18} />
+                <Maximize2 size={16} />
               </button>
             </div>
 
             {/* Profile / Goal Indicator */}
-            <div className="flex items-center gap-3 select-none">
-              <div className="hidden sm:block text-right">
-                <div className="text-[10px] text-slate-500 uppercase tracking-widest">Goal Progress</div>
-                <div className="text-xs font-semibold text-slate-300">{completedToday} / {pomodoroGoal} Pomodoros</div>
+            <div className="flex items-center gap-2 sm:gap-3 select-none">
+              <div className="hidden xs:block text-right">
+                <div className="text-[9px] text-slate-500 uppercase tracking-widest leading-none">Goal</div>
+                <div className="text-[11px] font-bold text-slate-300 mt-0.5">{completedToday}/{pomodoroGoal}</div>
               </div>
-              <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center font-bold text-xs shadow-md shadow-blue-600/10 text-white" title={userName}>
+              <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center font-bold text-xs shadow-md shadow-blue-600/10 text-white" title={userName}>
                 {user?.displayName ? user.displayName.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase() : userName.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase()}
               </div>
             </div>
@@ -1737,7 +1740,7 @@ export default function App() {
       {!isFullscreen && (
         <footer className="w-full py-6 text-center border-t border-white/5 mt-auto relative z-20 select-none">
           <p className="text-[10px] text-slate-600 uppercase tracking-widest font-semibold flex items-center justify-center gap-1">
-            Zenith Focus — Advanced End-to-End Encrypted Offline Sync
+            Timerra — Advanced End-to-End Encrypted Offline Sync
           </p>
         </footer>
       )}

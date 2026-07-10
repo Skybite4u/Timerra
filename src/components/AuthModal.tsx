@@ -210,7 +210,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     const file = e.dataTransfer.files?.[0];
     if (file) {
       if (!file.name.endsWith('.json')) {
-        setDragError('Only Zenith backup JSON files (.json) are accepted.');
+        setDragError('Only Timerra backup JSON files (.json) are accepted.');
         return;
       }
       const reader = new FileReader();
@@ -299,7 +299,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               <li>Set a <strong>Security Key</strong> below to encrypt your study logs.</li>
               <li>Click <strong>Export backup File</strong> to download your <code className="text-slate-200">.json</code> backup.</li>
               <li>Send this file to your phone, tablet, or other laptop.</li>
-              <li>Open Zenith Focus on that device, drop the file in the area below, and select <strong>Merge Backup</strong>!</li>
+              <li>Open Timerra on that device, drop the file in the area below, and select <strong>Merge Backup</strong>!</li>
             </ol>
           </div>
         )}

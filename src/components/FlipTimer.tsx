@@ -84,7 +84,7 @@ export const FlipTimer: React.FC<FlipTimerProps> = ({
   const s2 = paddedSec[1];
 
   return (
-    <div className={`flex flex-col items-center justify-center p-10 rounded-[36px] transition-all duration-500 glossy-panel glossy-panel-hover relative overflow-hidden ${colors.glow}`}>
+    <div className={`flex flex-col items-center justify-center p-5 xs:p-8 sm:p-10 rounded-[36px] transition-all duration-500 glossy-panel glossy-panel-hover relative overflow-hidden ${colors.glow}`}>
       {/* Dynamic atmospheric color backplate */}
       <div className={`absolute -inset-10 opacity-15 bg-gradient-to-tr from-current to-transparent blur-3xl pointer-events-none ${colors.text}`} />
 

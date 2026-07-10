@@ -1,9 +1,9 @@
-const DB_NAME = 'ZenithFocusDB';
+const DB_NAME = 'TimerraDB';
 const STORE_NAME = 'app_state';
 const DB_VERSION = 1;
 
 /**
- * Opens a connection to the ZenithFocus IndexedDB.
+ * Opens a connection to the Timerra IndexedDB.
  */
 export function openDB(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
