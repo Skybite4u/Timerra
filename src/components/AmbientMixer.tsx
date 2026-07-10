@@ -1,16 +1,17 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { CloudRain, Trees, Coffee, Sparkles, Volume2, VolumeX, Play, Pause, RefreshCw, Music, Youtube, Link2 } from 'lucide-react';
 
+import { TimerMode, TimerStatus } from '../types';
+
 interface AmbientMixerProps {
-  timerStatus: 'idle' | 'running' | 'paused';
-  timerMode: 'focus' | 'short_break' | 'long_break';
+  timerStatus: TimerStatus;
+  timerMode: TimerMode;
 }
 
 interface Track {
   id: string;
   name: string;
   icon: React.ReactNode;
-  url?: string;
   isSynthetic: boolean;
 }
 
@@ -19,22 +20,19 @@ const TRACKS: Track[] = [
     id: 'rain',
     name: 'Gentle Rain',
     icon: <CloudRain size={16} />,
-    url: 'https://upload.wikimedia.org/wikipedia/commons/5/5a/Rain_on_roof_loop.ogg',
-    isSynthetic: false
+    isSynthetic: true
   },
   {
-    id: 'forest',
-    name: 'Forest Sanctuary',
-    icon: <Trees size={16} />,
-    url: 'https://upload.wikimedia.org/wikipedia/commons/b/b0/Forest_birds_singing_loop.ogg',
-    isSynthetic: false
+    id: 'white_noise',
+    name: 'White Noise',
+    icon: <Music size={16} />,
+    isSynthetic: true
   },
   {
     id: 'cafe',
     name: 'Cozy Cafe',
     icon: <Coffee size={16} />,
-    url: 'https://upload.wikimedia.org/wikipedia/commons/1/15/Restaurant_ambience.ogg',
-    isSynthetic: false
+    isSynthetic: true
   },
   {
     id: 'brown_noise',
@@ -44,18 +42,63 @@ const TRACKS: Track[] = [
   }
 ];
 
+// Pure Web Audio Buffer Generators (placed at top-level to prevent re-creation)
+const createWhiteNoiseBuffer = (ctx: AudioContext) => {
+  const bufferSize = 2 * ctx.sampleRate;
+  const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+  const data = buffer.getChannelData(0);
+  for (let i = 0; i < bufferSize; i++) {
+    data[i] = Math.random() * 2 - 1;
+  }
+  return buffer;
+};
+
+const createPinkNoiseBuffer = (ctx: AudioContext) => {
+  const bufferSize = 2 * ctx.sampleRate;
+  const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+  const data = buffer.getChannelData(0);
+  let b0 = 0, b1 = 0, b2 = 0, b3 = 0, b4 = 0, b5 = 0, b6 = 0;
+  for (let i = 0; i < bufferSize; i++) {
+    const white = Math.random() * 2 - 1;
+    b0 = 0.99886 * b0 + white * 0.0555179;
+    b1 = 0.99332 * b1 + white * 0.0750759;
+    b2 = 0.96900 * b2 + white * 0.1538520;
+    b3 = 0.86650 * b3 + white * 0.3104856;
+    b4 = 0.55000 * b4 + white * 0.5329522;
+    b5 = -0.7616 * b5 - white * 0.0168980;
+    data[i] = b0 + b1 + b2 + b3 + b4 + b5 + b6 + white * 0.5362;
+    data[i] *= 0.11; // scaling to keep comfortable volume
+    b6 = white * 0.115926;
+  }
+  return buffer;
+};
+
+const createBrownNoiseBuffer = (ctx: AudioContext) => {
+  const bufferSize = 2 * ctx.sampleRate;
+  const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+  const data = buffer.getChannelData(0);
+  let lastOut = 0.0;
+  for (let i = 0; i < bufferSize; i++) {
+    const white = Math.random() * 2 - 1;
+    data[i] = (lastOut + (0.02 * white)) / 1.02;
+    lastOut = data[i];
+    data[i] *= 3.5; // Gain booster
+  }
+  return buffer;
+};
+
 export const AmbientMixer: React.FC<AmbientMixerProps> = ({ timerStatus, timerMode }) => {
   // Track levels (0-100) and toggles
   const [volumes, setVolumes] = useState<{ [key: string]: number }>({
     rain: 50,
-    forest: 30,
+    white_noise: 30,
     cafe: 20,
     brown_noise: 40
   });
   
   const [playingTracks, setPlayingTracks] = useState<{ [key: string]: boolean }>({
     rain: false,
-    forest: false,
+    white_noise: false,
     cafe: false,
     brown_noise: false
   });
@@ -99,12 +142,16 @@ export const AmbientMixer: React.FC<AmbientMixerProps> = ({ timerStatus, timerMo
     }
   };
 
-  // References to active Audio objects and Web Audio API
-  const audioRefs = useRef<{ [key: string]: HTMLAudioElement }>({});
+  // References to active Web Audio context and active running nodes
   const audioCtxRef = useRef<AudioContext | null>(null);
-  const brownNoiseSource = useRef<AudioBufferSourceNode | null>(null);
-  const brownNoiseGain = useRef<GainNode | null>(null);
   const fadeIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const activeSources = useRef<{
+    [key: string]: {
+      sources: (AudioBufferSourceNode | OscillatorNode)[];
+      gains: GainNode[];
+      intervals?: any[];
+    }
+  }>({});
 
   // Load saved levels and states
   useEffect(() => {
@@ -155,36 +202,39 @@ export const AmbientMixer: React.FC<AmbientMixerProps> = ({ timerStatus, timerMo
       // Clear interval
       if (fadeIntervalRef.current) clearInterval(fadeIntervalRef.current);
       
-      // Stop all HTML5 Audio objects
-      Object.keys(audioRefs.current).forEach(key => {
-        const audio = audioRefs.current[key];
-        if (audio) {
-          audio.pause();
-          audio.src = '';
-        }
+      // Stop all synthetic tracks
+      TRACKS.forEach(track => {
+        stopSyntheticTrack(track.id);
       });
-      
-      // Stop synthetic noise
-      if (brownNoiseSource.current) {
-        try {
-          brownNoiseSource.current.stop();
-        } catch (e) {}
-      }
+
       if (audioCtxRef.current) {
         audioCtxRef.current.close();
       }
     };
   }, []);
 
-  // Get or initialize standard HTML5 Audio track
-  const getAudioTrack = (trackId: string, url: string): HTMLAudioElement => {
-    if (!audioRefs.current[trackId]) {
-      const audio = new Audio(url);
-      audio.loop = true;
-      audio.crossOrigin = 'anonymous';
-      audioRefs.current[trackId] = audio;
+  // Helper function to stop a synthetic track and disconnect its nodes cleanly
+  const stopSyntheticTrack = (trackId: string) => {
+    const active = activeSources.current[trackId];
+    if (active) {
+      active.sources.forEach(source => {
+        try {
+          source.stop();
+        } catch (e) {}
+        try {
+          source.disconnect();
+        } catch (e) {}
+      });
+      active.gains.forEach(gain => {
+        try {
+          gain.disconnect();
+        } catch (e) {}
+      });
+      if (active.intervals) {
+        active.intervals.forEach(interval => clearTimeout(interval));
+      }
+      delete activeSources.current[trackId];
     }
-    return audioRefs.current[trackId];
   };
 
   // Initialize Web Audio Context for synthetic generation
@@ -198,54 +248,243 @@ export const AmbientMixer: React.FC<AmbientMixerProps> = ({ timerStatus, timerMo
     return audioCtxRef.current;
   };
 
-  // Synthesize Deep Brown Focus Noise
-  const startBrownNoise = (volume: number) => {
+  // 1. Pristine White Noise Synthesizer
+  const startWhiteNoise = (volume: number) => {
+    stopSyntheticTrack('white_noise');
     const ctx = initAudioCtx();
-    if (brownNoiseSource.current) {
-      stopBrownNoise();
-    }
 
-    const bufferSize = 2 * ctx.sampleRate;
-    const noiseBuffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
-    const output = noiseBuffer.getChannelData(0);
-    
-    let lastOut = 0.0;
-    for (let i = 0; i < bufferSize; i++) {
-      const white = Math.random() * 2 - 1;
-      // Brownian integration filter
-      output[i] = (lastOut + (0.02 * white)) / 1.02;
-      lastOut = output[i];
-      output[i] *= 3.5; // Gain booster
-    }
-
+    const buffer = createWhiteNoiseBuffer(ctx);
     const source = ctx.createBufferSource();
-    source.buffer = noiseBuffer;
+    source.buffer = buffer;
     source.loop = true;
 
     const gainNode = ctx.createGain();
-    const targetVolume = masterMuted ? 0 : (volume / 100) * 0.18; // deep comfortable scaling
+    const targetVolume = masterMuted ? 0 : (volume / 100) * 0.15; // Soft ceiling
     gainNode.gain.setValueAtTime(targetVolume, ctx.currentTime);
 
     source.connect(gainNode);
     gainNode.connect(ctx.destination);
-    
+
     source.start(0);
-    brownNoiseSource.current = source;
-    brownNoiseGain.current = gainNode;
+
+    activeSources.current['white_noise'] = {
+      sources: [source],
+      gains: [gainNode]
+    };
   };
 
-  const stopBrownNoise = () => {
-    if (brownNoiseSource.current) {
+  // 2. Deep Brown Focus Noise Synthesizer
+  const startBrownNoise = (volume: number) => {
+    stopSyntheticTrack('brown_noise');
+    const ctx = initAudioCtx();
+
+    const buffer = createBrownNoiseBuffer(ctx);
+    const source = ctx.createBufferSource();
+    source.buffer = buffer;
+    source.loop = true;
+
+    const gainNode = ctx.createGain();
+    const targetVolume = masterMuted ? 0 : (volume / 100) * 0.22;
+    gainNode.gain.setValueAtTime(targetVolume, ctx.currentTime);
+
+    source.connect(gainNode);
+    gainNode.connect(ctx.destination);
+
+    source.start(0);
+
+    activeSources.current['brown_noise'] = {
+      sources: [source],
+      gains: [gainNode]
+    };
+  };
+
+  // 3. Gentle Rain Synthesizer (Pink Noise + Lowpass + random crackle droplets)
+  const startRain = (volume: number) => {
+    stopSyntheticTrack('rain');
+    const ctx = initAudioCtx();
+
+    // Pink noise base
+    const pinkBuffer = createPinkNoiseBuffer(ctx);
+    const pinkSource = ctx.createBufferSource();
+    pinkSource.buffer = pinkBuffer;
+    pinkSource.loop = true;
+
+    const filterNode = ctx.createBiquadFilter();
+    filterNode.type = 'lowpass';
+    filterNode.frequency.setValueAtTime(1400, ctx.currentTime);
+
+    const pinkGainNode = ctx.createGain();
+    const targetVolume = masterMuted ? 0 : (volume / 100) * 0.25;
+    pinkGainNode.gain.setValueAtTime(targetVolume, ctx.currentTime);
+
+    pinkSource.connect(filterNode);
+    filterNode.connect(pinkGainNode);
+    pinkGainNode.connect(ctx.destination);
+
+    pinkSource.start(0);
+
+    // Random droplet generator
+    const dropletIntervals: any[] = [];
+    const triggerRaindroplet = () => {
+      // Fetch latest values directly from refs to avoid stale capture
+      if (!activeSources.current['rain'] || masterMuted) return;
+
       try {
-        brownNoiseSource.current.stop();
-        brownNoiseSource.current.disconnect();
-      } catch (e) {}
-      brownNoiseSource.current = null;
-    }
-    if (brownNoiseGain.current) {
-      brownNoiseGain.current.disconnect();
-      brownNoiseGain.current = null;
-    }
+        const osc = ctx.createOscillator();
+        const dropGain = ctx.createGain();
+
+        const freq = 1100 + Math.random() * 800; // 1100Hz to 1900Hz
+        osc.frequency.setValueAtTime(freq, ctx.currentTime);
+        osc.type = 'sine';
+
+        const dropFilter = ctx.createBiquadFilter();
+        dropFilter.type = 'bandpass';
+        dropFilter.frequency.setValueAtTime(freq, ctx.currentTime);
+        dropFilter.Q.setValueAtTime(6, ctx.currentTime);
+
+        const latestVolRatio = volumes['rain'] / 100;
+        const dropVolume = latestVolRatio * (0.01 + Math.random() * 0.035);
+        dropGain.gain.setValueAtTime(0, ctx.currentTime);
+        dropGain.gain.linearRampToValueAtTime(dropVolume, ctx.currentTime + 0.002);
+        dropGain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.04 + Math.random() * 0.06);
+
+        osc.connect(dropFilter);
+        dropFilter.connect(dropGain);
+        dropGain.connect(ctx.destination);
+
+        osc.start();
+        osc.stop(ctx.currentTime + 0.15);
+      } catch (err) {}
+    };
+
+    const scheduleNextDroplet = () => {
+      const delay = 50 + Math.random() * 160; // droplets speed trigger
+      const timeoutId = setTimeout(() => {
+        triggerRaindroplet();
+        if (activeSources.current['rain']) {
+          scheduleNextDroplet();
+        }
+      }, delay);
+      dropletIntervals.push(timeoutId);
+    };
+    
+    scheduleNextDroplet();
+
+    activeSources.current['rain'] = {
+      sources: [pinkSource],
+      gains: [pinkGainNode],
+      intervals: dropletIntervals
+    };
+  };
+
+  // 4. Cozy Cafe Synthesizer (Room rumble + voice-frequency bandpass babble + random clinks)
+  const startCafe = (volume: number) => {
+    stopSyntheticTrack('cafe');
+    const ctx = initAudioCtx();
+
+    // Low crowd room rumble
+    const rumbleOsc1 = ctx.createOscillator();
+    rumbleOsc1.type = 'sine';
+    rumbleOsc1.frequency.setValueAtTime(85, ctx.currentTime);
+
+    const rumbleOsc2 = ctx.createOscillator();
+    rumbleOsc2.type = 'sine';
+    rumbleOsc2.frequency.setValueAtTime(105, ctx.currentTime);
+
+    const rumbleGain = ctx.createGain();
+    const targetRumbleVol = masterMuted ? 0 : (volume / 100) * 0.04;
+    rumbleGain.gain.setValueAtTime(targetRumbleVol, ctx.currentTime);
+
+    rumbleOsc1.connect(rumbleGain);
+    rumbleOsc2.connect(rumbleGain);
+    rumbleGain.connect(ctx.destination);
+
+    rumbleOsc1.start(0);
+    rumbleOsc2.start(0);
+
+    // Crowd babble simulation
+    const babbleBuffer = createPinkNoiseBuffer(ctx);
+    const babbleSource = ctx.createBufferSource();
+    babbleSource.buffer = babbleBuffer;
+    babbleSource.loop = true;
+
+    const babbleFilter = ctx.createBiquadFilter();
+    babbleFilter.type = 'bandpass';
+    babbleFilter.frequency.setValueAtTime(550, ctx.currentTime);
+    babbleFilter.Q.setValueAtTime(0.7, ctx.currentTime);
+
+    const chatterLfo = ctx.createOscillator();
+    chatterLfo.type = 'sine';
+    chatterLfo.frequency.setValueAtTime(0.25, ctx.currentTime);
+
+    const chatterLfoGain = ctx.createGain();
+    chatterLfoGain.gain.setValueAtTime(0.02, ctx.currentTime);
+
+    const babbleGain = ctx.createGain();
+    const targetBabbleVol = masterMuted ? 0 : (volume / 100) * 0.20;
+    babbleGain.gain.setValueAtTime(targetBabbleVol, ctx.currentTime);
+
+    chatterLfo.connect(chatterLfoGain);
+    chatterLfoGain.connect(babbleGain.gain);
+
+    babbleSource.connect(babbleFilter);
+    babbleFilter.connect(babbleGain);
+    babbleGain.connect(ctx.destination);
+
+    babbleSource.start(0);
+    chatterLfo.start(0);
+
+    // Random coffee cup clinks
+    const clinkIntervals: any[] = [];
+    const triggerCupClink = () => {
+      if (!activeSources.current['cafe'] || masterMuted) return;
+
+      try {
+        const osc = ctx.createOscillator();
+        const clinkGain = ctx.createGain();
+
+        const freq = 2100 + Math.random() * 1900;
+        osc.frequency.setValueAtTime(freq, ctx.currentTime);
+        osc.type = 'sine';
+
+        const clinkFilter = ctx.createBiquadFilter();
+        clinkFilter.type = 'bandpass';
+        clinkFilter.frequency.setValueAtTime(freq, ctx.currentTime);
+        clinkFilter.Q.setValueAtTime(8, ctx.currentTime);
+
+        const latestVolRatio = volumes['cafe'] / 100;
+        const maxVol = latestVolRatio * (0.005 + Math.random() * 0.015);
+        clinkGain.gain.setValueAtTime(0, ctx.currentTime);
+        clinkGain.gain.linearRampToValueAtTime(maxVol, ctx.currentTime + 0.001);
+        clinkGain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.05 + Math.random() * 0.08);
+
+        osc.connect(clinkFilter);
+        clinkFilter.connect(clinkGain);
+        clinkGain.connect(ctx.destination);
+
+        osc.start();
+        osc.stop(ctx.currentTime + 0.2);
+      } catch (err) {}
+    };
+
+    const scheduleNextClink = () => {
+      const delay = 1400 + Math.random() * 3800; // random coffee cups clink intervals
+      const timeoutId = setTimeout(() => {
+        triggerCupClink();
+        if (activeSources.current['cafe']) {
+          scheduleNextClink();
+        }
+      }, delay);
+      clinkIntervals.push(timeoutId);
+    };
+
+    scheduleNextClink();
+
+    activeSources.current['cafe'] = {
+      sources: [rumbleOsc1, rumbleOsc2, babbleSource, chatterLfo],
+      gains: [rumbleGain, babbleGain],
+      intervals: clinkIntervals
+    };
   };
 
   // Handle single play/pause track toggle
@@ -261,27 +500,13 @@ export const AmbientMixer: React.FC<AmbientMixerProps> = ({ timerStatus, timerMo
 
     setPlayingTracks(prev => ({ ...prev, [trackId]: isNowPlaying }));
 
-    const trackObj = TRACKS.find(t => t.id === trackId);
-    if (!trackObj) return;
-
-    if (trackObj.isSynthetic) {
-      if (isNowPlaying) {
-        startBrownNoise(volumes[trackId]);
-      } else {
-        stopBrownNoise();
-      }
-    } else if (trackObj.url) {
-      const audio = getAudioTrack(trackId, trackObj.url);
-      if (isNowPlaying) {
-        audio.volume = masterMuted ? 0 : volumes[trackId] / 100;
-        audio.play().catch(err => {
-          console.warn(`Autoplay blocked or stream failure for ${trackId}:`, err);
-          // Auto revert play state
-          setPlayingTracks(prev => ({ ...prev, [trackId]: false }));
-        });
-      } else {
-        audio.pause();
-      }
+    if (isNowPlaying) {
+      if (trackId === 'rain') startRain(volumes.rain);
+      else if (trackId === 'white_noise') startWhiteNoise(volumes.white_noise);
+      else if (trackId === 'cafe') startCafe(volumes.cafe);
+      else if (trackId === 'brown_noise') startBrownNoise(volumes.brown_noise);
+    } else {
+      stopSyntheticTrack(trackId);
     }
   };
 
@@ -290,17 +515,22 @@ export const AmbientMixer: React.FC<AmbientMixerProps> = ({ timerStatus, timerMo
     setVolumes(prev => ({ ...prev, [trackId]: value }));
     
     if (masterMuted) return;
+    if (!playingTracks[trackId]) return;
 
-    const trackObj = TRACKS.find(t => t.id === trackId);
-    if (!trackObj) return;
-
-    if (trackObj.isSynthetic) {
-      if (brownNoiseGain.current && playingTracks[trackId]) {
-        brownNoiseGain.current.gain.setValueAtTime((value / 100) * 0.18, audioCtxRef.current?.currentTime || 0);
-      }
-    } else {
-      if (audioRefs.current[trackId] && playingTracks[trackId]) {
-        audioRefs.current[trackId].volume = value / 100;
+    const active = activeSources.current[trackId];
+    if (active && active.gains.length > 0) {
+      const ctx = audioCtxRef.current;
+      const time = ctx ? ctx.currentTime : 0;
+      
+      if (trackId === 'rain') {
+        active.gains[0].gain.setValueAtTime((value / 100) * 0.25, time);
+      } else if (trackId === 'white_noise') {
+        active.gains[0].gain.setValueAtTime((value / 100) * 0.15, time);
+      } else if (trackId === 'cafe') {
+        if (active.gains[0]) active.gains[0].gain.setValueAtTime((value / 100) * 0.04, time);
+        if (active.gains[1]) active.gains[1].gain.setValueAtTime((value / 100) * 0.20, time);
+      } else if (trackId === 'brown_noise') {
+        active.gains[0].gain.setValueAtTime((value / 100) * 0.22, time);
       }
     }
   };
@@ -314,20 +544,12 @@ export const AmbientMixer: React.FC<AmbientMixerProps> = ({ timerStatus, timerMo
     }
     
     if (isAnyPlaying) {
-      // Pause all playing tracks
       TRACKS.forEach(track => {
-        if (playingTracks[track.id]) {
-          if (track.isSynthetic) {
-            stopBrownNoise();
-          } else if (audioRefs.current[track.id]) {
-            audioRefs.current[track.id].pause();
-          }
-        }
+        stopSyntheticTrack(track.id);
       });
-      setPlayingTracks({ rain: false, forest: false, cafe: false, brown_noise: false });
+      setPlayingTracks({ rain: false, white_noise: false, cafe: false, brown_noise: false });
       setIsFadedOut(false);
     } else {
-      // Turn on all tracks that have volume > 10% as a nice shortcut mix
       const nextPlaying = { ...playingTracks };
       let activated = false;
       
@@ -336,25 +558,16 @@ export const AmbientMixer: React.FC<AmbientMixerProps> = ({ timerStatus, timerMo
           nextPlaying[track.id] = true;
           activated = true;
           
-          if (track.isSynthetic) {
-            startBrownNoise(volumes[track.id]);
-          } else if (track.url) {
-            const audio = getAudioTrack(track.id, track.url);
-            audio.volume = masterMuted ? 0 : volumes[track.id] / 100;
-            audio.play().catch(e => console.warn(e));
-          }
+          if (track.id === 'rain') startRain(volumes.rain);
+          else if (track.id === 'white_noise') startWhiteNoise(volumes.white_noise);
+          else if (track.id === 'cafe') startCafe(volumes.cafe);
+          else if (track.id === 'brown_noise') startBrownNoise(volumes.brown_noise);
         }
       });
 
-      // Default fallback if all are 0
       if (!activated) {
         nextPlaying.rain = true;
-        const rainTrack = TRACKS[0];
-        if (rainTrack.url) {
-          const audio = getAudioTrack('rain', rainTrack.url);
-          audio.volume = masterMuted ? 0 : volumes.rain / 100;
-          audio.play().catch(e => console.warn(e));
-        }
+        startRain(volumes.rain);
       }
 
       setPlayingTracks(nextPlaying);
@@ -369,15 +582,22 @@ export const AmbientMixer: React.FC<AmbientMixerProps> = ({ timerStatus, timerMo
 
     TRACKS.forEach(track => {
       if (playingTracks[track.id]) {
-        if (track.isSynthetic) {
-          if (brownNoiseGain.current) {
-            brownNoiseGain.current.gain.setValueAtTime(
-              nextMute ? 0 : (volumes[track.id] / 100) * 0.18,
-              audioCtxRef.current?.currentTime || 0
-            );
+        const active = activeSources.current[track.id];
+        if (active && active.gains.length > 0) {
+          const ctx = audioCtxRef.current;
+          const time = ctx ? ctx.currentTime : 0;
+          
+          const currentVol = volumes[track.id];
+          if (track.id === 'rain') {
+            active.gains[0].gain.setValueAtTime(nextMute ? 0 : (currentVol / 100) * 0.25, time);
+          } else if (track.id === 'white_noise') {
+            active.gains[0].gain.setValueAtTime(nextMute ? 0 : (currentVol / 100) * 0.15, time);
+          } else if (track.id === 'cafe') {
+            if (active.gains[0]) active.gains[0].gain.setValueAtTime(nextMute ? 0 : (currentVol / 100) * 0.04, time);
+            if (active.gains[1]) active.gains[1].gain.setValueAtTime(nextMute ? 0 : (currentVol / 100) * 0.20, time);
+          } else if (track.id === 'brown_noise') {
+            active.gains[0].gain.setValueAtTime(nextMute ? 0 : (currentVol / 100) * 0.22, time);
           }
-        } else if (audioRefs.current[track.id]) {
-          audioRefs.current[track.id].volume = nextMute ? 0 : volumes[track.id] / 100;
         }
       }
     });
@@ -385,20 +605,15 @@ export const AmbientMixer: React.FC<AmbientMixerProps> = ({ timerStatus, timerMo
 
   // Intelligent Autopilot: Trigger Fade-Out or Fade-In based on Timer changes!
   useEffect(() => {
-    // If autoStop is enabled:
-    // When timer ends (goes to break or idle) or pauses, we want to fade out soundscapes gracefully.
-    // When focus starts/runs again, we want to resume (fade in) standard levels!
     const isTimerActive = timerStatus === 'running';
     const isFocusSession = timerMode === 'focus';
 
     if (autoStopOnBreak) {
       if (!isTimerActive || !isFocusSession) {
-        // Fade out active ambient soundscapes if they are playing
         if (isAnyPlaying && !isFadedOut) {
           triggerGracefulFadeOut();
         }
       } else {
-        // Resume / Fade in if we were previously autopilot faded out
         if (isFadedOut) {
           triggerGracefulFadeIn();
         }
@@ -420,17 +635,22 @@ export const AmbientMixer: React.FC<AmbientMixerProps> = ({ timerStatus, timerMo
 
       TRACKS.forEach(track => {
         if (playingTracks[track.id]) {
-          if (track.isSynthetic) {
-            if (brownNoiseGain.current) {
-              const normalVol = (volumes[track.id] / 100) * 0.18;
-              brownNoiseGain.current.gain.setValueAtTime(
-                masterMuted ? 0 : normalVol * ratio,
-                audioCtxRef.current?.currentTime || 0
-              );
+          const active = activeSources.current[track.id];
+          if (active && active.gains.length > 0) {
+            const ctx = audioCtxRef.current;
+            const time = ctx ? ctx.currentTime : 0;
+            
+            const currentVol = volumes[track.id];
+            if (track.id === 'rain') {
+              active.gains[0].gain.setValueAtTime(masterMuted ? 0 : (currentVol / 100) * 0.25 * ratio, time);
+            } else if (track.id === 'white_noise') {
+              active.gains[0].gain.setValueAtTime(masterMuted ? 0 : (currentVol / 100) * 0.15 * ratio, time);
+            } else if (track.id === 'cafe') {
+              if (active.gains[0]) active.gains[0].gain.setValueAtTime(masterMuted ? 0 : (currentVol / 100) * 0.04 * ratio, time);
+              if (active.gains[1]) active.gains[1].gain.setValueAtTime(masterMuted ? 0 : (currentVol / 100) * 0.20 * ratio, time);
+            } else if (track.id === 'brown_noise') {
+              active.gains[0].gain.setValueAtTime(masterMuted ? 0 : (currentVol / 100) * 0.22 * ratio, time);
             }
-          } else if (audioRefs.current[track.id]) {
-            const normalVol = volumes[track.id] / 100;
-            audioRefs.current[track.id].volume = masterMuted ? 0 : normalVol * ratio;
           }
         }
       });
@@ -439,15 +659,8 @@ export const AmbientMixer: React.FC<AmbientMixerProps> = ({ timerStatus, timerMo
         clearInterval(fadeIntervalRef.current!);
         fadeIntervalRef.current = null;
         
-        // Actually pause playback
         TRACKS.forEach(track => {
-          if (playingTracks[track.id]) {
-            if (track.isSynthetic) {
-              stopBrownNoise();
-            } else if (audioRefs.current[track.id]) {
-              audioRefs.current[track.id].pause();
-            }
-          }
+          stopSyntheticTrack(track.id);
         });
         
         setIsFadedOut(true);
@@ -459,16 +672,12 @@ export const AmbientMixer: React.FC<AmbientMixerProps> = ({ timerStatus, timerMo
   const triggerGracefulFadeIn = () => {
     if (fadeIntervalRef.current) clearInterval(fadeIntervalRef.current);
 
-    // First start the players with volume at 0
     TRACKS.forEach(track => {
       if (playingTracks[track.id]) {
-        if (track.isSynthetic) {
-          startBrownNoise(0);
-        } else if (track.url) {
-          const audio = getAudioTrack(track.id, track.url);
-          audio.volume = 0;
-          audio.play().catch(e => console.warn(e));
-        }
+        if (track.id === 'rain') startRain(0);
+        else if (track.id === 'white_noise') startWhiteNoise(0);
+        else if (track.id === 'cafe') startCafe(0);
+        else if (track.id === 'brown_noise') startBrownNoise(0);
       }
     });
 
@@ -482,17 +691,22 @@ export const AmbientMixer: React.FC<AmbientMixerProps> = ({ timerStatus, timerMo
 
       TRACKS.forEach(track => {
         if (playingTracks[track.id]) {
-          if (track.isSynthetic) {
-            if (brownNoiseGain.current) {
-              const normalVol = (volumes[track.id] / 100) * 0.18;
-              brownNoiseGain.current.gain.setValueAtTime(
-                masterMuted ? 0 : normalVol * ratio,
-                audioCtxRef.current?.currentTime || 0
-              );
+          const active = activeSources.current[track.id];
+          if (active && active.gains.length > 0) {
+            const ctx = audioCtxRef.current;
+            const time = ctx ? ctx.currentTime : 0;
+            
+            const currentVol = volumes[track.id];
+            if (track.id === 'rain') {
+              active.gains[0].gain.setValueAtTime(masterMuted ? 0 : (currentVol / 100) * 0.25 * ratio, time);
+            } else if (track.id === 'white_noise') {
+              active.gains[0].gain.setValueAtTime(masterMuted ? 0 : (currentVol / 100) * 0.15 * ratio, time);
+            } else if (track.id === 'cafe') {
+              if (active.gains[0]) active.gains[0].gain.setValueAtTime(masterMuted ? 0 : (currentVol / 100) * 0.04 * ratio, time);
+              if (active.gains[1]) active.gains[1].gain.setValueAtTime(masterMuted ? 0 : (currentVol / 100) * 0.20 * ratio, time);
+            } else if (track.id === 'brown_noise') {
+              active.gains[0].gain.setValueAtTime(masterMuted ? 0 : (currentVol / 100) * 0.22 * ratio, time);
             }
-          } else if (audioRefs.current[track.id]) {
-            const normalVol = volumes[track.id] / 100;
-            audioRefs.current[track.id].volume = masterMuted ? 0 : normalVol * ratio;
           }
         }
       });

@@ -1,59 +1,52 @@
-export type TimerMode = 'focus' | 'short_break' | 'long_break';
-export type ClockStyle = 'minimalist' | 'circular' | 'flip';
-export type TimerStatus = 'idle' | 'running' | 'paused';
+export type TimerMode = 
+  | "focus"          // Timerra Pomodoro (Solar Orb)
+  | "stopwatch"      // Infinity Pulse (Endless)
+  | "deepFocus"      // Crystal Core (Calm)
+  | "infinityFocus"  // Galaxy Core (Stars)
+  | "shortBreak"     // Cloud Nest (Relaxing)
+  | "longBreak"      // Moon Core (Night)
+  | "sprint"         // Rocket Engine (Fast)
+  | "marathon"       // Ancient Library (Warm)
+  | "zen";           // Japanese Zen Garden (Peaceful)
+export type TimerStatus = "idle" | "running" | "paused" | "completed";
+export type ThemeName = "blue" | "purple" | "emerald" | "orange" | "red" | "cyber" | "midnight" | "aurora";
 
-export interface StudyLog {
-  id: string;
-  userId: string;
-  durationMinutes: number;
-  timestamp: number;
-  date: string; // format: YYYY-MM-DD
+export interface TimerSettings {
+  focusMinutes: number;          // default 25
+  shortBreakMinutes: number;     // default 5
+  longBreakMinutes: number;      // default 15
+  cyclesBeforeLongBreak: number; // default 4
+  autoAdvance: boolean;          // default true
+  tickSound: boolean;            // default false
+  theme: ThemeName;              // default "blue"
+  subject: string;               // default "Deep Work"
+}
+
+export interface Session {
+  id?: number;
   mode: TimerMode;
-  notes?: string;
-  subject?: string;
+  subject: string;
+  durationSec: number;
+  completedAt: number; // epoch ms
 }
 
-export interface Achievement {
-  id: string;
-  title: string;
-  description: string;
-  badgeEmoji: string;
-  category: 'sessions' | 'duration' | 'streaks' | 'sync';
-  requirementText: string;
+export interface BackupPayload {
+  app: "Timerra";
+  version: 1;
+  exportedAt: number;
+  settings: TimerSettings;
+  sessions: Session[];
+  subjects: string[];
 }
 
-export interface Task {
-  id: string;
-  title: string;
-  completed: boolean;
-  priority: 'high' | 'medium' | 'low';
-  createdAt: number;
-}
-
-export interface BackgroundConfig {
-  type: 'gradient' | 'aurora' | 'particles' | 'rain' | 'snow' | 'sakura' | 'stars' | 'galaxy' | 'clouds' | 'fireflies' | 'shapes' | 'image' | 'video';
-  presetId: string;
-  opacity: number; // 0 to 100
-  blur: number; // 0 to 24 (px)
-  brightness: number; // 0 to 100
-  darkOverlay: number; // 0 to 100 (opacity %)
-  zoom: number; // 100 to 150
-  position: string; // 'center' | 'top' | 'bottom' | 'left' | 'right'
-  animationSpeed: number; // 0.1 to 3
-  loop: boolean;
-  muted: boolean;
-  customFileBase64?: string; // Stored in DB
-  customFileName?: string;
-  customFileType?: string;
-}
-
-export interface BackupData {
-  logs: StudyLog[];
-  pomodoroGoal: number;
-  completedToday: number;
-  updatedAt: number;
-  earnedAchievements?: string[];
-  streak?: number;
-  tasks?: Task[];
-  backgroundConfig?: BackgroundConfig;
+export interface EncryptedBackupFile {
+  app: "Timerra";
+  version: 1;
+  encrypted: true;
+  algo: "AES-GCM";
+  kdf: "PBKDF2-SHA256";
+  iterations: number;
+  salt: string;
+  iv: string;
+  ciphertext: string; // all base64
 }

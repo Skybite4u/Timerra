@@ -1,9 +1,9 @@
 import React from 'react';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Cell } from 'recharts';
-import { StudyLog } from '../types';
+import { Session } from '../types';
 
 interface WeeklyBarChartProps {
-  logs: StudyLog[];
+  sessions: Session[];
 }
 
 interface ChartDataItem {
@@ -13,7 +13,7 @@ interface ChartDataItem {
   isToday: boolean;
 }
 
-export const WeeklyBarChart: React.FC<WeeklyBarChartProps> = ({ logs }) => {
+export const WeeklyBarChart: React.FC<WeeklyBarChartProps> = ({ sessions }) => {
   const now = new Date();
   const todayStr = now.toISOString().split('T')[0];
 
@@ -33,9 +33,13 @@ export const WeeklyBarChart: React.FC<WeeklyBarChartProps> = ({ logs }) => {
     const dayOfMonth = String(d.getDate()).padStart(2, '0');
     const dateStr = `${year}-${month}-${dayOfMonth}`;
 
-    // Filter logs for this specific date
-    const dayLogs = logs.filter(log => log.date === dateStr);
-    const totalMinutes = dayLogs.reduce((sum, log) => sum + log.durationMinutes, 0);
+    // Filter focus sessions completed on this specific date
+    const daySessions = sessions.filter(s => {
+      const sDate = new Date(s.completedAt).toISOString().split('T')[0];
+      return sDate === dateStr && s.mode === 'focus';
+    });
+    
+    const totalMinutes = Math.round(daySessions.reduce((sum, s) => sum + (s.durationSec / 60), 0));
     const dayLabel = d.toLocaleDateString('en-US', { weekday: 'short' });
 
     return {
@@ -46,7 +50,6 @@ export const WeeklyBarChart: React.FC<WeeklyBarChartProps> = ({ logs }) => {
     };
   });
 
-  // Custom tooltips with ambient blur/glass styling
   const CustomTooltip = ({ active, payload }: any) => {
     if (active && payload && payload.length) {
       const data = payload[0].payload;
@@ -55,7 +58,7 @@ export const WeeklyBarChart: React.FC<WeeklyBarChartProps> = ({ logs }) => {
           <p className="text-[9px] text-slate-500 uppercase tracking-widest font-bold">
             {new Date(data.date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}
           </p>
-          <p className="text-xs text-blue-400 font-mono font-bold mt-1">
+          <p className="text-xs text-tm-primary font-mono font-bold mt-1">
             {data.minutes} <span className="text-[10px] font-sans font-normal text-slate-400">mins focused</span>
           </p>
         </div>
@@ -71,51 +74,42 @@ export const WeeklyBarChart: React.FC<WeeklyBarChartProps> = ({ logs }) => {
           data={chartData}
           margin={{ top: 10, right: 10, left: -25, bottom: 0 }}
         >
-          {/* Subtle gradient definition */}
           <defs>
             <linearGradient id="todayBarGrad" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#60a5fa" stopOpacity={0.8} />
-              <stop offset="100%" stopColor="#2563eb" stopOpacity={0.8} />
+              <stop offset="0%" stopColor="var(--tm-primary)" stopOpacity={0.8} />
+              <stop offset="100%" stopColor="var(--tm-accent)" stopOpacity={0.8} />
             </linearGradient>
             <linearGradient id="otherBarGrad" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#334155" stopOpacity={0.4} />
-              <stop offset="100%" stopColor="#1e293b" stopOpacity={0.6} />
-            </linearGradient>
-            <linearGradient id="otherBarHoverGrad" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#475569" stopOpacity={0.6} />
-              <stop offset="100%" stopColor="#334155" stopOpacity={0.8} />
+              <stop offset="0%" stopColor="rgba(255, 255, 255, 0.08)" stopOpacity={0.4} />
+              <stop offset="100%" stopColor="rgba(255, 255, 255, 0.02)" stopOpacity={0.6} />
             </linearGradient>
           </defs>
 
-          {/* Minimalist horizontal grid lines */}
           <CartesianGrid 
             strokeDasharray="3 3" 
             vertical={false} 
-            stroke="rgba(255, 255, 255, 0.03)" 
+            stroke="rgba(255, 255, 255, 0.02)" 
           />
 
-          {/* X and Y axes */}
           <XAxis 
             dataKey="name" 
             axisLine={false} 
             tickLine={false} 
-            tick={{ fill: '#64748b', fontSize: 10, fontFamily: 'monospace' }}
+            tick={{ fill: 'rgba(255, 255, 255, 0.4)', fontSize: 10, fontFamily: 'monospace' }}
             dy={8}
           />
           <YAxis 
             axisLine={false} 
             tickLine={false} 
-            tick={{ fill: '#475569', fontSize: 9, fontFamily: 'monospace' }}
+            tick={{ fill: 'rgba(255, 255, 255, 0.2)', fontSize: 9, fontFamily: 'monospace' }}
             allowDecimals={false}
           />
 
-          {/* Glassmorphic tooltips */}
           <Tooltip 
             content={<CustomTooltip />} 
-            cursor={{ fill: 'rgba(255,255,255,0.02)', radius: 8 }}
+            cursor={{ fill: 'rgba(255, 255, 255, 0.01)', radius: 8 }}
           />
 
-          {/* The Bar */}
           <Bar 
             dataKey="minutes" 
             radius={[4, 4, 0, 0]} 
@@ -128,7 +122,7 @@ export const WeeklyBarChart: React.FC<WeeklyBarChartProps> = ({ logs }) => {
               <Cell 
                 key={`cell-${index}`} 
                 fill={entry.isToday ? "url(#todayBarGrad)" : "url(#otherBarGrad)"}
-                stroke={entry.isToday ? "#3b82f6" : "rgba(255,255,255,0.05)"}
+                stroke={entry.isToday ? "var(--tm-primary)" : "rgba(255,255,255,0.05)"}
                 strokeWidth={1}
                 className="transition-all duration-300 hover:opacity-90"
               />

@@ -1,10 +1,10 @@
 import React from 'react';
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip, Legend } from 'recharts';
-import { StudyLog } from '../types';
-import { BookOpen, PieChart as ChartIcon } from 'lucide-react';
+import { Session } from '../types';
+import { BookOpen } from 'lucide-react';
 
 interface SubjectPieChartProps {
-  logs: StudyLog[];
+  sessions: Session[];
 }
 
 interface ChartDataItem {
@@ -13,23 +13,24 @@ interface ChartDataItem {
 }
 
 const COLORS = [
-  '#3b82f6', // blue-500
-  '#6366f1', // indigo-500
-  '#a855f7', // purple-500
-  '#14b8a6', // teal-500
-  '#10b981', // emerald-500
-  '#f59e0b', // amber-500
-  '#f43f5e', // rose-500
-  '#8b5cf6', // violet-500
+  'var(--tm-primary)',
+  'var(--tm-accent)',
+  '#a855f7', // purple
+  '#06b6d4', // cyan
+  '#f59e0b', // amber
+  '#10b981', // emerald
+  '#f43f5e', // rose
+  '#ec4899', // pink
 ];
 
-export const SubjectPieChart: React.FC<SubjectPieChartProps> = ({ logs }) => {
+export const SubjectPieChart: React.FC<SubjectPieChartProps> = ({ sessions }) => {
   // Extract and sum minutes by subject (for focus sessions)
-  const subjectMap = logs
-    .filter(log => log.mode === 'focus')
-    .reduce((acc, log) => {
-      const subject = log.subject || 'General Study';
-      acc[subject] = (acc[subject] || 0) + log.durationMinutes;
+  const subjectMap = sessions
+    .filter(s => s.mode === 'focus')
+    .reduce((acc, s) => {
+      const subject = s.subject || 'Deep Work';
+      const mins = Math.round(s.durationSec / 60);
+      acc[subject] = (acc[subject] || 0) + mins;
       return acc;
     }, {} as Record<string, number>);
 
@@ -39,7 +40,6 @@ export const SubjectPieChart: React.FC<SubjectPieChartProps> = ({ logs }) => {
 
   const totalFocusMins = data.reduce((sum, item) => sum + item.value, 0);
 
-  // Custom tooltips with ambient blur/glass styling
   const CustomTooltip = ({ active, payload }: any) => {
     if (active && payload && payload.length) {
       const dataItem = payload[0].payload;
@@ -53,7 +53,7 @@ export const SubjectPieChart: React.FC<SubjectPieChartProps> = ({ logs }) => {
             {dataItem.name}
           </p>
           <div className="flex items-center gap-2 mt-1">
-            <span className="text-xs text-blue-400 font-mono font-bold">
+            <span className="text-xs text-tm-primary font-mono font-bold">
               {dataItem.value} mins
             </span>
             <span className="text-[10px] text-slate-400 font-mono">
@@ -62,11 +62,10 @@ export const SubjectPieChart: React.FC<SubjectPieChartProps> = ({ logs }) => {
           </div>
         </div>
       );
-    };
+    }
     return null;
   };
 
-  // Custom Legend component for glossy aesthetic
   const renderLegend = (props: any) => {
     const { payload } = props;
     return (
@@ -76,7 +75,7 @@ export const SubjectPieChart: React.FC<SubjectPieChartProps> = ({ logs }) => {
           return (
             <div key={`legend-${index}`} className="flex items-center gap-1.5 text-[10px] text-slate-400">
               <span
-                className="w-2.5 h-2.5 rounded-full inline-block"
+                className="w-2 rounded-full h-2 inline-block"
                 style={{ backgroundColor: entry.color }}
               />
               <span className="font-medium text-slate-300">{entry.value}</span>
@@ -91,7 +90,7 @@ export const SubjectPieChart: React.FC<SubjectPieChartProps> = ({ logs }) => {
   if (data.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-10 text-center select-none">
-        <div className="p-3 bg-white/[0.02] border border-white/5 rounded-2xl mb-3 text-slate-500">
+        <div className="p-3 bg-white/[0.01] border border-white/5 rounded-2xl mb-3 text-slate-500">
           <BookOpen size={20} />
         </div>
         <p className="text-xs text-slate-400 font-medium">No Subject Data Recorded Yet</p>
@@ -123,7 +122,7 @@ export const SubjectPieChart: React.FC<SubjectPieChartProps> = ({ logs }) => {
                 <Cell 
                   key={`cell-${index}`} 
                   fill={COLORS[index % COLORS.length]} 
-                  stroke="rgba(15, 23, 42, 0.8)" 
+                  stroke="rgba(11, 16, 32, 0.9)" 
                   strokeWidth={2}
                 />
               ))}
@@ -133,7 +132,6 @@ export const SubjectPieChart: React.FC<SubjectPieChartProps> = ({ logs }) => {
           </PieChart>
         </ResponsiveContainer>
 
-        {/* Center label showing total focus minutes */}
         <div className="absolute top-[37%] left-1/2 transform -translate-x-1/2 -translate-y-1/2 flex flex-col items-center justify-center pointer-events-none text-center">
           <span className="text-[8px] font-bold text-slate-500 uppercase tracking-widest leading-none">Total</span>
           <span className="text-xl font-bold text-white font-sans mt-0.5 leading-none">{totalFocusMins}</span>

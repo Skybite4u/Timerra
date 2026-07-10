@@ -1,849 +1,573 @@
-import { useState, useEffect, useRef } from 'react';
-import { 
-  Play, 
-  Pause, 
-  RotateCcw, 
-  SkipForward, 
-  Volume2, 
-  VolumeX, 
-  ChevronLeft, 
-  ChevronRight,
-  Info,
-  Settings,
-  Maximize2,
-  Minimize2,
-  Sparkles
-} from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
 import { TimerMode, TimerStatus } from '../types';
+import { MODES } from './ModeSelector';
 
 interface CircularTimerProps {
-  minutes: string;
-  seconds: string;
-  status: TimerStatus;
   mode: TimerMode;
-  progress: number; // 0 to 100
-  onStartPause: () => void;
-  onReset: () => void;
+  status: TimerStatus;
+  remainingSec: number;
+  elapsedSec: number;
+  totalDurationSec: number;
+  cycle: number;
   subject: string;
-  subjectColor?: string; // Persistent custom color
-  onSkip?: () => void;
-  onPrevSubject?: () => void;
-  onNextSubject?: () => void;
-  cycleInfo?: string; // e.g. "1/4"
-  onSettings?: () => void; // Optional trigger for settings panel
 }
 
-const ORB_THEMES = [
-  { id: 'blue', name: 'Blue', strokeStart: '#3b82f6', strokeEnd: '#0ea5e9', glow: 'rgba(59, 130, 246, 0.4)' },
-  { id: 'purple', name: 'Purple', strokeStart: '#a855f7', strokeEnd: '#ec4899', glow: 'rgba(168, 85, 247, 0.4)' },
-  { id: 'emerald', name: 'Emerald', strokeStart: '#10b981', strokeEnd: '#06b6d4', glow: 'rgba(16, 185, 129, 0.4)' },
-  { id: 'orange', name: 'Orange', strokeStart: '#f97316', strokeEnd: '#f59e0b', glow: 'rgba(249, 115, 22, 0.4)' },
-  { id: 'red', name: 'Red', strokeStart: '#ef4444', strokeEnd: '#f43f5e', glow: 'rgba(239, 68, 68, 0.4)' },
-  { id: 'cyber', name: 'Cyber', strokeStart: '#00f2fe', strokeEnd: '#4facfe', glow: 'rgba(0, 242, 254, 0.4)' },
-  { id: 'midnight', name: 'Midnight', strokeStart: '#6366f1', strokeEnd: '#1e1b4b', glow: 'rgba(99, 102, 241, 0.3)' },
-  { id: 'aurora', name: 'Aurora', strokeStart: '#10b981', strokeEnd: '#a855f7', glow: 'rgba(34, 197, 94, 0.4)' },
-];
-
-export function CircularTimer({
-  minutes,
-  seconds,
-  status,
+export const CircularTimer: React.FC<CircularTimerProps> = ({
   mode,
-  progress,
-  onStartPause,
-  onReset,
+  status,
+  remainingSec,
+  elapsedSec,
+  totalDurationSec,
+  cycle,
   subject,
-  subjectColor,
-  onSkip,
-  onPrevSubject,
-  onNextSubject,
-  cycleInfo = '1/4',
-  onSettings
-}: CircularTimerProps) {
-  // --- Orb states ---
-  const [orbMode, setOrbMode] = useState<'pomodoro' | 'stopwatch'>('pomodoro');
-  const [activeThemeId, setActiveThemeId] = useState<string>(() => {
-    return localStorage.getItem('timerra_orb_theme') || 'auto';
-  });
+}) => {
+  const [explosionActive, setExplosionActive] = useState(false);
+  const prevModeRef = useRef<TimerMode>(mode);
 
-  // --- Internal Stopwatch Engine ---
-  const [stopwatchTime, setStopwatchTime] = useState<number>(0);
-  const [stopwatchStatus, setStopwatchStatus] = useState<'idle' | 'running' | 'paused'>('idle');
-
-  // --- UI feedback states ---
-  const [soundEnabled, setSoundEnabled] = useState<boolean>(true);
-  const [tickSoundEnabled, setTickSoundEnabled] = useState<boolean>(false);
-  const [justCompleted, setJustCompleted] = useState<boolean>(false);
-  const [isNativeFullscreen, setIsNativeFullscreen] = useState<boolean>(false);
-  const [rippleTarget, setRippleTarget] = useState<string | null>(null);
-
-  const containerRef = useRef<HTMLDivElement>(null);
-  const audioCtxRef = useRef<AudioContext | null>(null);
-
-  // Audio synthesis
-  const getAudioContext = () => {
-    if (!audioCtxRef.current) {
-      audioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
-    }
-    const ctx = audioCtxRef.current;
-    if (ctx.state === 'suspended') {
-      ctx.resume();
-    }
-    return ctx;
-  };
-
-  const playSynthSound = (type: 'click' | 'tick' | 'complete') => {
-    if (!soundEnabled) return;
-    try {
-      const ctx = getAudioContext();
-      const now = ctx.currentTime;
-
-      if (type === 'click') {
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(880, now);
-        osc.frequency.exponentialRampToValueAtTime(110, now + 0.08);
-        gain.gain.setValueAtTime(0.08, now);
-        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
-        osc.connect(gain);
-        gain.connect(ctx.destination);
-        osc.start(now);
-        osc.stop(now + 0.08);
-      } else if (type === 'tick') {
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        osc.type = 'triangle';
-        osc.frequency.setValueAtTime(330, now);
-        gain.gain.setValueAtTime(0.02, now);
-        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.03);
-        osc.connect(gain);
-        gain.connect(ctx.destination);
-        osc.start(now);
-        osc.stop(now + 0.03);
-      } else if (type === 'complete') {
-        const notes = [523.25, 659.25, 783.99, 1046.50, 1318.51];
-        notes.forEach((freq, idx) => {
-          const osc = ctx.createOscillator();
-          const gain = ctx.createGain();
-          osc.type = 'sine';
-          osc.frequency.setValueAtTime(freq, now + idx * 0.1);
-          gain.gain.setValueAtTime(0, now + idx * 0.1);
-          gain.gain.linearRampToValueAtTime(0.12, now + idx * 0.1 + 0.04);
-          gain.gain.exponentialRampToValueAtTime(0.0005, now + idx * 0.1 + 0.8);
-          osc.connect(gain);
-          gain.connect(ctx.destination);
-          osc.start(now + idx * 0.1);
-          osc.stop(now + idx * 0.1 + 0.8);
-        });
-      }
-    } catch (e) {
-      console.warn('Audio synth failed:', e);
-    }
-  };
-
-  // Metronome tick sounds
+  // Trigger Pomodoro finish explosion when transition happens from focus to a break, or when countdown reaches zero
   useEffect(() => {
-    const isRunning = orbMode === 'pomodoro' ? status === 'running' : stopwatchStatus === 'running';
-    if (isRunning && tickSoundEnabled) {
-      const interval = setInterval(() => {
-        playSynthSound('tick');
-      }, 1000);
-      return () => clearInterval(interval);
+    if (prevModeRef.current === 'focus' && (mode === 'shortBreak' || mode === 'longBreak')) {
+      setExplosionActive(true);
+      const timer = setTimeout(() => setExplosionActive(false), 3500);
+      return () => clearTimeout(timer);
     }
-  }, [status, stopwatchStatus, orbMode, tickSoundEnabled, soundEnabled]);
+    prevModeRef.current = mode;
+  }, [mode]);
 
-  // Stopwatch Interval Timer
+  // Handle local explosion trigger just in case
   useEffect(() => {
-    if (stopwatchStatus === 'running') {
-      const interval = setInterval(() => {
-        setStopwatchTime(prev => prev + 1);
-      }, 1000);
-      return () => clearInterval(interval);
+    if (mode === 'focus' && remainingSec <= 0.05 && status === 'running') {
+      setExplosionActive(true);
+      const timer = setTimeout(() => setExplosionActive(false), 3500);
+      return () => clearTimeout(timer);
     }
-  }, [stopwatchStatus]);
+  }, [remainingSec, mode, status]);
 
-  // Completion flash trigger
-  useEffect(() => {
-    if (orbMode === 'pomodoro' && minutes === '00' && seconds === '00' && status === 'idle') {
-      setJustCompleted(true);
-      playSynthSound('complete');
-      const timeout = setTimeout(() => setJustCompleted(false), 5000);
-      return () => clearTimeout(timeout);
-    }
-  }, [minutes, seconds, status, orbMode]);
+  // Compute fill ratio
+  let fillLevel = 0;
+  if (mode === 'stopwatch' || mode === 'infinityFocus') {
+    fillLevel = Math.min(1, elapsedSec / 3600); // Rises slowly
+  } else if (totalDurationSec > 0) {
+    fillLevel = Math.max(0, Math.min(1, remainingSec / totalDurationSec)); // Drains
+  }
 
-  // Keyboard Shortcuts Support
-  useEffect(() => {
-    const handleShortcuts = (e: KeyboardEvent) => {
-      if (
-        e.target instanceof HTMLInputElement ||
-        e.target instanceof HTMLTextAreaElement ||
-        (e.target as HTMLElement).isContentEditable
-      ) {
-        return;
-      }
-      const key = e.key.toLowerCase();
-      if (key === ' ') {
-        e.preventDefault();
-        playSynthSound('click');
-        if (orbMode === 'pomodoro') {
-          onStartPause();
-        } else {
-          setStopwatchStatus(prev => prev === 'running' ? 'paused' : 'running');
-        }
-      } else if (key === 'r') {
-        playSynthSound('click');
-        if (orbMode === 'pomodoro') {
-          onReset();
-        } else {
-          setStopwatchTime(0);
-          setStopwatchStatus('idle');
-        }
-      } else if (key === 'f') {
-        toggleNativeFullscreen();
-      }
-    };
-    window.addEventListener('keydown', handleShortcuts);
-    return () => window.removeEventListener('keydown', handleShortcuts);
-  }, [orbMode, onStartPause, onReset]);
+  // Wave position
+  const waveY = 92 - fillLevel * 84;
 
-  // Fullscreen support
-  const toggleNativeFullscreen = () => {
-    if (!containerRef.current) return;
-    try {
-      if (!document.fullscreenElement) {
-        containerRef.current.requestFullscreen().catch(err => {
-          console.error('Fullscreen API failed:', err);
-        });
-      } else {
-        document.exitFullscreen();
-      }
-    } catch (err) {
-      console.error(err);
-      setIsNativeFullscreen(!isNativeFullscreen);
-    }
+  // Render Stopwatch (Hours, Minutes, Seconds, Milliseconds)
+  const renderStopwatchTime = () => {
+    const totalMs = Math.floor(elapsedSec * 1000);
+    const h = Math.floor(totalMs / 3600000);
+    const m = Math.floor((totalMs % 3600000) / 60000);
+    const s = Math.floor((totalMs % 60000) / 1000);
+    const ms = Math.floor((totalMs % 1000) / 10);
+
+    const pad = (num: number) => num.toString().padStart(2, '0');
+
+    return (
+      <div className="flex items-baseline justify-center font-mono text-white select-text cursor-default tabular-nums">
+        {h > 0 && (
+          <>
+            <span className="text-4xl sm:text-5xl md:text-6xl font-black">{pad(h)}</span>
+            <span className="text-xl sm:text-2xl md:text-3xl font-medium mx-0.5 text-white/50">:</span>
+          </>
+        )}
+        <span className="text-4xl sm:text-5xl md:text-6xl font-black">{pad(m)}</span>
+        <span className="text-xl sm:text-2xl md:text-3xl font-medium mx-0.5 text-white/50">:</span>
+        <span className="text-4xl sm:text-5xl md:text-6xl font-black">{pad(s)}</span>
+        <span className="text-xl sm:text-2xl md:text-3xl font-medium mx-0.5 text-tm-primary">.</span>
+        <span className="text-2xl sm:text-3xl md:text-4xl font-extrabold text-tm-primary/80">{pad(ms)}</span>
+      </div>
+    );
   };
 
-  useEffect(() => {
-    const handleFsChange = () => {
-      const isFs = !!document.fullscreenElement && document.fullscreenElement === containerRef.current;
-      setIsNativeFullscreen(isFs);
-    };
-    document.addEventListener('fullscreenchange', handleFsChange);
-    return () => document.removeEventListener('fullscreenchange', handleFsChange);
-  }, []);
+  // Render countdown or infinity count-up formats
+  const renderStandardTime = () => {
+    const displaySecs = mode === 'infinityFocus' ? elapsedSec : remainingSec;
+    const totalSeconds = Math.ceil(displaySecs);
+    const h = Math.floor(totalSeconds / 3600);
+    const m = Math.floor((totalSeconds % 3600) / 60);
+    const s = totalSeconds % 60;
 
-  const handleAction = (btnId: string, callback: () => void) => {
-    playSynthSound('click');
-    setRippleTarget(btnId);
-    setTimeout(() => setRippleTarget(null), 400);
-    callback();
+    const pad = (num: number) => num.toString().padStart(2, '0');
+
+    return (
+      <h1 
+        className="font-mono text-5xl sm:text-6xl md:text-7xl font-bold tracking-tight text-white select-text cursor-default tabular-nums"
+        style={{ textShadow: '0 4px 20px rgba(0, 0, 0, 0.5), 0 0 16px var(--tm-glow)' }}
+      >
+        {h > 0 ? `${pad(h)}:${pad(m)}:${pad(s)}` : `${pad(m)}:${pad(s)}`}
+      </h1>
+    );
   };
 
-  // Determine current theme colors
-  const getTheme = () => {
-    let baseTheme = ORB_THEMES[0]; // blue
-    
-    // Auto resolution based on subjectColor or mode
-    if (activeThemeId === 'auto') {
-      if (subjectColor) {
-        return {
-          id: 'auto',
-          name: 'Subject Default',
-          strokeStart: subjectColor,
-          strokeEnd: subjectColor === '#3b82f6' ? '#0ea5e9' : `${subjectColor}dd`,
-          glow: `${subjectColor}50`,
-        };
-      }
-      
-      // Secondary fallback of modes
-      if (mode === 'short_break') {
-        return ORB_THEMES[2]; // Emerald
-      } else if (mode === 'long_break') {
-        return ORB_THEMES[1]; // Purple
-      }
-    } else {
-      const matched = ORB_THEMES.find(t => t.id === activeThemeId);
-      if (matched) baseTheme = matched;
-    }
-    return baseTheme;
+  // Human-friendly mode titles
+  const getModeLabel = () => {
+    const match = MODES.find(m => m.id === mode);
+    return match ? match.themeName : 'Focus Period';
   };
 
-  const theme = getTheme();
-
-  // Cycle Themes manually
-  const cycleTheme = () => {
-    const ids = ['auto', ...ORB_THEMES.map(t => t.id)];
-    const currentIndex = ids.indexOf(activeThemeId);
-    const nextIndex = (currentIndex + 1) % ids.length;
-    const nextId = ids[nextIndex];
-    setActiveThemeId(nextId);
-    localStorage.setItem('timerra_orb_theme', nextId);
-    playSynthSound('click');
+  // Calculate Estimated Finish (Only for Countdown modes like Deep Focus)
+  const getEstFinishTime = () => {
+    const finishTime = new Date(Date.now() + remainingSec * 1000);
+    return finishTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
-
-  // Formatting stopwatch display
-  const formatStopwatch = (totalSecs: number) => {
-    const hrs = Math.floor(totalSecs / 3600);
-    const mins = Math.floor((totalSecs % 3600) / 60);
-    const secs = totalSecs % 60;
-    const pad = (n: number) => n.toString().padStart(2, '0');
-    return `${pad(hrs)}:${pad(mins)}:${pad(secs)}`;
-  };
-
-  const getEstimatedFinishTime = () => {
-    const now = new Date();
-    if (orbMode === 'pomodoro') {
-      const remainingMins = parseInt(minutes, 10) || 0;
-      const remainingSecs = parseInt(seconds, 10) || 0;
-      const totalRemainingMs = (remainingMins * 60 + remainingSecs) * 1000;
-      
-      const finishDate = new Date(now.getTime() + totalRemainingMs);
-      let hours = finishDate.getHours();
-      const ampm = hours >= 12 ? 'PM' : 'AM';
-      hours = hours % 12;
-      hours = hours ? hours : 12;
-      const minutesStr = finishDate.getMinutes().toString().padStart(2, '0');
-      return `${hours}:${minutesStr} ${ampm}`;
-    } else {
-      let hours = now.getHours();
-      const ampm = hours >= 12 ? 'PM' : 'AM';
-      hours = hours % 12;
-      hours = hours ? hours : 12;
-      const minutesStr = now.getMinutes().toString().padStart(2, '0');
-      return `${hours}:${minutesStr} ${ampm}`;
-    }
-  };
-
-  // Compute energy fluid levels
-  // Countdown: drains from 100 to 0 (progress prop is 0 to 100)
-  // Stopwatch: swells up with time up to 90
-  const energyLevel = orbMode === 'pomodoro' 
-    ? Math.min(100, Math.max(0, progress))
-    : stopwatchStatus === 'idle' ? 20 : Math.min(95, 20 + (stopwatchTime * 0.05));
-
-  // Base64 wave drawing
-  // Draw wave that stretches 200px wide for seamless scrolling translation
-  const waveY = 100 - energyLevel;
-  const wavePath1 = `M 0 ${waveY} Q 25 ${waveY - 5}, 50 ${waveY} T 100 ${waveY} T 150 ${waveY} T 200 ${waveY} L 200 100 L 0 100 Z`;
-  const wavePath2 = `M 0 ${waveY} Q 25 ${waveY + 3}, 50 ${waveY} T 100 ${waveY} T 150 ${waveY} T 200 ${waveY} L 200 100 L 0 100 Z`;
 
   return (
-    <div 
-      ref={containerRef}
-      className={`flex flex-col items-center justify-center transition-all duration-1000 relative select-none w-full ${
-        isNativeFullscreen 
-          ? 'fixed inset-0 z-50 bg-[#070b13] py-16 px-6 justify-center' 
-          : 'py-2 px-1'
-      }`}
-      style={{
-        '--orb-glow': theme.glow,
-        transition: 'background-color 1s ease-in-out'
-      } as any}
-    >
-      {/* Dynamic Keyframes Injection */}
+    <div className="flex flex-col items-center justify-center py-6 sm:py-10 relative select-none w-full">
+      
+      {/* Scoped Embedded CSS animations for premium hardware-accelerated 60fps rendering */}
       <style>{`
-        @keyframes orb-float {
+        /* Core rotations */
+        @keyframes sun-spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+        @keyframes float-gentle {
+          0%, 100% { transform: translateY(0px) rotate(0deg); }
+          50% { transform: translateY(-10px) rotate(1.5deg); }
+        }
+        @keyframes float-calm {
           0%, 100% { transform: translateY(0px); }
-          50% { transform: translateY(-12px); }
+          50% { transform: translateY(-6px); }
         }
-        @keyframes orb-breath {
-          0%, 100% { transform: scale(1); filter: drop-shadow(0 0 15px rgba(255, 255, 255, 0.05)); }
-          50% { transform: scale(1.025); filter: drop-shadow(0 0 35px var(--orb-glow, rgba(255, 255, 255, 0.15))); }
+        @keyframes crystal-shimmer {
+          0%, 100% { filter: hue-rotate(0deg) brightness(1); }
+          50% { filter: hue-rotate(25deg) brightness(1.2); }
         }
-        @keyframes wave-flow-left {
-          0% { transform: translateX(0); }
-          100% { transform: translateX(-50%); }
+        @keyframes galaxy-swirl-anim {
+          0% { transform: rotate(360deg) scale(0.98); }
+          50% { transform: rotate(180deg) scale(1.02); }
+          100% { transform: rotate(0deg) scale(0.98); }
         }
-        @keyframes wave-flow-right {
-          0% { transform: translateX(-50%); }
-          100% { transform: translateX(0); }
+        @keyframes cloud-move-slow {
+          0%, 100% { transform: translateX(-5px) translateY(0); }
+          50% { transform: translateX(5px) translateY(-3px); }
         }
-        @keyframes rotate-orbit-1 {
-          0% { transform: rotateX(70deg) rotateY(15deg) rotateZ(0deg); }
-          100% { transform: rotateX(70deg) rotateY(15deg) rotateZ(360deg); }
+        @keyframes bird-fly {
+          0% { transform: translate(-40px, 15px) scale(0.7); opacity: 0; }
+          20% { opacity: 0.8; }
+          80% { opacity: 0.8; }
+          100% { transform: translate(50px, -20px) scale(0.9); opacity: 0; }
         }
-        @keyframes rotate-orbit-2 {
-          0% { transform: rotateX(60deg) rotateY(-20deg) rotateZ(360deg); }
-          100% { transform: rotateX(60deg) rotateY(-20deg) rotateZ(0deg); }
+        @keyframes speed-line-fall {
+          0% { transform: translateY(-120px); opacity: 0; }
+          30% { opacity: 0.6; }
+          70% { opacity: 0.6; }
+          100% { transform: translateY(120px); opacity: 0; }
         }
-        @keyframes rotate-orbit-3 {
-          0% { transform: rotateX(75deg) rotateY(0deg) rotateZ(0deg); }
-          100% { transform: rotateX(75deg) rotateY(0deg) rotateZ(360deg); }
+        @keyframes dust-rise {
+          0% { transform: translateY(60px) scale(0.6); opacity: 0; }
+          40% { opacity: 0.8; }
+          80% { opacity: 0.8; }
+          100% { transform: translateY(-60px) scale(1.1); opacity: 0; }
         }
-        .animate-orb-float {
-          animation: orb-float 7s ease-in-out infinite;
+        @keyframes ripple-wave {
+          0% { transform: scale(0.4); opacity: 0.8; }
+          100% { transform: scale(1.4); opacity: 0; }
         }
-        .animate-orb-breath {
-          animation: orb-breath 4s ease-in-out infinite;
+        @keyframes cherry-fall {
+          0% { transform: translate(-30px, -60px) rotate(0deg); opacity: 0; }
+          10% { opacity: 0.7; }
+          90% { opacity: 0.7; }
+          100% { transform: translate(30px, 60px) rotate(240deg); opacity: 0; }
         }
-        .animate-wave-1 {
-          animation: wave-flow-left 14s linear infinite;
+        @keyframes explosion-burst {
+          0% { transform: scale(0.7); opacity: 0; filter: blur(0px); }
+          15% { opacity: 1; filter: blur(2px); }
+          100% { transform: scale(1.8); opacity: 0; filter: blur(15px); }
         }
-        .animate-wave-2 {
-          animation: wave-flow-right 10s linear infinite;
+        @keyframes particle-drift {
+          0% { transform: rotate(0deg) translate(0, 0); opacity: 0; }
+          10% { opacity: 1; }
+          100% { transform: rotate(var(--angle)) translate(var(--dist), var(--dist)); opacity: 0; }
         }
-        .animate-orbit-1 {
-          animation: rotate-orbit-1 18s linear infinite;
-        }
-        .animate-orbit-2 {
-          animation: rotate-orbit-2 22s linear infinite;
-        }
-        .animate-orbit-3 {
-          animation: rotate-orbit-3 26s linear infinite;
-        }
-        .ripple-effect {
-          position: absolute;
-          border-radius: 50%;
-          background: rgba(255, 255, 255, 0.25);
-          transform: scale(0);
-          animation: ripple 0.4s linear;
-          pointer-events: none;
-        }
-        @keyframes ripple {
-          to {
-            transform: scale(2.5);
-            opacity: 0;
-          }
-        }
+
+        .animate-sun-spin { animation: sun-spin 18s linear infinite; }
+        .animate-float-gentle { animation: float-gentle 6s ease-in-out infinite; }
+        .animate-float-calm { animation: float-calm 8s ease-in-out infinite; }
+        .animate-crystal-shimmer { animation: crystal-shimmer 12s ease-in-out infinite; }
+        .animate-galaxy { animation: galaxy-swirl-anim 25s linear infinite; }
+        .animate-cloud-slow { animation: cloud-move-slow 8s ease-in-out infinite; }
+        .animate-bird { animation: bird-fly 14s ease-in-out infinite; }
+        .animate-speed-line { animation: speed-line-fall 1.5s linear infinite; }
+        .animate-dust { animation: dust-rise 5s ease-in-out infinite; }
+        .animate-ripple { animation: ripple-wave 4s cubic-bezier(0.1, 0.8, 0.3, 1) infinite; }
+        .animate-cherry { animation: cherry-fall 9s ease-in-out infinite; }
+        .animate-explosion { animation: explosion-burst 1.2s cubic-bezier(0.1, 0.8, 0.3, 1) forwards; }
+        
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
       `}</style>
 
-      {/* --- HUD HEADER --- */}
-      <div className={`w-full max-w-md flex flex-wrap items-center justify-center sm:justify-between gap-2.5 mb-6 relative z-30 ${isNativeFullscreen ? 'opacity-80 scale-105' : ''}`}>
-        {/* SUBJECT SELECTION PANEL */}
-        <div className="flex items-center gap-1.5">
-          <button 
-            onClick={() => onPrevSubject && handleAction('prev-subj', onPrevSubject)}
-            className="p-1.5 rounded-lg bg-white/5 border border-white/5 hover:bg-white/10 text-slate-400 hover:text-white transition-all active:scale-95 cursor-pointer"
-            title="Previous Subject"
-          >
-            <ChevronLeft size={14} />
-          </button>
-          <div 
-            className="px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border flex items-center gap-1.5 transition-all duration-1000"
-            style={{
-              backgroundColor: `${theme.strokeStart}1a`,
-              color: theme.strokeStart,
-              borderColor: `${theme.strokeStart}30`,
-              boxShadow: `0 0 10px ${theme.strokeStart}10`
-            }}
-          >
-            <span className="w-1.5 h-1.5 rounded-full bg-current animate-pulse" />
-            <span className="truncate max-w-[110px]">{orbMode === 'pomodoro' ? (mode === 'focus' ? subject : mode.replace('_', ' ')) : 'Stopwatch'}</span>
-          </div>
-          <button 
-            onClick={() => onNextSubject && handleAction('next-subj', onNextSubject)}
-            className="p-1.5 rounded-lg bg-white/5 border border-white/5 hover:bg-white/10 text-slate-400 hover:text-white transition-all active:scale-95 cursor-pointer"
-            title="Next Subject"
-          >
-            <ChevronRight size={14} />
-          </button>
-        </div>
-
-        {/* METRONOME TICK & SOUND & THEME MANUAL SELECTOR */}
-        <div className="flex items-center gap-1.5">
-          {/* Theme cycling picker */}
-          <button
-            onClick={cycleTheme}
-            className="px-2.5 py-1 rounded-lg text-[9px] font-bold uppercase border bg-white/5 border-white/5 text-slate-300 hover:text-white hover:bg-white/10 flex items-center gap-1 transition-all cursor-pointer"
-            title={`Active Theme: ${theme.name}. Click to change.`}
-          >
-            <span 
-              className="w-2 h-2 rounded-full border border-white/20 transition-all duration-1000" 
-              style={{ background: `linear-gradient(135deg, ${theme.strokeStart}, ${theme.strokeEnd})` }}
-            />
-            <span className="text-[8px] font-mono opacity-80">{theme.name}</span>
-          </button>
-
-          <button
-            onClick={() => handleAction('metronome', () => setTickSoundEnabled(!tickSoundEnabled))}
-            className={`px-2 py-1 rounded-lg text-[9px] font-bold uppercase border transition-all cursor-pointer ${
-              tickSoundEnabled && (status === 'running' || stopwatchStatus === 'running')
-                ? 'bg-amber-500/15 text-amber-300 border-amber-500/25 shadow-[0_0_12px_rgba(245,158,11,0.15)] animate-pulse'
-                : 'bg-white/5 border-white/5 text-slate-400 hover:text-white hover:bg-white/10'
-            }`}
-            title="Toggle Tick Sound"
-          >
-            Tick
-          </button>
-          <button
-            onClick={() => setSoundEnabled(!soundEnabled)}
-            className="p-1.5 rounded-lg bg-white/5 border border-white/5 hover:bg-white/10 text-slate-400 hover:text-white transition-all cursor-pointer"
-            title={soundEnabled ? 'Mute Sounds' : 'Unmute Sounds'}
-          >
-            {soundEnabled ? <Volume2 size={13} /> : <VolumeX size={13} />}
-          </button>
-        </div>
-      </div>
-
-      {/* --- SEGMENTED MODE SWITCHER --- */}
-      <div className="mb-8 w-full max-w-[280px] relative z-30">
-        <div className="flex bg-slate-950/60 p-1.5 rounded-2xl border border-white/10 gap-1.5 relative shadow-inner">
-          <button
-            onClick={() => {
-              setOrbMode('pomodoro');
-              playSynthSound('click');
-            }}
-            className={`flex-1 py-1.5 rounded-xl text-[10px] font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all duration-300 relative z-10 cursor-pointer ${
-              orbMode === 'pomodoro' ? 'text-white' : 'text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            {orbMode === 'pomodoro' && (
-              <div className="absolute inset-0 bg-gradient-to-r from-white/10 to-white/[0.02] border border-white/10 rounded-xl -z-10 shadow-md" />
-            )}
-            <span>🍅 Pomodoro</span>
-          </button>
-          <button
-            onClick={() => {
-              setOrbMode('stopwatch');
-              playSynthSound('click');
-            }}
-            className={`flex-1 py-1.5 rounded-xl text-[10px] font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all duration-300 relative z-10 cursor-pointer ${
-              orbMode === 'stopwatch' ? 'text-white' : 'text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            {orbMode === 'stopwatch' && (
-              <div className="absolute inset-0 bg-gradient-to-r from-white/10 to-white/[0.02] border border-white/10 rounded-xl -z-10 shadow-md" />
-            )}
-            <span>⏱ Stopwatch</span>
-          </button>
-        </div>
-      </div>
-
-      {/* ==========================================
-          THE CORE GLASS ORB STAGE
-          ========================================== */}
+      {/* 3D Orbit Perspective Container */}
       <div 
-        className={`relative flex items-center justify-center transition-all duration-1000 ${
-          isNativeFullscreen 
-            ? 'w-[280px] h-[280px] min-[360px]:w-[320px] min-[360px]:h-[320px] sm:w-[380px] sm:h-[380px] md:w-[420px] md:h-[420px] my-10' 
-            : 'w-[210px] h-[210px] min-[360px]:w-[240px] min-[360px]:h-[240px] min-[400px]:w-[260px] min-[400px]:h-[260px] sm:w-[290px] sm:h-[290px] md:w-[310px] md:h-[310px] my-4'
-        }`}
+        className="relative flex items-center justify-center w-72 h-72 sm:w-80 sm:h-80 md:w-96 md:h-96"
+        style={{ perspective: '1200px', transformStyle: 'preserve-3d' }}
       >
-        {/* Under-Glow Radial Backlight Aura (matching theme colors) */}
+        
+        {/* --- DYNAMIC DOUBLE ORBITAL RINGS --- */}
+        {/* Ring 1 - Standard rotation with state color accents */}
         <div 
-          className="absolute inset-4 rounded-full blur-[50px] opacity-35 transition-all duration-1000 pointer-events-none z-0"
-          style={{ 
-            background: `radial-gradient(circle, ${theme.strokeStart} 0%, ${theme.strokeEnd} 100%)`,
-            transform: 'scale(1.1)'
-          }}
-        />
-
-        {/* --- TRIPLE 3D ORBIT SYSTEM --- */}
-        <div className="absolute inset-0 pointer-events-none z-10 flex items-center justify-center">
-          {/* Orbit 1 */}
-          <div 
-            className="absolute w-[120%] h-[120%] rounded-full border border-dashed animate-orbit-1"
-            style={{
-              transformStyle: 'preserve-3d',
-              borderColor: `${theme.strokeStart}30`,
-            }}
-          >
-            <div 
-              className="absolute w-2.5 h-2.5 rounded-full shadow-[0_0_12px_currentColor]"
-              style={{
-                top: '0%',
-                left: '50%',
-                color: theme.strokeStart,
-                backgroundColor: theme.strokeStart,
-              }}
-            />
-          </div>
-          
-          {/* Orbit 2 */}
-          <div 
-            className="absolute w-[128%] h-[128%] rounded-full border border-dotted animate-orbit-2"
-            style={{
-              transformStyle: 'preserve-3d',
-              borderColor: `${theme.strokeEnd}25`,
-            }}
-          >
-            <div 
-              className="absolute w-2 h-2 rounded-full shadow-[0_0_10px_currentColor]"
-              style={{
-                bottom: '15%',
-                right: '15%',
-                color: theme.strokeEnd,
-                backgroundColor: theme.strokeEnd,
-              }}
-            />
-          </div>
-
-          {/* Orbit 3 */}
-          <div 
-            className="absolute w-[138%] h-[138%] rounded-full border animate-orbit-3"
-            style={{
-              transformStyle: 'preserve-3d',
-              borderColor: `${theme.strokeStart}15`,
-            }}
-          >
-            <div 
-              className="absolute w-1.5 h-1.5 rounded-full shadow-[0_0_8px_currentColor]"
-              style={{
-                top: '75%',
-                left: '12%',
-                color: theme.strokeStart,
-                backgroundColor: theme.strokeStart,
-              }}
-            />
-          </div>
-        </div>
-
-        {/* -------------------------------------------
-            THE GLASS SPHERE CONTAINER
-            ------------------------------------------- */}
-        <div 
-          className={`w-full h-full rounded-full relative flex items-center justify-center overflow-hidden border border-white/20 backdrop-blur-3xl transition-all duration-1000 animate-orb-float animate-orb-breath z-20 ${
-            justCompleted 
-              ? 'scale-[1.08] border-white/60 shadow-[0_0_80px_rgba(255,255,255,0.7)]' 
-              : 'shadow-[inset_0_20px_40px_rgba(255,255,255,0.12),_inset_0_-20px_40px_rgba(0,0,0,0.6),_0_25px_50px_rgba(0,0,0,0.5)]'
-          }`}
+          className="absolute rounded-full border border-dashed border-tm-primary/25 animate-ring-1 transition-all duration-[1000ms]"
           style={{
-            background: 'radial-gradient(circle at 35% 35%, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.0) 60%), rgba(10, 18, 36, 0.35)',
+            width: '112%',
+            height: '112%',
+            transformStyle: 'preserve-3d',
+            transform: 'rotateX(72deg)',
           }}
         >
-          {/* --- WAVE ENERGY LAYER (Liquid fluid container filling based on timer progress) --- */}
-          <div className="absolute inset-0 rounded-full overflow-hidden pointer-events-none select-none z-0">
-            <svg 
-              className="absolute inset-0 w-[200%] h-full transition-all duration-1000 ease-in-out" 
-              viewBox="0 0 200 100" 
-              preserveAspectRatio="none"
-              style={{ opacity: justCompleted ? 0.95 : 0.45 }}
-            >
-              <defs>
-                <linearGradient id="fluidGrad1" x1="0%" y1="0%" x2="0%" y2="100%">
-                  <stop offset="0%" stopColor={theme.strokeStart} stopOpacity="0.85" />
-                  <stop offset="100%" stopColor={theme.strokeEnd} stopOpacity="0.3" />
-                </linearGradient>
-                <linearGradient id="fluidGrad2" x1="0%" y1="0%" x2="0%" y2="100%">
-                  <stop offset="0%" stopColor={theme.strokeEnd} stopOpacity="0.6" />
-                  <stop offset="100%" stopColor={theme.strokeStart} stopOpacity="0.1" />
-                </linearGradient>
-              </defs>
+          {/* Glowing particle on ring */}
+          <span className="absolute w-3 h-3 rounded-full bg-tm-primary shadow-[0_0_15px_var(--tm-primary)] top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 transition-colors duration-[1000ms]" />
+        </div>
 
-              {/* Overlapping sine waves translating in opposite directions */}
-              <path 
-                d={wavePath2} 
-                fill="url(#fluidGrad2)" 
-                className="animate-wave-2 transition-all duration-1000" 
-              />
-              <path 
-                d={wavePath1} 
-                fill="url(#fluidGrad1)" 
-                className="animate-wave-1 transition-all duration-1000" 
-              />
+        {/* Ring 2 - Alternate reversed angle */}
+        <div 
+          className="absolute rounded-full border-2 border-dotted border-tm-accent/20 animate-ring-2 transition-all duration-[1000ms]"
+          style={{
+            width: '122%',
+            height: '122%',
+            transformStyle: 'preserve-3d',
+            transform: 'rotateX(64deg) rotateY(18deg)',
+          }}
+        >
+          {/* Glowing particle on ring */}
+          <span className="absolute w-2.5 h-2.5 rounded-full bg-tm-accent shadow-[0_0_12px_var(--tm-accent)] bottom-0 left-1/2 -translate-x-1/2 translate-y-1/2 transition-colors duration-[1000ms]" />
+        </div>
+
+        {/* --- DYNAMIC AMBIENT SHIFTING PARTICLES --- */}
+        {mode === 'focus' && (
+          <div className="absolute inset-0 pointer-events-none z-0">
+            {/* Solar particle orbits */}
+            <div className="absolute w-full h-full animate-sun-spin">
+              <span className="absolute w-2 h-2 rounded-full bg-amber-400 blur-[1px] top-4 left-1/3 shadow-[0_0_8px_#F59E0B]" />
+              <span className="absolute w-1.5 h-1.5 rounded-full bg-yellow-300 blur-[1px] bottom-10 right-1/4 shadow-[0_0_6px_#FFE066]" />
+              <span className="absolute w-2 h-2 rounded-full bg-orange-400 blur-[1px] top-1/2 right-4 shadow-[0_0_8px_#EA580C]" />
+            </div>
+          </div>
+        )}
+
+        {mode === 'shortBreak' && (
+          <div className="absolute inset-0 pointer-events-none z-0 overflow-hidden rounded-full">
+            {/* Birds flitting past */}
+            <svg className="absolute w-5 h-5 text-sky-400 animate-bird" style={{ animationDelay: '0s' }} viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 21c-1.1 0-2-.9-2-2v-4.5c0-.8-.7-1.5-1.5-1.5H4c-1.1 0-2-.9-2-2s.9-2 2-2h4.5c.8 0 1.5-.7 1.5-1.5V4c0-1.1.9-2 2-2s2 .9 2 2v4.5c0 .8.7 1.5 1.5 1.5H20c1.1 0 2 .9 2 2s-.9 2-2 2h-4.5c-.8 0-1.5.7-1.5 1.5V19c0 1.1-.9 2-2 2z" className="scale-[0.5] origin-center" />
+            </svg>
+            <svg className="absolute w-4 h-4 text-sky-300 animate-bird" style={{ animationDelay: '6s' }} viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 21c-1.1 0-2-.9-2-2v-4.5c0-.8-.7-1.5-1.5-1.5H4c-1.1 0-2-.9-2-2s.9-2 2-2h4.5c.8 0 1.5-.7 1.5-1.5V4c0-1.1.9-2 2-2s2 .9 2 2v4.5c0 .8.7 1.5 1.5 1.5H20c1.1 0 2 .9 2 2s-.9 2-2 2h-4.5c-.8 0-1.5.7-1.5 1.5V19c0 1.1-.9 2-2 2z" className="scale-[0.5] origin-center" />
             </svg>
           </div>
+        )}
 
-          {/* --- ORB GLASS GLARES AND SHADOW REFLECTIONS --- */}
-          {/* Premium Crescent Top Light Cast */}
-          <div className="absolute top-4 left-6 right-6 h-1/4 rounded-full bg-gradient-to-b from-white/35 to-transparent filter blur-[1px] transform -rotate-3 opacity-90 pointer-events-none select-none z-20" />
-          
-          {/* Bottom Rim Reflection Accent */}
-          <div className="absolute bottom-5 left-1/3 right-1/3 h-[12%] rounded-full bg-gradient-to-t from-white/15 to-transparent filter blur-[2px] opacity-75 pointer-events-none select-none z-20" />
+        {mode === 'longBreak' && (
+          <div className="absolute inset-0 pointer-events-none z-0">
+            {/* Twinkling stars */}
+            <div className="absolute top-1/4 left-1/4 w-1 h-1 rounded-full bg-white animate-pulse" style={{ animationDuration: '2s' }} />
+            <div className="absolute top-1/3 right-1/4 w-1.5 h-1.5 rounded-full bg-white animate-pulse" style={{ animationDuration: '3.5s' }} />
+            <div className="absolute bottom-1/4 left-1/3 w-1 h-1 rounded-full bg-slate-300 animate-pulse" style={{ animationDuration: '2.8s' }} />
+            <div className="absolute bottom-1/3 right-1/3 w-1 h-1 rounded-full bg-slate-200 animate-pulse" style={{ animationDuration: '4s' }} />
+          </div>
+        )}
 
-          {/* Left subtle glare */}
-          <div className="absolute top-1/4 left-3 w-[6%] h-2/5 rounded-full bg-gradient-to-r from-white/10 to-transparent filter blur-[1px] transform -rotate-12 opacity-50 pointer-events-none select-none z-20" />
+        {mode === 'sprint' && (
+          <div className="absolute inset-0 pointer-events-none z-0 overflow-hidden rounded-full">
+            {/* Fast rocket speed lines */}
+            <div className="absolute w-[1.5px] h-10 bg-orange-400/40 left-12 animate-speed-line" style={{ animationDelay: '0s', animationDuration: '1.2s' }} />
+            <div className="absolute w-[1.5px] h-14 bg-red-400/40 right-14 animate-speed-line" style={{ animationDelay: '0.4s', animationDuration: '0.9s' }} />
+            <div className="absolute w-[2px] h-8 bg-yellow-400/30 left-1/2 animate-speed-line" style={{ animationDelay: '0.8s', animationDuration: '1.5s' }} />
+          </div>
+        )}
 
-          {/* -------------------------------------------
-              ORB CONTENT HUD (TEXT DISPLAY)
-              ------------------------------------------- */}
-          <div className="relative flex flex-col items-center justify-center text-center z-10 px-6">
-            
-            {/* Top Indicator / Mode Tag */}
-            <span 
-              className="text-[9px] font-black uppercase tracking-[0.25em] mb-2 transition-colors duration-1000 flex items-center gap-1"
-              style={{ 
-                color: theme.strokeStart,
-                textShadow: `0 0 10px ${theme.strokeStart}50`
-              }}
+        {mode === 'marathon' && (
+          <div className="absolute inset-0 pointer-events-none z-0 overflow-hidden rounded-full">
+            {/* Rising warm library dust sparkles */}
+            <span className="absolute w-1.5 h-1.5 rounded-full bg-amber-400/60 left-16 animate-dust" style={{ animationDelay: '0s', animationDuration: '6s' }} />
+            <span className="absolute w-2 h-2 rounded-full bg-yellow-300/60 right-20 animate-dust" style={{ animationDelay: '2s', animationDuration: '4.5s' }} />
+            <span className="absolute w-1 h-1 rounded-full bg-amber-300/50 left-1/2 animate-dust" style={{ animationDelay: '3.5s', animationDuration: '5.2s' }} />
+          </div>
+        )}
+
+        {mode === 'zen' && (
+          <div className="absolute inset-0 pointer-events-none z-0 overflow-hidden rounded-full">
+            {/* Soft cherry blossoms drifting down */}
+            <span className="absolute w-2 h-3 bg-pink-300/70 rounded-full left-24 animate-cherry" style={{ animationDelay: '0s', animationDuration: '10s' }} />
+            <span className="absolute w-2.5 h-3.5 bg-pink-400/60 rounded-full right-24 animate-cherry" style={{ animationDelay: '3s', animationDuration: '8s' }} />
+          </div>
+        )}
+
+        {/* --- THE SIGNATURE MORPHING ORB --- */}
+        <div 
+          className={`w-full h-full rounded-full relative overflow-hidden tm-orb flex flex-col items-center justify-center z-10 transition-all duration-[1000ms] ${
+            mode === 'focus' ? 'animate-float-gentle border-orange-500/30 shadow-[0_0_40px_rgba(245,158,11,0.25)]' :
+            mode === 'stopwatch' ? 'animate-float-calm border-blue-500/20 shadow-[0_0_35px_rgba(59,130,246,0.15)]' :
+            mode === 'deepFocus' ? 'animate-float-calm animate-crystal-shimmer border-purple-500/30 shadow-[0_0_40px_rgba(168,85,247,0.2)]' :
+            mode === 'infinityFocus' ? 'animate-galaxy border-pink-500/30 shadow-[0_0_45px_rgba(236,72,153,0.2)]' :
+            mode === 'shortBreak' ? 'animate-float-gentle border-sky-400/20 shadow-[0_0_30px_rgba(56,189,248,0.15)]' :
+            mode === 'longBreak' ? 'animate-float-gentle border-indigo-400/20 shadow-[0_0_40px_rgba(79,70,229,0.2)]' :
+            mode === 'sprint' ? 'animate-breathe border-red-500/30 shadow-[0_0_50px_rgba(239,68,68,0.3)]' :
+            mode === 'marathon' ? 'animate-float-gentle border-yellow-600/30 shadow-[0_0_35px_rgba(217,119,6,0.2)]' :
+            'animate-float-gentle border-teal-500/30 shadow-[0_0_35px_rgba(20,184,166,0.2)]' // zen
+          }`}
+          style={{ 
+            transformStyle: 'preserve-3d',
+            background: 
+              mode === 'focus' ? `radial-gradient(circle at 30% 30%, rgba(254,240,138,0.25) 0%, rgba(249,115,22,0.1) 50%, rgba(0,0,0,0.85) 100%)` :
+              mode === 'stopwatch' ? `radial-gradient(circle at 30% 30%, rgba(191,219,254,0.18) 0%, rgba(30,58,138,0.1) 60%, rgba(0,0,0,0.9) 100%)` :
+              mode === 'deepFocus' ? `radial-gradient(circle at 30% 30%, rgba(232,121,249,0.15) 0%, rgba(88,28,135,0.08) 60%, rgba(5,2,15,0.95) 100%)` :
+              mode === 'infinityFocus' ? `radial-gradient(circle at 50% 50%, rgba(244,114,182,0.15) 0%, rgba(76,29,149,0.05) 50%, rgba(3,1,10,0.95) 100%)` :
+              mode === 'shortBreak' ? `radial-gradient(circle at 30% 30%, rgba(255,255,255,0.35) 0%, rgba(186,230,253,0.2) 50%, rgba(12,74,110,0.85) 100%)` :
+              mode === 'longBreak' ? `radial-gradient(circle at 30% 30%, rgba(226,232,240,0.15) 0%, rgba(30,27,75,0.08) 60%, rgba(3,2,12,0.95) 100%)` :
+              mode === 'sprint' ? `radial-gradient(circle at 30% 30%, rgba(254,205,211,0.22) 0%, rgba(153,27,27,0.1) 60%, rgba(10,1,1,0.9) 100%)` :
+              mode === 'marathon' ? `radial-gradient(circle at 30% 30%, rgba(253,230,138,0.2) 0%, rgba(120,53,15,0.08) 60%, rgba(8,2,1,0.9) 100%)` :
+              `radial-gradient(circle at 30% 30%, rgba(204,251,241,0.2) 0%, rgba(17,94,89,0.05) 60%, rgba(2,6,6,0.9) 100%)` // zen
+          }}
+        >
+
+          {/* --- LAYERED VISUAL ELEMENTS --- */}
+
+          {/* 1. Waves (Used in Stopwatch, Cloud Nest, Zen Garden) */}
+          {(mode === 'stopwatch' || mode === 'shortBreak' || mode === 'zen' || mode === 'focus') && (
+            <div 
+              className="absolute inset-x-0 bottom-0 h-full w-full pointer-events-none transition-all duration-[1000ms] cubic-bezier(0.4, 0, 0.2, 1) z-0"
+              style={{ transform: `translateY(${waveY}%)` }}
             >
-              <Sparkles size={8} className="animate-spin" style={{ animationDuration: '6s' }} />
-              {orbMode === 'pomodoro' ? (mode === 'focus' ? 'Focusing' : 'Relaxing') : 'Stopwatch'}
+              {/* Wave A */}
+              <div className={`absolute inset-0 w-[200%] h-full animate-wave-a transition-all duration-700 ${
+                mode === 'focus' ? 'text-orange-500/10' :
+                mode === 'shortBreak' ? 'text-sky-400/25' :
+                mode === 'zen' ? 'text-teal-400/15' :
+                'text-blue-500/15'
+              }`}>
+                <svg className="w-full h-full fill-current" viewBox="0 0 576 400" preserveAspectRatio="none">
+                  <path d="M 0 15 Q 72 0, 144 15 T 288 15 T 432 15 T 576 15 L 576 400 L 0 400 Z" />
+                </svg>
+              </div>
+
+              {/* Wave B */}
+              <div className={`absolute inset-0 w-[200%] h-full animate-wave-b transition-all duration-700 ${
+                mode === 'focus' ? 'text-amber-500/5' :
+                mode === 'shortBreak' ? 'text-white/20' :
+                mode === 'zen' ? 'text-teal-300/10' :
+                'text-cyan-400/10'
+              }`} style={{ filter: 'hue-rotate(12deg)' }}>
+                <svg className="w-full h-full fill-current" viewBox="0 0 576 400" preserveAspectRatio="none">
+                  <path d="M 0 12 Q 72 25, 144 12 T 288 12 T 432 12 T 576 12 L 576 400 L 0 400 Z" />
+                </svg>
+              </div>
+            </div>
+          )}
+
+          {/* 2. Solar Plasma SVG Overlays (Solar Orb Theme) */}
+          {mode === 'focus' && (
+            <div className="absolute inset-0 pointer-events-none z-0 mix-blend-screen opacity-70">
+              {/* Core Sun Brightness factor */}
+              <svg className="w-full h-full animate-sun-spin" viewBox="0 0 100 100">
+                <defs>
+                  <radialGradient id="sunCoreGrad">
+                    <stop offset="0%" stopColor="#FFFBEB" stopOpacity="0.8" />
+                    <stop offset="50%" stopColor="#F59E0B" stopOpacity="0.4" />
+                    <stop offset="100%" stopColor="#EA580C" stopOpacity="0" />
+                  </radialGradient>
+                </defs>
+                <circle cx="50" cy="50" r={22 + (status === 'running' ? 4 : 0) * fillLevel} fill="url(#sunCoreGrad)" className="transition-all duration-1000" />
+                {/* Plasma bursts */}
+                <ellipse cx="50" cy="50" rx="35" ry="12" fill="#FBBF24" opacity="0.15" transform="rotate(30 50 50)" />
+                <ellipse cx="50" cy="50" rx="35" ry="12" fill="#EA580C" opacity="0.15" transform="rotate(110 50 50)" />
+              </svg>
+            </div>
+          )}
+
+          {/* 3. Floating 3D Crystal Core (Crystal Core Theme) */}
+          {mode === 'deepFocus' && (
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0 scale-90 sm:scale-105">
+              <svg className="w-48 h-48 opacity-80" viewBox="0 0 100 100" fill="none">
+                <polygon points="50,12 72,40 50,60 28,40" fill="url(#crysTopGrad)" opacity="0.85" />
+                <polygon points="28,40 50,60 50,92 14,54" fill="url(#crysSideLGrad)" opacity="0.75" />
+                <polygon points="72,40 50,60 50,92 86,54" fill="url(#crysSideRGrad)" opacity="0.85" />
+                <defs>
+                  <linearGradient id="crysTopGrad" x1="50" y1="12" x2="50" y2="60" gradientUnits="userSpaceOnUse">
+                    <stop offset="0%" stopColor="#E9D5FF" />
+                    <stop offset="100%" stopColor="#A855F7" />
+                  </linearGradient>
+                  <linearGradient id="crysSideLGrad" x1="28" y1="40" x2="50" y2="92" gradientUnits="userSpaceOnUse">
+                    <stop offset="0%" stopColor="#818CF8" />
+                    <stop offset="100%" stopColor="#4F46E5" />
+                  </linearGradient>
+                  <linearGradient id="crysSideRGrad" x1="72" y1="40" x2="50" y2="92" gradientUnits="userSpaceOnUse">
+                    <stop offset="0%" stopColor="#D946EF" />
+                    <stop offset="100%" stopColor="#701A75" />
+                  </linearGradient>
+                </defs>
+              </svg>
+            </div>
+          )}
+
+          {/* 4. Nebula Clouds and Galaxy Swirl (Galaxy Core Theme) */}
+          {mode === 'infinityFocus' && (
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0 overflow-hidden rounded-full scale-100 opacity-80">
+              <div 
+                className="w-full h-full flex items-center justify-center transition-all duration-1000"
+                style={{
+                  // Brighter galaxy as time increases
+                  filter: `brightness(${1 + Math.min(1.2, elapsedSec / 1200)}) saturate(${1 + Math.min(0.8, elapsedSec / 1800)})`
+                }}
+              >
+                <svg className="w-56 h-56 animate-sun-spin" viewBox="0 0 100 100" fill="none">
+                  {/* Outer spiral */}
+                  <path d="M50 50 Q66 30 60 12 T32 8" stroke="url(#galCorePink)" strokeWidth="4.5" strokeLinecap="round" opacity="0.8" />
+                  <path d="M50 50 Q34 70 40 88 T68 92" stroke="url(#galCorePink)" strokeWidth="4.5" strokeLinecap="round" opacity="0.8" />
+                  <path d="M50 50 Q28 35 18 56 T36 78" stroke="url(#galCoreBlue)" strokeWidth="3.5" strokeLinecap="round" opacity="0.6" />
+                  <path d="M50 50 Q72 65 82 44 T64 22" stroke="url(#galCoreBlue)" strokeWidth="3.5" strokeLinecap="round" opacity="0.6" />
+                  {/* Central hyper-glowing white hole */}
+                  <circle cx="50" cy="50" r="9" fill="#FFFFFF" style={{ filter: 'drop-shadow(0 0 10px #F472B6)' }} />
+                  <defs>
+                    <linearGradient id="galCorePink" x1="0" y1="0" x2="100" y2="100%">
+                      <stop offset="0%" stopColor="#F472B6" />
+                      <stop offset="100%" stopColor="#DB2777" />
+                    </linearGradient>
+                    <linearGradient id="galCoreBlue" x1="0" y1="100%" x2="100%" y2="0%">
+                      <stop offset="0%" stopColor="#6366F1" />
+                      <stop offset="100%" stopColor="#312E81" />
+                    </linearGradient>
+                  </defs>
+                </svg>
+              </div>
+            </div>
+          )}
+
+          {/* 5. Glowing Moon & Aurora (Moon Core Theme) */}
+          {mode === 'longBreak' && (
+            <div className="absolute inset-0 pointer-events-none z-0">
+              {/* Aurora background */}
+              <div 
+                className="absolute inset-x-0 top-0 h-40 bg-gradient-to-r from-teal-500/20 via-emerald-500/25 to-indigo-500/20 blur-2xl transition-all"
+                style={{ transform: `translateY(${Math.sin(Date.now() / 3000) * 10}px)` }}
+              />
+              {/* Silver Moon */}
+              <div className="absolute top-10 right-10 w-24 h-24 rounded-full bg-gradient-to-br from-slate-100 to-slate-400 opacity-30 shadow-[0_0_25px_rgba(255,255,255,0.2)] flex items-center justify-center">
+                {/* Subtle moon craters */}
+                <span className="absolute w-4 h-4 rounded-full bg-black/5 top-3 left-6" />
+                <span className="absolute w-3 h-3 rounded-full bg-black/5 bottom-4 left-4" />
+                <span className="absolute w-5 h-5 rounded-full bg-black/5 bottom-6 right-6" />
+              </div>
+            </div>
+          )}
+
+          {/* 6. Flickering Flames (Rocket Engine Theme) */}
+          {mode === 'sprint' && (
+            <div className="absolute inset-x-0 bottom-0 h-32 flex items-end justify-center pointer-events-none z-0">
+              <svg className="w-40 h-28 opacity-85" viewBox="0 0 100 100" preserveAspectRatio="none">
+                <polygon points="50,10 70,80 62,95 38,95 30,80" fill="#EF4444" opacity="0.3" />
+                <polygon points="50,30 65,85 58,95 42,95 35,85" fill="#F97316" opacity="0.5" />
+                <polygon points="50,50 58,90 54,95 46,95 42,90" fill="#FBBF24" opacity="0.8" />
+              </svg>
+            </div>
+          )}
+
+          {/* 7. Shimmering glass Water ripples & Stones (Zen Garden Theme) */}
+          {mode === 'zen' && (
+            <div className="absolute inset-0 pointer-events-none z-0 overflow-hidden flex flex-col justify-between">
+              {/* Water ripples */}
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="absolute w-48 h-48 rounded-full border border-teal-400/20 animate-ripple" style={{ animationDelay: '0s' }} />
+                <div className="absolute w-48 h-48 rounded-full border border-teal-400/20 animate-ripple" style={{ animationDelay: '2s' }} />
+              </div>
+              {/* Stones at the bottom */}
+              <div className="flex justify-center gap-1.5 pb-3 z-10 mt-auto">
+                <span className="w-10 h-5 bg-slate-800/80 rounded-full blur-[1px] border border-slate-700/20" />
+                <span className="w-8 h-4.5 bg-slate-700/80 rounded-full blur-[1px] border border-slate-600/20" />
+                <span className="w-12 h-6.5 bg-slate-800/90 rounded-full blur-[1px] border border-slate-700/20" />
+              </div>
+            </div>
+          )}
+
+          {/* Specular glass reflection top highlight (VisionOS feel) */}
+          <div 
+            className="absolute top-3 inset-x-12 h-[22%] bg-gradient-to-b from-white/20 to-transparent rounded-full blur-[3px] z-20 pointer-events-none"
+            style={{ transform: 'translateZ(20px)' }}
+          />
+
+          {/* Bottom rim subtle ambient glow */}
+          <div 
+            className="absolute bottom-2 inset-x-16 h-[12%] bg-gradient-to-t from-white/10 to-transparent rounded-full blur-[5px] z-20 pointer-events-none"
+            style={{ transform: 'translateZ(15px)' }}
+          />
+
+          {/* --- MAIN DISPLAY CONTENT INSIDE ORB (3D perspective layer) --- */}
+          <div 
+            className="flex flex-col items-center justify-center z-20 text-center px-6 relative w-full"
+            style={{ transform: 'translateZ(40px)' }}
+          >
+            {/* Subject Indicator */}
+            <span className="text-[10px] sm:text-xs font-semibold tracking-[0.3em] uppercase text-white/50 mb-1 drop-shadow-md truncate max-w-[190px] sm:max-w-[240px]">
+              {subject || 'No Subject'}
             </span>
 
-            {/* MAIN CLOCK DIGITAL TIME */}
-            <div 
-              className="font-sans font-black tracking-tight text-white flex items-center tabular-nums leading-none mb-2"
-              style={{ 
-                fontSize: isNativeFullscreen ? '4.75rem' : '3.5rem',
-                textShadow: '0 4px 20px rgba(0, 0, 0, 0.4), 0 0 25px rgba(255, 255, 255, 0.15)'
-              }}
-            >
-              {orbMode === 'pomodoro' ? (
-                <>
-                  <span>{minutes}</span>
-                  <span className={`mx-0.5 ${status === 'running' ? 'animate-pulse' : 'opacity-70'}`}>:</span>
-                  <span>{seconds}</span>
-                </>
-              ) : (
-                <span className="text-[2.5rem] sm:text-[3rem] font-medium leading-none tracking-tight">
-                  {formatStopwatch(stopwatchTime)}
-                </span>
-              )}
+            {/* Time Readout Box */}
+            <div className="min-h-[50px] sm:min-h-[64px] flex items-center justify-center w-full">
+              {mode === 'stopwatch' ? renderStopwatchTime() : renderStandardTime()}
             </div>
 
-            {/* Bottom metadata indicators */}
-            <div className="flex flex-col items-center gap-1">
-              {/* Loop cycle display */}
-              <div className="flex items-center gap-1 text-[8.5px] font-bold text-slate-400 uppercase tracking-widest bg-slate-950/40 py-0.5 px-2 rounded-full border border-white/5 shadow-inner">
-                <span>Cycle:</span>
-                <span className="text-white font-mono">{orbMode === 'pomodoro' ? cycleInfo : 'Continuous'}</span>
-              </div>
+            {/* Status / Label */}
+            <span className="text-[10px] sm:text-xs font-semibold tracking-[0.35em] uppercase text-white/70 mt-2.5 flex items-center gap-2">
+              <span className={`w-2 h-2 rounded-full transition-colors duration-300 ${
+                status === 'running' 
+                  ? 'bg-tm-primary animate-pulse shadow-[0_0_8px_var(--tm-primary)]' 
+                  : 'bg-white/30'
+              }`} />
+              {getModeLabel()}
+            </span>
 
-              {/* Dynamic Estimated Completion End Timer */}
-              <div className="flex items-center gap-1 text-[8.5px] text-slate-500 font-mono">
-                <Info size={9} />
-                <span>{orbMode === 'pomodoro' ? `Ends: ${getEstimatedFinishTime()}` : `Time: ${getEstimatedFinishTime()}`}</span>
-              </div>
-            </div>
+            {/* Specialized Secondary Metric display */}
+            {mode === 'deepFocus' && status === 'running' && (
+              <span className="text-[9px] sm:text-[10px] text-white/40 uppercase tracking-widest mt-2 bg-purple-500/10 px-2 py-0.5 rounded border border-purple-500/10 transition-all duration-500">
+                Finish ~ {getEstFinishTime()}
+              </span>
+            )}
 
-            {/* Glowing orb base ripple helper */}
-            {justCompleted && (
-              <span className="absolute text-[10px] font-bold tracking-widest text-emerald-400 uppercase animate-bounce top-1/2 mt-12 bg-emerald-500/10 border border-emerald-500/20 py-1 px-2.5 rounded-xl">
-                Goal Reached! 🌟
+            {mode === 'infinityFocus' && status === 'running' && (
+              <span className="text-[9px] sm:text-[10px] text-pink-400/80 uppercase tracking-widest mt-2 bg-pink-500/10 px-2.5 py-0.5 rounded-full border border-pink-500/10 transition-all duration-500">
+                Energy: {Math.floor(elapsedSec / 10)} CP
+              </span>
+            )}
+
+            {/* Cycle Count Indicator (Only for Pomodoro/Break modes) */}
+            {mode !== 'stopwatch' && mode !== 'infinityFocus' && (
+              <span className="text-[9px] sm:text-[10px] text-white/40 uppercase tracking-widest mt-2.5">
+                Cycle {cycle}
               </span>
             )}
           </div>
+
+          {/* --- EXPLOSION PARTICLE BURST OVERLAY (Pomodoro Finish) --- */}
+          {explosionActive && (
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-30 overflow-hidden rounded-full">
+              {/* Central flare */}
+              <div className="absolute w-24 h-24 rounded-full bg-gradient-to-r from-amber-300 via-orange-400 to-yellow-300 animate-explosion" />
+              {/* Flaring sun-spot rings */}
+              <div className="absolute w-36 h-36 rounded-full border-4 border-amber-400/40 animate-explosion" style={{ animationDelay: '0.15s' }} />
+              {/* Small dynamic particle bursts */}
+              {[...Array(14)].map((_, idx) => {
+                const angle = `${idx * (360 / 14)}deg`;
+                const dist = `${40 + Math.random() * 50}px`;
+                return (
+                  <span 
+                    key={idx}
+                    className="absolute w-2.5 h-2.5 rounded-full bg-gradient-to-r from-yellow-300 to-orange-500"
+                    style={{
+                      '--angle': angle,
+                      '--dist': dist,
+                      animation: 'particle-drift 1.4s cubic-bezier(0.1, 0.8, 0.3, 1) forwards',
+                      animationDelay: `${Math.random() * 0.15}s`
+                    } as any}
+                  />
+                );
+              })}
+            </div>
+          )}
+
         </div>
       </div>
-
-      {/* ==========================================
-          CURVED ARCUATE BUTTON DECK
-          ========================================== */}
-      <div className={`w-full max-w-sm flex items-center justify-center gap-4.5 mt-8 select-none relative z-30 ${isNativeFullscreen ? 'scale-105 mt-12' : ''}`}>
-        
-        {/* BUTTON 1: SETTINGS (Left Arch) */}
-        <div className="relative group translate-y-2.5 transition-transform">
-          <button
-            onClick={() => onSettings && handleAction('settings', onSettings)}
-            disabled={!onSettings}
-            className="w-10 h-10 rounded-full flex items-center justify-center bg-white/[0.04] border border-white/10 text-slate-400 hover:text-white hover:border-white/20 transition-all active:scale-90 hover:scale-110 cursor-pointer shadow-md backdrop-blur-md relative overflow-hidden"
-            title="Open Configurations (⚙)"
-          >
-            {rippleTarget === 'settings' && <span className="ripple-effect" style={{ left: '50%', top: '50%' }} />}
-            <Settings size={15} />
-          </button>
-          <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-slate-950/90 text-[8.5px] font-bold uppercase tracking-wider text-white rounded-md border border-white/10 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50 shadow-md">
-            Settings
-          </div>
-        </div>
-
-        {/* BUTTON 2: RESET (Center-Left Arch) */}
-        <div className="relative group translate-y-1 transition-transform">
-          <button
-            onClick={() => handleAction('reset', () => {
-              if (orbMode === 'pomodoro') {
-                onReset();
-              } else {
-                setStopwatchTime(0);
-                setStopwatchStatus('idle');
-              }
-            })}
-            className="w-11 h-11 rounded-full flex items-center justify-center bg-white/[0.04] border border-white/10 text-slate-300 hover:text-white hover:border-white/20 transition-all active:scale-90 hover:scale-110 cursor-pointer shadow-md backdrop-blur-md relative overflow-hidden"
-            title="Reset Timer (R)"
-          >
-            {rippleTarget === 'reset' && <span className="ripple-effect" style={{ left: '50%', top: '50%' }} />}
-            <RotateCcw size={16} />
-          </button>
-          <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-slate-950/90 text-[8.5px] font-bold uppercase tracking-wider text-white rounded-md border border-white/10 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50 shadow-md">
-            Reset (R)
-          </div>
-        </div>
-
-        {/* BUTTON 3: START/PAUSE (Peak of the Curve - Vibrant Highlight!) */}
-        <div className="relative group transition-transform">
-          <button
-            onClick={() => handleAction('start-pause', () => {
-              if (orbMode === 'pomodoro') {
-                onStartPause();
-              } else {
-                setStopwatchStatus(prev => prev === 'running' ? 'paused' : 'running');
-              }
-            })}
-            className="w-16 h-16 rounded-full flex items-center justify-center transition-all duration-300 active:scale-95 hover:scale-110 cursor-pointer shadow-lg border relative overflow-hidden"
-            style={{
-              backgroundColor: (orbMode === 'pomodoro' ? status === 'running' : stopwatchStatus === 'running')
-                ? 'rgba(255, 255, 255, 0.95)'
-                : 'rgba(255, 255, 255, 0.08)',
-              borderColor: (orbMode === 'pomodoro' ? status === 'running' : stopwatchStatus === 'running')
-                ? '#ffffff'
-                : `${theme.strokeStart}35`,
-              color: (orbMode === 'pomodoro' ? status === 'running' : stopwatchStatus === 'running')
-                ? '#070b13'
-                : '#ffffff',
-              boxShadow: (orbMode === 'pomodoro' ? status === 'running' : stopwatchStatus === 'running')
-                ? `0 0 30px -3px ${theme.strokeStart}, inset 0 2px 4px rgba(255,255,255,0.4)`
-                : `0 8px 25px -5px ${theme.strokeStart}20`
-            }}
-            title={
-              (orbMode === 'pomodoro' ? status === 'running' : stopwatchStatus === 'running')
-                ? 'Pause (Spacebar)'
-                : 'Start (Spacebar)'
-            }
-          >
-            {rippleTarget === 'start-pause' && <span className="ripple-effect" style={{ left: '50%', top: '50%' }} />}
-            {(orbMode === 'pomodoro' ? status === 'running' : stopwatchStatus === 'running') ? (
-              <Pause size={22} className="fill-current" />
-            ) : (
-              <Play size={22} className="fill-current translate-x-0.5" />
-            )}
-          </button>
-          <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 px-2 py-1 bg-slate-950/90 text-[8.5px] font-bold uppercase tracking-wider text-white rounded-md border border-white/10 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50 shadow-md">
-            Start / Pause (Space)
-          </div>
-        </div>
-
-        {/* BUTTON 4: SKIP (Center-Right Arch) */}
-        <div className="relative group translate-y-1 transition-transform">
-          <button
-            onClick={() => {
-              if (orbMode === 'pomodoro') {
-                onSkip && handleAction('skip', onSkip);
-              } else {
-                // In stopwatch, flashing split confirmation as visual reward
-                handleAction('skip', () => {
-                  setStopwatchTime(prev => prev + 60); // fast-forward 1 min for testing / splits!
-                });
-              }
-            }}
-            disabled={orbMode === 'pomodoro' && !onSkip}
-            className={`w-11 h-11 rounded-full flex items-center justify-center bg-white/[0.04] border border-white/10 text-slate-300 hover:text-white hover:border-white/20 transition-all active:scale-90 hover:scale-110 shadow-md backdrop-blur-md relative overflow-hidden ${
-              orbMode === 'pomodoro' && !onSkip ? 'opacity-30 cursor-not-allowed' : 'cursor-pointer'
-            }`}
-            title={orbMode === 'pomodoro' ? 'Skip Session' : 'Add 1 Minute (+1m)'}
-          >
-            {rippleTarget === 'skip' && <span className="ripple-effect" style={{ left: '50%', top: '50%' }} />}
-            <SkipForward size={16} />
-          </button>
-          <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-slate-950/90 text-[8.5px] font-bold uppercase tracking-wider text-white rounded-md border border-white/10 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50 shadow-md">
-            {orbMode === 'pomodoro' ? 'Skip' : '+1 Min'}
-          </div>
-        </div>
-
-        {/* BUTTON 5: FULLSCREEN (Right Arch) */}
-        <div className="relative group translate-y-2.5 transition-transform">
-          <button
-            onClick={() => handleAction('fullscreen', toggleNativeFullscreen)}
-            className="w-10 h-10 rounded-full flex items-center justify-center bg-white/[0.04] border border-white/10 text-slate-400 hover:text-white hover:border-white/20 transition-all active:scale-90 hover:scale-110 cursor-pointer shadow-md backdrop-blur-md relative overflow-hidden"
-            title="Toggle Immersive Fullscreen (F)"
-          >
-            {rippleTarget === 'fullscreen' && <span className="ripple-effect" style={{ left: '50%', top: '50%' }} />}
-            {isNativeFullscreen ? <Minimize2 size={15} /> : <Maximize2 size={15} />}
-          </button>
-          <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-slate-950/90 text-[8.5px] font-bold uppercase tracking-wider text-white rounded-md border border-white/10 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50 shadow-md">
-            {isNativeFullscreen ? 'Exit (Esc)' : 'Fullscreen (F)'}
-          </div>
-        </div>
-
-      </div>
-
-      {/* SUBTLE HUD CYCLE FOOTER DESCRIPTION */}
-      <div className={`mt-6 text-[9.5px] text-slate-500 font-mono tracking-widest uppercase select-none ${isNativeFullscreen ? 'opacity-50' : ''}`}>
-        Timerra Space Navigation
-      </div>
-
     </div>
   );
-}
+};

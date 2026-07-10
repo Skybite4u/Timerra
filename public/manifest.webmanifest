@@ -1,0 +1,10 @@
+{
+  "name": "Timerra",
+  "short_name": "Timerra",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0b1020",
+  "theme_color": "#0b1020"
+}
