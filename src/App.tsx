@@ -28,8 +28,9 @@ import { BackgroundSystem } from './components/BackgroundSystem';
 import { TaskPanel } from './components/TaskPanel';
 import { BackgroundSettingsPanel } from './components/BackgroundSettingsPanel';
 
-// Vercel Speed Insights
+// Vercel Speed Insights & Analytics
 import { SpeedInsights } from '@vercel/speed-insights/react';
+import { Analytics } from '@vercel/analytics/react';
 
 // Cryptography & API
 import { encryptData, decryptData } from './utils/crypto';
@@ -1182,6 +1183,7 @@ export default function App() {
       {/* Dynamic Animated Ambient Background Layer */}
       <BackgroundSystem config={backgroundConfig} />
       <SpeedInsights />
+      <Analytics />
 
       {/* --- HEADER --- */}
       {!isFullscreen && (
