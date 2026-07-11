@@ -18,7 +18,9 @@ import {
   Play,
   Pause,
   RotateCcw,
-  Eye
+  Eye,
+  Bell,
+  BellOff
 } from 'lucide-react';
 
 // Subcomponents
@@ -35,12 +37,14 @@ import { AmbientMixer } from './components/AmbientMixer';
 import { ModeSelector } from './components/ModeSelector';
 import { ImmersiveFocus } from './components/ImmersiveFocus';
 import { BrandedDefs } from './components/BrandedIcons';
+import { NotificationCenter } from './components/NotificationCenter';
 
 // Custom Libs and Hooks
 import { TimerraDB } from './lib/db';
-import { playClick, playTick, playComplete, vibrateStart, vibratePause } from './lib/audio';
+import { playClick as basePlayClick, playTick as basePlayTick, playComplete, vibrateStart, vibratePause } from './lib/audio';
 import { VaultManager } from './lib/vaultManager';
 import { CapsuleDB } from './lib/capsuleDb';
+import { NotificationManager } from './lib/notificationManager';
 import { useFullscreen } from './hooks/useFullscreen';
 import { useHotkeys } from './hooks/useHotkeys';
 import { useHydrated } from './hooks/useHydrated';
@@ -86,11 +90,64 @@ export default function App() {
   // --- Milestone Ceremony Queue ---
   const [ceremonyQueue, setCeremonyQueue] = useState<any[]>([]);
 
+  // --- Notification Center States ---
+  const [showNotificationCenter, setShowNotificationCenter] = useState<boolean>(false);
+  const [isFocusSilenceMode, setIsFocusSilenceMode] = useState<boolean>(false);
+  const [unseenVaultCount, setUnseenVaultCount] = useState<number>(0);
+  const [unreadNotificationCount, setUnreadNotificationCount] = useState<number>(0);
+
+  // Local silent-wrapped audio functions that obey Silence Mode
+  const playClick = useCallback(() => {
+    if (!isFocusSilenceMode) {
+      basePlayClick();
+    }
+  }, [isFocusSilenceMode]);
+
+  const playTick = useCallback(() => {
+    if (!isFocusSilenceMode) {
+      basePlayTick();
+    }
+  }, [isFocusSilenceMode]);
+
+  // Synchronize Silence Mode with Immersive Focus
+  useEffect(() => {
+    setIsFocusSilenceMode(isImmersiveFocus);
+    if (!isImmersiveFocus) {
+      // Exiting immersive focus! Flush queued silent notifications and show them in Notification Center
+      const flushed = NotificationManager.flushSilenceQueue();
+      if (flushed.length > 0) {
+        console.log(`Exited Immersive Focus. Released ${flushed.length} stored logs.`);
+      }
+    }
+  }, [isImmersiveFocus]);
+
+  // Synchronize counts/badges with local storage and Custom Events
+  const refreshNotificationMetrics = useCallback(() => {
+    setUnreadNotificationCount(NotificationManager.getUnreadCount());
+
+    const vaultState = VaultManager.loadState();
+    const lastOpenedStr = localStorage.getItem('timerra_last_vault_opened_time');
+    const lastOpened = lastOpenedStr ? parseInt(lastOpenedStr) : 0;
+    const count = Object.values(vaultState.unlockedIds).filter(timestamp => timestamp > lastOpened).length;
+    setUnseenVaultCount(count);
+  }, []);
+
+  useEffect(() => {
+    refreshNotificationMetrics();
+    window.addEventListener('timerra_notifications_changed', refreshNotificationMetrics);
+    window.addEventListener('timerra_vault_opened', refreshNotificationMetrics);
+    return () => {
+      window.removeEventListener('timerra_notifications_changed', refreshNotificationMetrics);
+      window.removeEventListener('timerra_vault_opened', refreshNotificationMetrics);
+    };
+  }, [refreshNotificationMetrics]);
+
   // --- Fullscreen Handling ---
   const { isFullscreen, toggleFullscreen } = useFullscreen();
 
   // --- Unlogged Study Duration Tracking Ref ---
   const unloggedStudySecRef = useRef<number>(0);
+  const lastWallTimeRef = useRef<number | null>(null);
 
   // Helper to commit accumulated study seconds to IndexedDB sessions history
   const commitUnloggedStudySec = useCallback(async (forceAll = false) => {
@@ -134,7 +191,37 @@ export default function App() {
           {}
         );
         if (checkResult.newlyUnlocked.length > 0) {
-          setCeremonyQueue(prev => [...prev, ...checkResult.newlyUnlocked]);
+          // Log each unlocked milestone to the central logs silently or actively
+          checkResult.newlyUnlocked.forEach(m => {
+            NotificationManager.addNotification(
+              `Milestone Unlocked: ${m.name}`,
+              `Congratulations! You've unlocked the "${m.name}" milestone in the "${m.category}" category and earned +${m.xpAward} XP.`,
+              'Milestones',
+              false,
+              isFocusSilenceMode
+            );
+          });
+
+          // Only queue for fullscreen ceremony if we are in Immersive Focus (which suppresses rendering till they exit)
+          if (isImmersiveFocus) {
+            setCeremonyQueue(prev => [...prev, ...checkResult.newlyUnlocked]);
+          }
+        }
+
+        // Daily Focus Goal Reached Notification check
+        const todaySessionsCount = updatedSessions.filter(s => {
+          const sDate = new Date(s.completedAt).toISOString().split('T')[0];
+          return sDate === new Date().toISOString().split('T')[0] && s.mode === 'focus';
+        }).length;
+
+        if (todaySessionsCount === settings.cyclesBeforeLongBreak) {
+          NotificationManager.addNotification(
+            'Daily Focus Goal Achieved! 🏆',
+            `Outstanding work! You have successfully completed your daily target of ${settings.cyclesBeforeLongBreak} focus cycles today.`,
+            'Focus Goals',
+            false,
+            isFocusSilenceMode
+          );
         }
       } catch (e) {
         console.error('Milestone evaluation failed', e);
@@ -365,13 +452,34 @@ export default function App() {
     setRemainingSec(nextDurSec);
     setTotalDurationSec(nextDurSec);
 
+    // Dispatch critical session progress notifications to central logs & trigger browser popups
+    if (isNaturalComplete) {
+      if (isStudyMode) {
+        NotificationManager.addNotification(
+          'Focus Session Completed! 🎉',
+          `Well done! You have completed your "${settings.subject}" focus session. Time for a well-deserved recovery break.`,
+          'Focus Goals',
+          true, // Critical alert - bypasses silence storage
+          isFocusSilenceMode
+        );
+      } else {
+        NotificationManager.addNotification(
+          'Break Finished! ⚡',
+          `Your recovery break has ended. Let's return to focus and power up the next study cycle.`,
+          'Focus Goals',
+          true, // Critical alert - bypasses silence storage
+          isFocusSilenceMode
+        );
+      }
+    }
+
     if (settings.autoAdvance) {
       setStatus('running');
       vibrateStart();
     } else {
       setStatus('idle');
     }
-  }, [mode, cycle, settings]);
+  }, [mode, cycle, settings, isFocusSilenceMode]);
 
   useEffect(() => {
     if (status !== 'running') {
@@ -379,16 +487,21 @@ export default function App() {
         cancelAnimationFrame(requestRef.current);
         requestRef.current = null;
       }
-      lastTimeRef.current = null;
+      lastWallTimeRef.current = null;
       return;
     }
 
-    const loop = (time: number) => {
-      if (lastTimeRef.current === null) {
-        lastTimeRef.current = time;
+    lastWallTimeRef.current = Date.now();
+
+    const tick = () => {
+      if (lastWallTimeRef.current === null) {
+        lastWallTimeRef.current = Date.now();
+        return;
       }
-      const dt = (time - lastTimeRef.current) / 1000;
-      lastTimeRef.current = time;
+      const now = Date.now();
+      const dt = (now - lastWallTimeRef.current) / 1000;
+      if (dt <= 0) return;
+      lastWallTimeRef.current = now;
 
       const isStudyMode = mode === 'focus' || mode === 'deepFocus' || mode === 'sprint' || mode === 'marathon' || mode === 'zen' || mode === 'infinityFocus';
 
@@ -422,16 +535,34 @@ export default function App() {
           return next;
         });
       }
+    };
 
+    const loop = () => {
+      tick();
       requestRef.current = requestAnimationFrame(loop);
     };
 
     requestRef.current = requestAnimationFrame(loop);
 
+    // Fallback interval to keep updating timer when backgrounded/throttled
+    const fallbackInterval = setInterval(() => {
+      tick();
+    }, 1000);
+
+    // Visibility change listener for instant foreground synchronization
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        tick();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
     return () => {
       if (requestRef.current) {
         cancelAnimationFrame(requestRef.current);
       }
+      clearInterval(fallbackInterval);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, [status, mode, advancePhase, commitUnloggedStudySec]);
 
@@ -556,6 +687,31 @@ export default function App() {
     playClick();
     toggleFullscreen();
   }, [toggleFullscreen]);
+
+  const handleAdjustTime = useCallback(async (minutesDelta: number) => {
+    const deltaSec = minutesDelta * 60;
+    
+    if (mode !== 'stopwatch' && mode !== 'infinityFocus') {
+      setRemainingSec((prev) => Math.max(10, prev + deltaSec));
+      setTotalDurationSec((prev) => Math.max(10, prev + deltaSec));
+    }
+    
+    let updatedField: keyof TimerSettings | null = null;
+    if (mode === 'focus' || mode === 'deepFocus') updatedField = 'focusMinutes';
+    else if (mode === 'shortBreak') updatedField = 'shortBreakMinutes';
+    else if (mode === 'longBreak') updatedField = 'longBreakMinutes';
+    
+    if (updatedField) {
+      const currentVal = settings[updatedField] as number;
+      const newVal = Math.max(1, currentVal + minutesDelta);
+      const newSettings = {
+        ...settings,
+        [updatedField]: newVal
+      };
+      setSettings(newSettings);
+      await TimerraDB.saveSettings(newSettings);
+    }
+  }, [mode, settings]);
 
   // Bind keydown hotkeys
   useHotkeys({
@@ -804,11 +960,14 @@ export default function App() {
             {/* Vault Milestone button */}
             <button
               onClick={() => { playClick(); setShowMilestoneVault(true); }}
-              className="flex items-center gap-1.5 bg-white/[0.02] hover:bg-white/5 border border-white/5 rounded-2xl px-3 py-1.5 text-xs text-slate-300 hover:text-white transition-all cursor-pointer"
+              className="flex items-center gap-1.5 bg-white/[0.02] hover:bg-white/5 border border-white/5 rounded-2xl px-3 py-1.5 text-xs text-slate-300 hover:text-white transition-all cursor-pointer relative"
               title="Milestone Vault"
             >
               <Award className="w-3.5 h-3.5 text-amber-400 animate-pulse" />
               <span className="hidden sm:inline font-bold">Vault</span>
+              {unseenVaultCount > 0 && (
+                <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-amber-500 border border-[#060814] animate-pulse" />
+              )}
             </button>
 
             {/* Legacy Cards button */}
@@ -819,6 +978,21 @@ export default function App() {
             >
               <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
               <span className="hidden sm:inline font-bold">Legacy Cards</span>
+            </button>
+
+            {/* Logs Notification Center Button */}
+            <button
+              onClick={() => { playClick(); setShowNotificationCenter(true); }}
+              className="flex items-center gap-1.5 bg-white/[0.02] hover:bg-white/5 border border-white/5 rounded-2xl px-3 py-1.5 text-xs text-slate-300 hover:text-white transition-all cursor-pointer relative"
+              title="Workspace Logs"
+            >
+              <Bell className="w-3.5 h-3.5 text-slate-400" />
+              <span className="hidden sm:inline font-bold">Logs</span>
+              {unreadNotificationCount > 0 && (
+                <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-rose-500 text-[8px] font-bold text-white flex items-center justify-center border border-[#060814]">
+                  {unreadNotificationCount}
+                </span>
+              )}
             </button>
 
             {/* Immersive Focus button */}
@@ -1124,7 +1298,7 @@ export default function App() {
       )}
 
       {/* CINEMATIC CEREMONY OVERLAY */}
-      {ceremonyQueue.length > 0 && (
+      {ceremonyQueue.length > 0 && !isImmersiveFocus && (
         <MilestoneCeremony
           milestone={ceremonyQueue[0]}
           onClose={() => setCeremonyQueue(prev => prev.slice(1))}
@@ -1147,9 +1321,19 @@ export default function App() {
           onTogglePlay={handleTogglePlay}
           onReset={handleReset}
           onSkip={handleSkip}
+          onAdjustTime={handleAdjustTime}
           onExit={() => setIsImmersiveFocus(false)}
+          isSilenceModeActive={isFocusSilenceMode}
         />
       )}
+
+      {/* CENTRAL LOGS NOTIFICATION CENTER */}
+      <NotificationCenter
+        isOpen={showNotificationCenter}
+        onClose={() => setShowNotificationCenter(false)}
+        isSilenceModeActive={isFocusSilenceMode}
+        onToggleSilenceMode={() => setIsFocusSilenceMode(p => !p)}
+      />
 
     </div>
   );

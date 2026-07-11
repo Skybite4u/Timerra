@@ -522,8 +522,15 @@ export const CircularTimer: React.FC<CircularTimerProps> = ({
               {mode === 'stopwatch' ? renderStopwatchTime() : renderStandardTime()}
             </div>
 
+            {/* Dynamic Live Minute/Remaining Time Counter */}
+            {mode !== 'stopwatch' && mode !== 'infinityFocus' && (
+              <div className="text-[10px] font-mono font-bold uppercase tracking-[0.15em] text-tm-primary/90 mt-0.5 animate-pulse">
+                Remaining Time: {Math.floor(remainingSec / 60)}m {Math.floor(remainingSec % 60)}s
+              </div>
+            )}
+
             {/* Status / Label */}
-            <span className="text-[10px] sm:text-xs font-semibold tracking-[0.35em] uppercase text-white/70 mt-2.5 flex items-center gap-2">
+            <span className="text-[10px] sm:text-xs font-semibold tracking-[0.35em] uppercase text-white/70 mt-2 flex items-center gap-2">
               <span className={`w-2 h-2 rounded-full transition-colors duration-300 ${
                 status === 'running' 
                   ? 'bg-tm-primary animate-pulse shadow-[0_0_8px_var(--tm-primary)]' 

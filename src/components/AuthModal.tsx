@@ -32,6 +32,7 @@ import { encryptBackup, decryptBackup } from '../lib/crypto';
 import { BackupPayload, EncryptedBackupFile, TimerSettings, Session } from '../types';
 import { CapsuleDB, SavedCapsule } from '../lib/capsuleDb';
 import { playClick, playComplete } from '../lib/audio';
+import { NotificationManager } from '../lib/notificationManager';
 import { 
   ExportCapsuleIcon, 
   ImportCapsuleIcon, 
@@ -234,12 +235,28 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         type: 'success',
         text: 'Workspace Restored! All study history and preferences are back online.'
       });
+
+      NotificationManager.addNotification(
+        'Capsule Restored Successfully',
+        `Restored study workspace containing ${payload.sessions.length} sessions and custom presets successfully.`,
+        'Capsules',
+        true, // critical
+        false
+      );
     } catch (err) {
       setIsRestoring(false);
       setStatus({
         type: 'error',
         text: `Restoration failed: ${err instanceof Error ? err.message : 'Unknown error'}`
       });
+
+      NotificationManager.addNotification(
+        'Workspace Restoration Failure',
+        `A failure occurred while attempting to restore backup capsule: ${err instanceof Error ? err.message : 'Unknown error'}`,
+        'Capsules',
+        true, // critical
+        false
+      );
     }
   };
 
@@ -326,6 +343,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         type: 'success',
         text: `Capsule created successfully! Ported to ${capsuleRecord.filename}.`
       });
+
+      NotificationManager.addNotification(
+        'Backup Capsule Compiled',
+        `A secure study capsule "${capsuleRecord.filename}" containing ${plainPayload.sessions.length} sessions has been successfully compiled and downloaded.`,
+        'Capsules',
+        false, // normal
+        false
+      );
     } catch (err) {
       setIsExporting(false);
       setExportAnimationStage('idle');
@@ -333,6 +358,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         type: 'error',
         text: `Capsule creation failed: ${err instanceof Error ? err.message : 'Unknown error'}`
       });
+
+      NotificationManager.addNotification(
+        'Capsule Export Failure',
+        `Failed to compile study archive capsule: ${err instanceof Error ? err.message : 'Unknown error'}`,
+        'Capsules',
+        true, // critical
+        false
+      );
     }
   };
 

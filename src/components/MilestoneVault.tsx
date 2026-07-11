@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { 
   X, Search, Sparkles, Pin, Trophy, LayoutGrid, Calendar, 
   Layers, Lock, Eye, EyeOff, Award, Bookmark, ArrowRight,
@@ -29,6 +29,22 @@ export const MilestoneVault: React.FC<MilestoneVaultProps> = ({
   const [statusFilter, setStatusFilter] = useState<'all' | 'unlocked' | 'locked'>('all');
   const [rarityFilter, setRarityFilter] = useState<string>('all');
   const [activeTab, setActiveTab] = useState<'vault' | 'timeline' | 'showcase'>('vault');
+
+  // Track vault viewed timestamps to reset Navbar badges
+  useEffect(() => {
+    localStorage.setItem('timerra_last_vault_opened_time', Date.now().toString());
+    window.dispatchEvent(new Event('timerra_vault_opened'));
+  }, []);
+
+  // Filter milestones unlocked within the last 48 hours for the "Recently Unlocked" section
+  const recentlyUnlockedMilestones = useMemo(() => {
+    const fortyEightHoursAgo = Date.now() - 48 * 60 * 60 * 1000;
+    return INITIAL_MILESTONES.map(m => ({
+      ...m,
+      unlockedAt: vaultState.unlockedIds[m.id]
+    })).filter(m => m.unlockedAt && m.unlockedAt >= fortyEightHoursAgo)
+       .sort((a, b) => (b.unlockedAt || 0) - (a.unlockedAt || 0));
+  }, [vaultState.unlockedIds]);
 
   // --- Category definitions ---
   const categories = [
@@ -263,7 +279,53 @@ export const MilestoneVault: React.FC<MilestoneVaultProps> = ({
 
           {/* TAB 1: VAULT EXPLORER */}
           {activeTab === 'vault' && (
-            <div className="space-y-6">
+            <div className="space-y-6 animate-fade-in">
+
+              {/* RECENTLY UNLOCKED SECTION (shows only if there are items unlocked in the last 48 hours) */}
+              {recentlyUnlockedMilestones.length > 0 && (
+                <div className="p-5 rounded-3xl bg-gradient-to-r from-amber-500/[0.03] via-orange-500/[0.01] to-transparent border border-amber-500/15 relative overflow-hidden group">
+                  <div className="absolute top-0 right-0 w-48 h-48 bg-amber-500/5 rounded-full blur-[50px] pointer-events-none" />
+                  
+                  <div className="flex items-center gap-2 mb-3.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-ping" />
+                    <h3 className="text-xs font-extrabold uppercase tracking-widest text-amber-400 flex items-center gap-1.5">
+                      <Trophy className="w-4 h-4" />
+                      Recently Unlocked Accomplishments
+                    </h3>
+                    <span className="text-[9px] text-slate-400 font-bold bg-white/5 px-2 py-0.5 rounded border border-white/5 uppercase">Last 48 Hours</span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3.5">
+                    {recentlyUnlockedMilestones.map((m) => {
+                      const style = rarityColors(m.rarity);
+                      return (
+                        <div 
+                          key={`recent_${m.id}`}
+                          className={`p-3.5 rounded-2xl bg-[#080c1d] border ${style.border} ${style.glow} flex flex-col justify-between relative overflow-hidden`}
+                        >
+                          <div className="space-y-2">
+                            <div className="flex items-center justify-between">
+                              <span className={`text-[8px] uppercase font-bold px-1.5 py-0.5 rounded ${style.badge}`}>
+                                {m.rarity}
+                              </span>
+                              <span className="text-[9px] font-bold font-mono text-tm-primary">
+                                +{m.xpAward} XP
+                              </span>
+                            </div>
+                            <div>
+                              <h4 className="text-xs font-bold text-white truncate">{m.name}</h4>
+                              <p className="text-[10px] text-slate-400 font-medium line-clamp-1 mt-0.5">{m.description}</p>
+                            </div>
+                          </div>
+                          <div className="text-[8px] text-slate-500 font-semibold uppercase tracking-wider mt-2.5 pt-2 border-t border-white/5">
+                            Unlocked {new Date(m.unlockedAt!).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })} today
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
               
               {/* SEARCH & FILTER CONTROLS */}
               <div className="flex flex-col md:flex-row gap-3">
