@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { 
   X, Calendar, Star, Pin, Archive, Trash2, Heart, Plus, Download,
   Sliders, Search, LayoutGrid, Sparkles, Database, Shield, ShieldCheck,
@@ -24,6 +24,14 @@ export const LegacyCardCenter: React.FC<LegacyCardCenterProps> = ({
   streakDays,
   totalFocusHours
 }) => {
+  useEffect(() => {
+    const originalStyle = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = originalStyle;
+    };
+  }, []);
+
   // --- States ---
   const [cards, setCards] = useState<LegacyCard[]>(() => VaultManager.loadLegacyCards());
   const [selectedCardId, setSelectedCardId] = useState<string | null>(() => {
@@ -255,7 +263,7 @@ export const LegacyCardCenter: React.FC<LegacyCardCenterProps> = ({
             </div>
 
             {/* HORIZONTAL / VERTICAL COMPACT CARDS SCROLLER */}
-            <div className="flex-1 overflow-y-auto p-3 space-y-2 scrollbar-none">
+            <div className="flex-1 overflow-y-auto overscroll-contain p-3 space-y-2 scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
               {filteredCards.length === 0 ? (
                 <div className="p-8 text-center text-xs text-slate-600">
                   No collectible cards in history matching this filter.
@@ -317,7 +325,7 @@ export const LegacyCardCenter: React.FC<LegacyCardCenterProps> = ({
           </div>
 
           {/* RIGHT SIDE: PREMIUM ACTIVE COLLECTED CARD EXPANSION & LIVING CARD VIEW */}
-          <div className="flex-1 overflow-y-auto p-6 flex flex-col lg:flex-row gap-6 items-center lg:items-start justify-center bg-black/40 scrollbar-none">
+          <div className="flex-1 overflow-y-auto overscroll-contain p-6 flex flex-col lg:flex-row gap-6 items-center lg:items-start justify-center bg-black/40 scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
             
             {selectedCard ? (
               <>
@@ -687,7 +695,7 @@ export const LegacyCardCenter: React.FC<LegacyCardCenterProps> = ({
               Linking this memory card to a Capsule allows you to backup, sync, and restore both files simultaneously. Select from your saved Capsules below:
             </p>
 
-            <div className="space-y-2 max-h-[220px] overflow-y-auto pr-1">
+            <div className="space-y-2 max-h-[220px] overflow-y-auto overscroll-contain pr-1">
               {capsules.length === 0 ? (
                 <div className="p-8 text-center text-xs text-slate-500 bg-white/[0.01] border border-white/5 rounded-2xl">
                   No active backup capsules found on this device. Create a Capsule first inside Backup Modal!

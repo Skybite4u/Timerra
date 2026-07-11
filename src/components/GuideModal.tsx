@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { 
   X, BookOpen, Search, Info, HelpCircle, Cpu, History, Settings, Key, 
   Database, Shield, Flame, Sliders, ChevronRight, Play, Award, Sparkles, AlertTriangle, Clock
@@ -21,6 +21,16 @@ interface GuideSection {
 export const GuideModal: React.FC<GuideModalProps> = ({ isOpen, onClose }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedSectionId, setSelectedSectionId] = useState('getting-started');
+
+  useEffect(() => {
+    if (isOpen) {
+      const originalStyle = document.body.style.overflow;
+      document.body.style.overflow = 'hidden';
+      return () => {
+        document.body.style.overflow = originalStyle;
+      };
+    }
+  }, [isOpen]);
 
   const sections: GuideSection[] = useMemo(() => [
     {
@@ -462,7 +472,7 @@ export const GuideModal: React.FC<GuideModalProps> = ({ isOpen, onClose }) => {
         <div className="flex-1 flex flex-col md:flex-row overflow-hidden relative z-10">
           
           {/* LEFT INDEX COLUMN */}
-          <div className="w-full md:w-64 border-r border-white/5 bg-black/20 overflow-y-auto p-4 flex flex-row md:flex-col gap-2 shrink-0 md:h-full no-scrollbar">
+          <div className="w-full md:w-64 border-r border-white/5 bg-black/20 overflow-y-auto overscroll-contain p-4 flex flex-row md:flex-col gap-2 shrink-0 md:h-full no-scrollbar">
             {filteredSections.map(sec => {
               const SecIcon = sec.icon;
               const isSelected = sec.id === selectedSectionId;
@@ -487,7 +497,7 @@ export const GuideModal: React.FC<GuideModalProps> = ({ isOpen, onClose }) => {
           </div>
 
           {/* RIGHT DETAIL SECTION CONTAINER */}
-          <div className="flex-1 overflow-y-auto p-6 md:p-8 space-y-6">
+          <div className="flex-1 overflow-y-auto overscroll-contain p-6 md:p-8 space-y-6">
             <div className="space-y-2">
               <div className="flex items-center gap-2">
                 <span className="text-[10px] uppercase font-bold tracking-[0.2em] text-tm-primary bg-tm-primary/5 border border-tm-primary/15 px-2.5 py-0.5 rounded">

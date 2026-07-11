@@ -18,6 +18,16 @@ export const FocusDnaPanel: React.FC<FocusDnaPanelProps> = ({ isOpen, onClose, s
   const [activeTab, setActiveTab] = useState<'profile' | 'resonance' | 'traits' | 'history'>('profile');
   const [showTooltip, setShowTooltip] = useState<boolean>(false);
 
+  React.useEffect(() => {
+    if (isOpen) {
+      const originalStyle = document.body.style.overflow;
+      document.body.style.overflow = 'hidden';
+      return () => {
+        document.body.style.overflow = originalStyle;
+      };
+    }
+  }, [isOpen]);
+
   // Compute live DNA State
   const dnaState = calculateFocusDna(sessions);
   const { stage, score, resonance, traits, history, behaviors, recentProgressMsg, growthTrend } = dnaState;
@@ -226,7 +236,7 @@ export const FocusDnaPanel: React.FC<FocusDnaPanelProps> = ({ isOpen, onClose, s
         </div>
 
         {/* Scrollable Container Content */}
-        <div className="flex-1 overflow-y-auto p-6 sm:p-8 space-y-8 custom-scrollbar">
+        <div className="flex-1 overflow-y-auto overscroll-contain p-6 sm:p-8 space-y-8 custom-scrollbar">
           <AnimatePresence mode="wait">
             {activeTab === 'profile' && (
               <motion.div

@@ -49,6 +49,12 @@ export const FocusConstellation: React.FC<FocusConstellationProps> = ({ isOpen, 
         setPanX(initialPanX);
         setPanY(initialPanY);
       }
+      
+      const originalStyle = document.body.style.overflow;
+      document.body.style.overflow = 'hidden';
+      return () => {
+        document.body.style.overflow = originalStyle;
+      };
     }
   }, [isOpen]);
 

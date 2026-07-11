@@ -35,6 +35,11 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
   useEffect(() => {
     if (isOpen) {
       reloadNotifications();
+      const originalStyle = document.body.style.overflow;
+      document.body.style.overflow = 'hidden';
+      return () => {
+        document.body.style.overflow = originalStyle;
+      };
     }
   }, [isOpen]);
 
@@ -350,7 +355,7 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
         </div>
 
         {/* NOTIFICATIONS CONTAINER */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-4 relative z-10 scrollbar-none">
+        <div className="flex-1 overflow-y-auto overscroll-contain p-6 space-y-4 relative z-10 scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
           
           {filteredNotifications.length === 0 ? (
             <div className="h-full flex flex-col items-center justify-center text-center p-8 space-y-3">

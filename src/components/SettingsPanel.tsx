@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, Sparkles, BookOpen, Sliders, Volume2, Check, Plus, AlertCircle, Edit2, Trash2 } from 'lucide-react';
 import { TimerSettings, ThemeName } from '../types';
 import { THEMES } from '../lib/themes';
@@ -30,6 +30,14 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
   const [tickSnd, setTickSnd] = useState(settings.tickSound);
   const [activeTheme, setActiveTheme] = useState<ThemeName>(settings.theme);
   const [activeSub, setActiveSub] = useState(settings.subject);
+
+  useEffect(() => {
+    const originalStyle = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = originalStyle;
+    };
+  }, []);
 
   const [newSubInput, setNewSubInput] = useState('');
 
@@ -129,7 +137,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
         </div>
 
         {/* Form panel body */}
-        <div className="px-6 py-6 overflow-y-auto space-y-7 max-h-[75vh]">
+        <div className="px-6 py-6 overflow-y-auto overscroll-contain space-y-7 max-h-[75vh]">
           
           {/* Preset buttons */}
           <div className="space-y-3">
