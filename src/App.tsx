@@ -20,8 +20,16 @@ import {
   RotateCcw,
   Eye,
   Bell,
-  BellOff
+  BellOff,
+  Star,
+  Compass
 } from 'lucide-react';
+
+// Focus DNA system imports
+import { FocusDnaPanel } from './components/FocusDnaPanel';
+import { FocusConstellation } from './components/FocusConstellation';
+import { DnaEvolutionCeremony } from './components/DnaEvolutionCeremony';
+import { calculateFocusDna } from './lib/focusDna';
 
 // Subcomponents
 import { CircularTimer } from './components/CircularTimer';
@@ -38,6 +46,8 @@ import { ModeSelector } from './components/ModeSelector';
 import { ImmersiveFocus } from './components/ImmersiveFocus';
 import { BrandedDefs } from './components/BrandedIcons';
 import { NotificationCenter } from './components/NotificationCenter';
+import { HistoryPanel } from './components/HistoryPanel';
+import { GuideModal } from './components/GuideModal';
 
 // Custom Libs and Hooks
 import { TimerraDB } from './lib/db';
@@ -86,6 +96,11 @@ export default function App() {
   const [showMilestoneVault, setShowMilestoneVault] = useState<boolean>(false);
   const [showLegacyCardCenter, setShowLegacyCardCenter] = useState<boolean>(false);
   const [isImmersiveFocus, setIsImmersiveFocus] = useState<boolean>(false);
+  const [showHistoryPanel, setShowHistoryPanel] = useState<boolean>(false);
+  const [showGuideModal, setShowGuideModal] = useState<boolean>(false);
+  const [showFocusDna, setShowFocusDna] = useState<boolean>(false);
+  const [showConstellation, setShowConstellation] = useState<boolean>(false);
+  const [dnaEvolutionStage, setDnaEvolutionStage] = useState<any | null>(null);
 
   // --- Milestone Ceremony Queue ---
   const [ceremonyQueue, setCeremonyQueue] = useState<any[]>([]);
@@ -146,11 +161,12 @@ export default function App() {
   const { isFullscreen, toggleFullscreen } = useFullscreen();
 
   // --- Unlogged Study Duration Tracking Ref ---
+  const sessionStartTimeRef = useRef<number | null>(null);
   const unloggedStudySecRef = useRef<number>(0);
   const lastWallTimeRef = useRef<number | null>(null);
 
   // Helper to commit accumulated study seconds to IndexedDB sessions history
-  const commitUnloggedStudySec = useCallback(async (forceAll = false) => {
+  const commitUnloggedStudySec = useCallback(async (forceAll = false, statusOutcome?: 'completed' | 'skipped' | 'stopped' | 'cancelled') => {
     const isStudyMode = mode === 'focus' || mode === 'deepFocus' || mode === 'sprint' || mode === 'marathon' || mode === 'zen' || mode === 'infinityFocus';
     if (!isStudyMode) return;
 
@@ -165,15 +181,58 @@ export default function App() {
     }
 
     if (secondsToCommit >= 5) {
+      const now = Date.now();
+      const startTime = sessionStartTimeRef.current || (now - secondsToCommit * 1000);
+      
+      const sessionDate = new Date(now);
+      const year = sessionDate.getFullYear();
+      const monthStr = sessionDate.toLocaleString([], { month: 'long' });
+      
+      // Calculate ISO Date and simple week tracker
+      const dateStr = sessionDate.toISOString().split('T')[0];
+      const startOfYear = new Date(year, 0, 1);
+      const diffMs = sessionDate.getTime() - startOfYear.getTime();
+      const weekNumber = Math.ceil((diffMs / 86400000 + startOfYear.getDay() + 1) / 7);
+      const weekStr = `Week ${weekNumber}`;
+
+      const completed = statusOutcome === 'completed' || (forceAll && remainingSec <= 2);
+      const skipped = statusOutcome === 'skipped';
+      const stopped = statusOutcome === 'stopped';
+      const cancelled = statusOutcome === 'cancelled';
+
       const newSession: Session = {
-        mode: 'focus', // backwards compatible with Recharts/D3 stats dashboard
+        mode: mode === 'infinityFocus' ? 'infinityFocus' : mode, // Store actual mode
         subject: settings.subject,
         durationSec: Math.floor(secondsToCommit),
-        completedAt: Date.now(),
+        completedAt: now,
+        startTime,
+        endTime: now,
+        actualDurationSec: Math.floor(secondsToCommit),
+        plannedDurationSec: totalDurationSec,
+        completed,
+        skipped,
+        stopped,
+        cancelled,
+        goal: settings.focusGoal || '',
+        notes: '',
+        mood: 'Focused',
+        orbTheme: settings.orbColorPalette || 'Sunset Flare',
+        device: 'Browser App',
+        date: dateStr,
+        week: weekStr,
+        month: monthStr
       };
       await TimerraDB.addSession(newSession);
       const updatedSessions = await TimerraDB.allSessions();
       setSessions(updatedSessions);
+      
+      // Reset unlogged seconds committed and start time
+      if (forceAll) {
+        unloggedStudySecRef.current = 0;
+        sessionStartTimeRef.current = null;
+      } else {
+        unloggedStudySecRef.current = Math.max(0, unloggedStudySecRef.current - secondsToCommit);
+      }
       
       // Evaluate milestone triggers
       try {
@@ -223,12 +282,52 @@ export default function App() {
             isFocusSilenceMode
           );
         }
+
+        // --- Focus DNA Stage Evolution & Resonance Discovery Checks ---
+        try {
+          const savedDnaStr = localStorage.getItem('timerra_focus_dna_history');
+          let prevMaxLevel = 1;
+          if (savedDnaStr) {
+            try {
+              const parsed = JSON.parse(savedDnaStr);
+              prevMaxLevel = parsed.maxStageReached || 1;
+            } catch {}
+          }
+
+          const currentDna = calculateFocusDna(updatedSessions);
+
+          // Check if current stage is higher than historical maximum level
+          if (currentDna.stage.level > prevMaxLevel) {
+            setDnaEvolutionStage(currentDna.stage);
+            
+            NotificationManager.addNotification(
+              `Focus DNA Evolved: Stage ${currentDna.stage.level} 🎉`,
+              `Your long-term focus identity has evolved to: "${currentDna.stage.name}".`,
+              'System',
+              true, // High-priority critical notification
+              isFocusSilenceMode
+            );
+          }
+
+          // Check if user Resonance alignment changed
+          const lastResonanceId = localStorage.getItem('timerra_discovered_resonance');
+          if (lastResonanceId !== currentDna.resonance.id) {
+            localStorage.setItem('timerra_discovered_resonance', currentDna.resonance.id);
+            
+            NotificationManager.addNotification(
+              `Resonance Aligned: ${currentDna.resonance.name} ${currentDna.resonance.icon}`,
+              `Your long-term focus habits have aligned to: "${currentDna.resonance.name}".`,
+              'System',
+              false,
+              isFocusSilenceMode
+            );
+          }
+        } catch (dnaErr) {
+          console.error('Focus DNA evaluation failed:', dnaErr);
+        }
       } catch (e) {
         console.error('Milestone evaluation failed', e);
       }
-      
-      // Subtract the committed amount
-      unloggedStudySecRef.current = Math.max(0, unloggedStudySecRef.current - secondsToCommit);
       
       // Persist the remaining fraction to localStorage
       const savedStateStr = localStorage.getItem('timerra_live_timer_state');
@@ -243,7 +342,7 @@ export default function App() {
         }
       }
     }
-  }, [mode, settings, setCeremonyQueue]);
+  }, [mode, settings, setCeremonyQueue, isFocusSilenceMode, setDnaEvolutionStage]);
 
   // Synchronize unlogged study seconds to localStorage on tab close / unload
   useEffect(() => {
@@ -492,6 +591,9 @@ export default function App() {
     }
 
     lastWallTimeRef.current = Date.now();
+    if (!sessionStartTimeRef.current) {
+      sessionStartTimeRef.current = Date.now();
+    }
 
     const tick = () => {
       if (lastWallTimeRef.current === null) {
@@ -596,7 +698,7 @@ export default function App() {
     const isStudyMode = mode === 'focus' || mode === 'deepFocus' || mode === 'sprint' || mode === 'marathon' || mode === 'zen' || mode === 'infinityFocus';
     
     if (isStudyMode) {
-      await commitUnloggedStudySec(true);
+      await commitUnloggedStudySec(true, 'stopped');
 
       // Transition to next break mode automatically
       let nextMode: TimerMode = 'shortBreak';
@@ -630,12 +732,24 @@ export default function App() {
       setRemainingSec(focusMinutes * 60);
       setTotalDurationSec(focusMinutes * 60);
       unloggedStudySecRef.current = 0;
+      sessionStartTimeRef.current = null;
     }
   }, [mode, cycle, settings, commitUnloggedStudySec]);
 
+  const handleStop = useCallback(async () => {
+    playClick();
+    await commitUnloggedStudySec(true, 'stopped');
+    setStatus('idle');
+    const focusMinutes = settings.focusMinutes;
+    setRemainingSec(focusMinutes * 60);
+    setTotalDurationSec(focusMinutes * 60);
+    unloggedStudySecRef.current = 0;
+    sessionStartTimeRef.current = null;
+  }, [settings, commitUnloggedStudySec]);
+
   const handleSkip = useCallback(async () => {
     playClick();
-    await commitUnloggedStudySec(true);
+    await commitUnloggedStudySec(true, 'skipped');
     advancePhase(false);
   }, [advancePhase, commitUnloggedStudySec]);
 
@@ -980,6 +1094,26 @@ export default function App() {
               <span className="hidden sm:inline font-bold">Legacy Cards</span>
             </button>
 
+            {/* Focus DNA button */}
+            <button
+              onClick={() => { playClick(); setShowFocusDna(true); }}
+              className="flex items-center gap-1.5 bg-white/[0.02] hover:bg-white/5 border border-white/5 rounded-2xl px-3 py-1.5 text-xs text-slate-300 hover:text-white transition-all cursor-pointer"
+              title="Focus DNA Profile"
+            >
+              <Compass className="w-3.5 h-3.5 text-indigo-400 animate-pulse" />
+              <span className="hidden sm:inline font-bold">Focus DNA</span>
+            </button>
+
+            {/* Focus Constellation button */}
+            <button
+              onClick={() => { playClick(); setShowConstellation(true); }}
+              className="flex items-center gap-1.5 bg-white/[0.02] hover:bg-white/5 border border-white/5 rounded-2xl px-3 py-1.5 text-xs text-slate-300 hover:text-white transition-all cursor-pointer"
+              title="Focus Constellation"
+            >
+              <Star className="w-3.5 h-3.5 text-amber-400 animate-pulse" />
+              <span className="hidden sm:inline font-bold">Constellation</span>
+            </button>
+
             {/* Logs Notification Center Button */}
             <button
               onClick={() => { playClick(); setShowNotificationCenter(true); }}
@@ -1123,13 +1257,28 @@ export default function App() {
                     <p className="text-[10px] text-slate-500">Offline Study Intelligence Analyzer</p>
                   </div>
                 </div>
-                <button
-                  onClick={handleClearHistory}
-                  className="px-3 py-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 hover:text-rose-300 border border-rose-500/20 rounded-xl text-[10px] font-bold tracking-wider transition-all cursor-pointer self-start sm:self-auto flex items-center gap-1"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                  Clear Stats
-                </button>
+                <div className="flex items-center flex-wrap gap-2">
+                  <button
+                    onClick={() => { playClick(); setShowGuideModal(true); }}
+                    className="px-3 py-1.5 bg-tm-primary/10 hover:bg-tm-primary/20 text-tm-primary hover:text-white border border-tm-primary/15 rounded-xl text-[10px] font-extrabold uppercase tracking-widest transition-all cursor-pointer flex items-center gap-1 active:scale-95"
+                  >
+                    Help Guide
+                  </button>
+                  <button
+                    onClick={() => { playClick(); setShowHistoryPanel(true); }}
+                    className="px-3 py-1.5 bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white border border-white/5 rounded-xl text-[10px] font-extrabold uppercase tracking-widest transition-all cursor-pointer flex items-center gap-1 active:scale-95"
+                  >
+                    History Hub
+                  </button>
+                  <button
+                    onClick={handleClearHistory}
+                    className="px-3 py-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 hover:text-rose-300 border border-rose-500/20 rounded-xl text-[10px] font-extrabold uppercase tracking-widest transition-all cursor-pointer flex items-center gap-1 active:scale-95"
+                    title="Clear statistics list"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    Clear
+                  </button>
+                </div>
               </div>
 
               {/* High-level metrics blocks */}
@@ -1194,10 +1343,18 @@ export default function App() {
 
               {/* Focus Completion history list */}
               <div className="space-y-3 pt-4">
-                <h4 className="text-[10px] font-bold uppercase tracking-widest text-slate-400 flex items-center gap-1.5 pl-0.5">
-                  <History className="w-3.5 h-3.5 text-tm-primary" />
-                  Recent Study Sessions
-                </h4>
+                <div className="flex items-center justify-between">
+                  <h4 className="text-[10px] font-bold uppercase tracking-widest text-slate-400 flex items-center gap-1.5 pl-0.5">
+                    <History className="w-3.5 h-3.5 text-tm-primary" />
+                    Recent Study Sessions
+                  </h4>
+                  <button
+                    onClick={() => { playClick(); setShowHistoryPanel(true); }}
+                    className="text-[9px] font-extrabold uppercase tracking-widest text-tm-primary hover:text-white transition-colors cursor-pointer bg-tm-primary/5 hover:bg-tm-primary/10 border border-tm-primary/10 rounded-lg px-2.5 py-1 active:scale-95"
+                  >
+                    Launch History Hub
+                  </button>
+                </div>
                 
                 {sessions.length === 0 ? (
                   <div className="p-8 text-center text-xs text-slate-500 bg-white/[0.01] border border-white/5 rounded-2xl">
@@ -1320,6 +1477,7 @@ export default function App() {
           totalMinutesToday={totalMinutesToday}
           onTogglePlay={handleTogglePlay}
           onReset={handleReset}
+          onStop={handleStop}
           onSkip={handleSkip}
           onAdjustTime={handleAdjustTime}
           onExit={() => setIsImmersiveFocus(false)}
@@ -1334,6 +1492,46 @@ export default function App() {
         isSilenceModeActive={isFocusSilenceMode}
         onToggleSilenceMode={() => setIsFocusSilenceMode(p => !p)}
       />
+
+      {/* COMPREHENSIVE INTERACTIVE STUDY HISTORY PANEL */}
+      <HistoryPanel
+        isOpen={showHistoryPanel}
+        onClose={() => setShowHistoryPanel(false)}
+        sessions={sessions}
+        onSessionsUpdated={setSessions}
+      />
+
+      {/* COMPREHENSIVE HELPFUL TIPS & GUIDE */}
+      <GuideModal
+        isOpen={showGuideModal}
+        onClose={() => setShowGuideModal(false)}
+      />
+
+      {/* FOCUS DNA PROFILE MODAL */}
+      {showFocusDna && (
+        <FocusDnaPanel
+          isOpen={showFocusDna}
+          onClose={() => setShowFocusDna(false)}
+          sessions={sessions}
+        />
+      )}
+
+      {/* FOCUS CONSTELLATION COGNITIVE SKY */}
+      {showConstellation && (
+        <FocusConstellation
+          isOpen={showConstellation}
+          onClose={() => setShowConstellation(false)}
+          sessions={sessions}
+        />
+      )}
+
+      {/* FOCUS DNA EVOLUTION CEREMONY OVERLAY */}
+      {dnaEvolutionStage && (
+        <DnaEvolutionCeremony
+          stage={dnaEvolutionStage}
+          onClose={() => setDnaEvolutionStage(null)}
+        />
+      )}
 
     </div>
   );

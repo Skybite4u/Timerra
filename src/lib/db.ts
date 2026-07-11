@@ -103,6 +103,51 @@ export const TimerraDB = {
     }
   },
 
+  async updateSession(session: Session): Promise<void> {
+    if (session.id) {
+      const idx = inMemoryStore.sessions.findIndex(s => s.id === session.id);
+      if (idx !== -1) {
+        inMemoryStore.sessions[idx] = session;
+      }
+    }
+    try {
+      const db = await openDB();
+      await new Promise<void>((resolve, reject) => {
+        try {
+          const transaction = db.transaction('sessions', 'readwrite');
+          const store = transaction.objectStore('sessions');
+          const request = store.put(session);
+          request.onsuccess = () => resolve();
+          request.onerror = () => reject(request.error);
+        } catch (err) {
+          reject(err);
+        }
+      });
+    } catch (e) {
+      console.warn('DB warning: Session updated in memory only', e);
+    }
+  },
+
+  async deleteSession(id: number): Promise<void> {
+    inMemoryStore.sessions = inMemoryStore.sessions.filter(s => s.id !== id);
+    try {
+      const db = await openDB();
+      await new Promise<void>((resolve, reject) => {
+        try {
+          const transaction = db.transaction('sessions', 'readwrite');
+          const store = transaction.objectStore('sessions');
+          const request = store.delete(id);
+          request.onsuccess = () => resolve();
+          request.onerror = () => reject(request.error);
+        } catch (err) {
+          reject(err);
+        }
+      });
+    } catch (e) {
+      console.warn('DB warning: Session deleted in memory only', e);
+    }
+  },
+
   async allSessions(): Promise<Session[]> {
     try {
       const db = await openDB();

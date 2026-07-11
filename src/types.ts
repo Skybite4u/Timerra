@@ -28,6 +28,24 @@ export interface Session {
   subject: string;
   durationSec: number;
   completedAt: number; // epoch ms
+  
+  // Expanded Session History fields
+  startTime?: number; // epoch ms
+  endTime?: number; // epoch ms
+  actualDurationSec?: number;
+  plannedDurationSec?: number;
+  completed?: boolean;
+  skipped?: boolean;
+  stopped?: boolean;
+  cancelled?: boolean;
+  goal?: string;
+  notes?: string;
+  mood?: 'Focused' | 'Calm' | 'Tired' | 'Distracted' | 'Energetic' | string;
+  orbTheme?: string;
+  device?: string;
+  date?: string; // YYYY-MM-DD
+  week?: string; // e.g., "Week 28"
+  month?: string; // e.g., "July"
 }
 
 export interface BackupPayload {

@@ -106,6 +106,12 @@ export const NotificationManager = {
       list.unshift(newNotif); // prepend
       this.saveNotifications(list);
 
+      // Dispatch a custom event for new notifications
+      if (typeof window !== 'undefined') {
+        const customEvent = new CustomEvent('timerra_new_notification', { detail: newNotif });
+        window.dispatchEvent(customEvent);
+      }
+
       // Trigger Web Browser Notification API if enabled and granted
       if (this.hasBrowserPermission()) {
         try {

@@ -19,7 +19,8 @@ import {
   ChevronRight,
   Sliders,
   ChevronDown,
-  Info
+  Info,
+  Square
 } from 'lucide-react';
 import { TimerMode, TimerStatus, TimerSettings } from '../types';
 import { MODES } from './ModeSelector';
@@ -101,6 +102,7 @@ interface ImmersiveFocusProps {
   totalMinutesToday: number;
   onTogglePlay: () => void;
   onReset: () => void;
+  onStop: () => void;
   onSkip: () => void;
   onExit: () => void;
   onAdjustTime: (deltaMins: number) => void;
@@ -131,6 +133,7 @@ export const ImmersiveFocus: React.FC<ImmersiveFocusProps> = ({
   totalMinutesToday,
   onTogglePlay,
   onReset,
+  onStop,
   onSkip,
   onExit,
   onAdjustTime,
@@ -357,6 +360,11 @@ export const ImmersiveFocus: React.FC<ImmersiveFocusProps> = ({
           onReset();
           handleActivity();
           break;
+        case 's': // Stop
+          e.preventDefault();
+          onStop();
+          handleActivity();
+          break;
         case 'n': // Next Session (Skip)
           e.preventDefault();
           onSkip();
@@ -399,7 +407,7 @@ export const ImmersiveFocus: React.FC<ImmersiveFocusProps> = ({
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [onTogglePlay, onReset, onSkip, onExit, showShortcuts, showConfig]);
+  }, [onTogglePlay, onReset, onStop, onSkip, onExit, showShortcuts, showConfig]);
 
   // Compute fill ratio
   let fillLevel = 0;
@@ -1072,13 +1080,21 @@ export const ImmersiveFocus: React.FC<ImmersiveFocusProps> = ({
           )}
 
           {/* Minimal controls tray */}
-          <div className="flex items-center justify-between gap-4 bg-black/40 backdrop-blur-md px-6 py-3.5 rounded-full border border-white/5 shadow-2xl transition-all duration-300 w-full max-w-[280px] mx-auto md:mx-0">
+          <div className="flex items-center justify-center gap-3 bg-black/40 backdrop-blur-md px-5 py-3 rounded-full border border-white/5 shadow-2xl transition-all duration-300 w-full max-w-[320px] mx-auto md:mx-0">
             <button
               onClick={onReset}
               className="w-11 h-11 flex items-center justify-center rounded-full hover:bg-white/5 text-slate-400 hover:text-white transition-all cursor-pointer active:scale-90"
               title="Restart Session (R)"
             >
               <RotateCcw className="w-5 h-5" />
+            </button>
+
+            <button
+              onClick={onStop}
+              className="w-11 h-11 flex items-center justify-center rounded-full hover:bg-rose-500/10 text-rose-400 hover:text-rose-300 transition-all cursor-pointer active:scale-90"
+              title="Stop Focus Session & Save (S)"
+            >
+              <Square className="w-5 h-5 fill-current" />
             </button>
 
             <button
@@ -1104,7 +1120,7 @@ export const ImmersiveFocus: React.FC<ImmersiveFocusProps> = ({
 
           {/* Keyboard shortcut guide */}
           <div className="hidden sm:block text-[8px] text-slate-500 font-bold tracking-wider uppercase mt-1 w-full text-center md:text-left select-none">
-            [Space] Play/Pause • [R] Restart • [N] Skip • [C] Customizer
+            [Space] Play/Pause • [R] Restart • [S] Stop • [N] Skip • [C] Customizer
           </div>
         </div>
       </div>
