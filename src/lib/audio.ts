@@ -9,7 +9,20 @@ export function primeAudio(): void {
   }
 }
 
+export function vibrateClick(): void {
+  try {
+    if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
+      // Subtle, extremely fast tap for button clicks to offer haptic confirmation
+      navigator.vibrate(15);
+    }
+  } catch (err) {
+    console.warn('Click vibration failed to execute:', err);
+  }
+}
+
 export function playClick(): void {
+  // Trigger subtle haptic feedback for click
+  vibrateClick();
   try {
     primeAudio();
     if (!audioCtx) return;

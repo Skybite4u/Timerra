@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { CloudRain, Coffee, Sparkles, Volume2, VolumeX, Play, Pause, Music, Youtube, Link2 } from 'lucide-react';
 
 import { TimerMode, TimerStatus } from '../types';
+import { vibrateClick } from '../lib/audio';
 
 interface AmbientMixerProps {
   timerStatus: TimerStatus;
@@ -146,6 +147,7 @@ export const AmbientMixer: React.FC<AmbientMixerProps> = ({ timerStatus, timerMo
   };
 
   const handleApplyCustomYt = () => {
+    vibrateClick();
     if (!customYtInput) return;
     const id = extractYoutubeId(customYtInput);
     if (id.length === 11) {
@@ -512,6 +514,7 @@ export const AmbientMixer: React.FC<AmbientMixerProps> = ({ timerStatus, timerMo
 
   // Handle single play/pause track toggle
   const toggleTrack = (trackId: string) => {
+    vibrateClick();
     const isNowPlaying = !playingTracks[trackId];
     
     if (fadeIntervalRef.current) {
@@ -534,6 +537,7 @@ export const AmbientMixer: React.FC<AmbientMixerProps> = ({ timerStatus, timerMo
 
   // Handle track independent volume changes
   const handleVolumeChange = (trackId: string, value: number) => {
+    vibrateClick();
     setVolumes(prev => ({ ...prev, [trackId]: value }));
     
     if (masterMutedRef.current) return;
@@ -560,6 +564,7 @@ export const AmbientMixer: React.FC<AmbientMixerProps> = ({ timerStatus, timerMo
 
   // Handle global volume slider change
   const handleGlobalVolumeChange = (value: number) => {
+    vibrateClick();
     setGlobalVolume(value);
     globalVolumeRef.current = value;
     
@@ -592,6 +597,7 @@ export const AmbientMixer: React.FC<AmbientMixerProps> = ({ timerStatus, timerMo
   // Master Control: Pause All / Resume Mix
   const isAnyPlaying = Object.values(playingTracks).some(v => v);
   const handleMasterToggle = () => {
+    vibrateClick();
     if (fadeIntervalRef.current) {
       clearInterval(fadeIntervalRef.current);
       fadeIntervalRef.current = null;
@@ -631,6 +637,7 @@ export const AmbientMixer: React.FC<AmbientMixerProps> = ({ timerStatus, timerMo
 
   // Handle Master Mute / Unmute Toggle
   const handleMasterMuteToggle = () => {
+    vibrateClick();
     const nextMute = !masterMuted;
     setMasterMuted(nextMute);
     masterMutedRef.current = nextMute;
@@ -1035,7 +1042,7 @@ export const AmbientMixer: React.FC<AmbientMixerProps> = ({ timerStatus, timerMo
           {/* Toggle Switch */}
           <button
             type="button"
-            onClick={() => setYtActive(!ytActive)}
+            onClick={() => { vibrateClick(); setYtActive(!ytActive); }}
             className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-300 ease-in-out focus:outline-none ${
               ytActive 
                 ? 'bg-red-600 shadow-[0_0_12px_rgba(220,38,38,0.5)]' 
@@ -1077,6 +1084,7 @@ export const AmbientMixer: React.FC<AmbientMixerProps> = ({ timerStatus, timerMo
                 <button
                   key={station.id}
                   onClick={() => {
+                    vibrateClick();
                     setYtVideoId(station.id);
                     setYtActive(true);
                   }}

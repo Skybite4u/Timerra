@@ -9,7 +9,7 @@ export type TimerMode =
   | "marathon"       // Ancient Library (Warm)
   | "zen";           // Japanese Zen Garden (Peaceful)
 export type TimerStatus = "idle" | "running" | "paused" | "completed";
-export type ThemeName = "blue" | "purple" | "emerald" | "orange" | "red" | "cyber" | "midnight" | "aurora";
+export type ThemeName = "blue" | "purple" | "emerald" | "orange" | "red" | "cyber" | "midnight" | "aurora" | "custom";
 
 export interface TimerSettings {
   focusMinutes: number;          // default 25
@@ -22,6 +22,13 @@ export interface TimerSettings {
   subject: string;               // default "Deep Work"
   autoDim?: boolean;             // default true
   syncWithSystem?: boolean;      // default false
+  dailyGoalHours?: number;       // default 4
+  customTheme?: {
+    primary: string;
+    accent: string;
+    bgFrom: string;
+    bgTo: string;
+  };
 }
 
 export interface Session {

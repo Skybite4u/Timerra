@@ -32,6 +32,12 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
   const [activeSub, setActiveSub] = useState(settings.subject);
   const [autoDimVal, setAutoDimVal] = useState(settings.autoDim !== false);
   const [syncWithSystem, setSyncWithSystem] = useState(settings.syncWithSystem === true);
+  const [dailyGoalHoursVal, setDailyGoalHoursVal] = useState(settings.dailyGoalHours || 4);
+
+  const [customPrimary, setCustomPrimary] = useState(settings.customTheme?.primary || '#ef4444');
+  const [customAccent, setCustomAccent] = useState(settings.customTheme?.accent || '#f43f5e');
+  const [customBgFrom, setCustomBgFrom] = useState(settings.customTheme?.bgFrom || '#110505');
+  const [customBgTo, setCustomBgTo] = useState(settings.customTheme?.bgTo || '#050101');
 
   useEffect(() => {
     const originalStyle = document.body.style.overflow;
@@ -103,6 +109,13 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
       subject: activeSub,
       autoDim: autoDimVal,
       syncWithSystem: syncWithSystem,
+      dailyGoalHours: Number(dailyGoalHoursVal),
+      customTheme: {
+        primary: customPrimary,
+        accent: customAccent,
+        bgFrom: customBgFrom,
+        bgTo: customBgTo,
+      }
     });
     onClose();
   };
@@ -182,7 +195,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
             <h3 className="text-xs font-bold uppercase tracking-widest text-slate-400">
               Custom Intervals (Minutes)
             </h3>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
               <div className="space-y-1.5">
                 <label className="text-[10px] uppercase font-semibold tracking-wider text-slate-400">
                   Focus Period
@@ -227,7 +240,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
 
               <div className="space-y-1.5">
                 <label className="text-[10px] uppercase font-semibold tracking-wider text-slate-400">
-                  Cycles before Long
+                  Cycles to Long
                 </label>
                 <input
                   type="number"
@@ -236,6 +249,20 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                   value={cyclesVal}
                   onChange={(e) => setCyclesVal(Math.max(1, Number(e.target.value)))}
                   className="w-full bg-white/5 border border-white/5 rounded-xl px-3 py-2.5 font-mono text-sm focus:border-tm-primary/50 focus:outline-none"
+                />
+              </div>
+
+              <div className="space-y-1.5 col-span-2 sm:col-span-1">
+                <label className="text-[10px] uppercase font-semibold tracking-wider text-slate-400">
+                  Daily Goal (Hrs)
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  max="24"
+                  value={dailyGoalHoursVal}
+                  onChange={(e) => setDailyGoalHoursVal(Math.max(1, Number(e.target.value)))}
+                  className="w-full bg-white/5 border border-white/5 rounded-xl px-3 py-2.5 font-mono text-sm focus:border-tm-primary/50 focus:outline-none text-tm-primary font-bold"
                 />
               </div>
             </div>
@@ -373,7 +400,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                       setSyncWithSystem(false);
                     }}
                     type="button"
-                    className={`p-3 rounded-2xl text-left border transition-all active:scale-95 cursor-pointer flex flex-col justify-between h-[80px] ${
+                    className={`p-3 rounded-2xl text-left border transition-all active:scale-95 cursor-pointer flex flex-col justify-between h-[80px] tm-3d-bar-shadow ${
                       isSelected
                         ? 'bg-white/5 border-tm-primary shadow-[0_0_15px_-3px_var(--tm-glow)] text-white'
                         : 'bg-white/[0.01] border-white/5 hover:border-white/10 text-slate-300 hover:text-white'
@@ -381,16 +408,23 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                   >
                     <div className="flex items-center justify-between w-full">
                       <span className="text-xs font-semibold">{theme.name}</span>
-                      <span className={`w-2.5 h-2.5 rounded-full ${
-                        theme.id === 'blue' ? 'bg-blue-500' :
-                        theme.id === 'purple' ? 'bg-purple-500' :
-                        theme.id === 'emerald' ? 'bg-emerald-500' :
-                        theme.id === 'orange' ? 'bg-orange-500' :
-                        theme.id === 'red' ? 'bg-red-500' :
-                        theme.id === 'cyber' ? 'bg-cyan-400' :
-                        theme.id === 'midnight' ? 'bg-indigo-900' :
-                        'bg-teal-300'
-                      }`} />
+                      {theme.id === 'custom' ? (
+                        <span 
+                          className="w-2.5 h-2.5 rounded-full" 
+                          style={{ background: `linear-gradient(135deg, ${customPrimary}, ${customAccent})` }}
+                        />
+                      ) : (
+                        <span className={`w-2.5 h-2.5 rounded-full ${
+                          theme.id === 'blue' ? 'bg-blue-500' :
+                          theme.id === 'purple' ? 'bg-purple-500' :
+                          theme.id === 'emerald' ? 'bg-emerald-500' :
+                          theme.id === 'orange' ? 'bg-orange-500' :
+                          theme.id === 'red' ? 'bg-red-500' :
+                          theme.id === 'cyber' ? 'bg-cyan-400' :
+                          theme.id === 'midnight' ? 'bg-indigo-900' :
+                          'bg-teal-300'
+                        }`} />
+                      )}
                     </div>
                     <span className="text-[9px] text-slate-400 leading-tight block line-clamp-2 mt-1">
                       {theme.desc}
@@ -399,6 +433,93 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                 );
               })}
             </div>
+
+            {/* Custom Theme Creator Options */}
+            {activeTheme === 'custom' && (
+              <div className="p-4 rounded-2xl bg-white/[0.02] border border-white/5 space-y-3 mt-2 animate-fadeIn text-left">
+                <div className="flex items-center gap-1.5 text-xs font-semibold text-tm-primary">
+                  <Sparkles className="w-4 h-4 text-tm-accent" />
+                  <span>Custom Theme Studio Palette</span>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[10px] text-slate-400 font-semibold mb-1 uppercase tracking-wider">Primary Color</label>
+                    <div className="flex items-center gap-1.5 bg-white/5 border border-white/10 rounded-xl px-2 py-1.5">
+                      <input 
+                        type="color" 
+                        value={customPrimary} 
+                        onChange={(e) => { setCustomPrimary(e.target.value); setSyncWithSystem(false); }}
+                        className="w-5 h-5 rounded cursor-pointer border-0 bg-transparent p-0"
+                      />
+                      <input 
+                        type="text" 
+                        value={customPrimary} 
+                        onChange={(e) => { setCustomPrimary(e.target.value); setSyncWithSystem(false); }}
+                        placeholder="#ef4444"
+                        className="w-full bg-transparent border-0 text-xs text-white focus:outline-none uppercase font-mono"
+                      />
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-[10px] text-slate-400 font-semibold mb-1 uppercase tracking-wider">Accent Shimmer</label>
+                    <div className="flex items-center gap-1.5 bg-white/5 border border-white/10 rounded-xl px-2 py-1.5">
+                      <input 
+                        type="color" 
+                        value={customAccent} 
+                        onChange={(e) => { setCustomAccent(e.target.value); setSyncWithSystem(false); }}
+                        className="w-5 h-5 rounded cursor-pointer border-0 bg-transparent p-0"
+                      />
+                      <input 
+                        type="text" 
+                        value={customAccent} 
+                        onChange={(e) => { setCustomAccent(e.target.value); setSyncWithSystem(false); }}
+                        placeholder="#f43f5e"
+                        className="w-full bg-transparent border-0 text-xs text-white focus:outline-none uppercase font-mono"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] text-slate-400 font-semibold mb-1 uppercase tracking-wider">Canvas Core (From)</label>
+                    <div className="flex items-center gap-1.5 bg-white/5 border border-white/10 rounded-xl px-2 py-1.5">
+                      <input 
+                        type="color" 
+                        value={customBgFrom} 
+                        onChange={(e) => { setCustomBgFrom(e.target.value); setSyncWithSystem(false); }}
+                        className="w-5 h-5 rounded cursor-pointer border-0 bg-transparent p-0"
+                      />
+                      <input 
+                        type="text" 
+                        value={customBgFrom} 
+                        onChange={(e) => { setCustomBgFrom(e.target.value); setSyncWithSystem(false); }}
+                        placeholder="#110505"
+                        className="w-full bg-transparent border-0 text-xs text-white focus:outline-none uppercase font-mono"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] text-slate-400 font-semibold mb-1 uppercase tracking-wider">Canvas Deep (To)</label>
+                    <div className="flex items-center gap-1.5 bg-white/5 border border-white/10 rounded-xl px-2 py-1.5">
+                      <input 
+                        type="color" 
+                        value={customBgTo} 
+                        onChange={(e) => { setCustomBgTo(e.target.value); setSyncWithSystem(false); }}
+                        className="w-5 h-5 rounded cursor-pointer border-0 bg-transparent p-0"
+                      />
+                      <input 
+                        type="text" 
+                        value={customBgTo} 
+                        onChange={(e) => { setCustomBgTo(e.target.value); setSyncWithSystem(false); }}
+                        placeholder="#050101"
+                        className="w-full bg-transparent border-0 text-xs text-white focus:outline-none uppercase font-mono"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Sync with System toggle */}
             <div className="pt-2">

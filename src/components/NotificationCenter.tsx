@@ -196,8 +196,8 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
       {/* Back click exit */}
       <div className="absolute inset-0 cursor-default" onClick={onClose} />
 
-      {/* Slide-over container panel: Slide-over on Desktop, Bottom Sheet on Mobile */}
-      <div className="relative w-full md:max-w-md h-full md:h-screen mt-auto md:mt-0 bg-[#030712]/75 backdrop-blur-[24px] border-t md:border-t-0 md:border-l border-white/[0.08] shadow-[0_0_60px_rgba(0,0,0,0.95)] flex flex-col overflow-hidden rounded-t-[2.5rem] md:rounded-t-none md:rounded-l-[2.5rem] animate-slide-in">
+      {/* Slide-over container panel: Slide-over on Desktop, Elegant Float Sheet on Mobile */}
+      <div className="relative w-full md:max-w-md h-[95vh] md:h-screen mt-auto md:mt-0 bg-slate-950/45 backdrop-blur-[32px] border-t md:border-t-0 md:border-l border-white/15 shadow-[0_0_80px_rgba(0,0,0,0.95)] flex flex-col overflow-hidden rounded-t-[2.5rem] md:rounded-t-none md:rounded-l-[2.5rem] animate-slide-in">
         
         {/* Living background light waves */}
         <div className="absolute top-0 right-0 w-80 h-80 bg-tm-primary/5 rounded-full blur-[100px] pointer-events-none" />
@@ -386,13 +386,13 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
                       return (
                         <div
                           key={n.id}
-                          className={`p-4 rounded-2xl bg-white/[0.01] border ${
+                          className={`p-3.5 sm:p-4 rounded-2xl bg-white/[0.02] backdrop-blur-md border ${
                             n.isCritical 
-                              ? 'border-rose-500/20 bg-rose-500/[0.01]' 
+                              ? 'border-rose-500/30 bg-rose-500/[0.02]' 
                               : n.isRead 
-                                ? 'border-white/[0.03]' 
-                                : 'border-white/10 shadow-[0_4px_20px_rgba(0,0,0,0.1)] bg-[#0c122a]/50'
-                          } hover:bg-white/[0.02] hover:border-white/10 transition-all flex items-start gap-3.5 relative group`}
+                                ? 'border-white/[0.05] bg-white/[0.01]' 
+                                : 'border-white/15 shadow-[0_8px_32px_rgba(0,0,0,0.15)] bg-white/[0.04]'
+                          } hover:bg-white/[0.06] hover:border-white/25 transition-all flex items-start gap-3 sm:gap-3.5 relative group tm-3d-bar-shadow`}
                         >
                           {/* Unread Glow Dot Indicator */}
                           {!n.isRead && (

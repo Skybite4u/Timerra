@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, CSSProperties } from 'react';
 import { 
   Clock, 
   Sparkles, 
@@ -56,7 +56,7 @@ import { NavigationRail } from './components/NavigationRail';
 
 // Custom Libs and Hooks
 import { TimerraDB } from './lib/db';
-import { playClick as basePlayClick, playTick as basePlayTick, playComplete, vibrateStart, vibratePause } from './lib/audio';
+import { playClick as basePlayClick, playTick as basePlayTick, playComplete, vibrateStart, vibratePause, vibrateClick } from './lib/audio';
 import { VaultManager } from './lib/vaultManager';
 import { CapsuleDB } from './lib/capsuleDb';
 import { NotificationManager } from './lib/notificationManager';
@@ -108,6 +108,23 @@ export default function App() {
   const [showConstellation, setShowConstellation] = useState<boolean>(false);
   const [dnaEvolutionStage, setDnaEvolutionStage] = useState<any | null>(null);
 
+  // --- Session duration timer (How long the user is on the website, resets on exit) ---
+  const [sessionTime, setSessionTime] = useState<number>(0);
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setSessionTime(prev => prev + 1);
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const formatSessionTime = (totalSecs: number) => {
+    const h = Math.floor(totalSecs / 3600);
+    const m = Math.floor((totalSecs % 3600) / 60);
+    const s = totalSecs % 60;
+    const pad = (n: number) => n.toString().padStart(2, '0');
+    return h > 0 ? `${pad(h)}h ${pad(m)}m ${pad(s)}s` : `${pad(m)}m ${pad(s)}s`;
+  };
+
   // --- Milestone Ceremony Queue ---
   const [ceremonyQueue, setCeremonyQueue] = useState<any[]>([]);
 
@@ -139,6 +156,7 @@ export default function App() {
 
   // Local silent-wrapped audio functions that obey Silence Mode
   const playClick = useCallback(() => {
+    vibrateClick();
     if (!isFocusSilenceMode) {
       basePlayClick();
     }
@@ -664,9 +682,6 @@ export default function App() {
           const next = prev + dt;
           if (mode === 'infinityFocus') {
             unloggedStudySecRef.current += dt;
-            if (unloggedStudySecRef.current >= 60) {
-              commitUnloggedStudySec(false);
-            }
           }
           return next;
         });
@@ -675,9 +690,6 @@ export default function App() {
           const next = prev - dt;
           if (isStudyMode) {
             unloggedStudySecRef.current += dt;
-            if (unloggedStudySecRef.current >= 60) {
-              commitUnloggedStudySec(false);
-            }
           }
           if (next <= 0) {
             // Completed focus timer session
@@ -1069,7 +1081,8 @@ export default function App() {
   const totalMinutesToday = Math.round(
     todaySessions.reduce((sum, s) => sum + (s.durationSec / 60), 0) + liveCurrentSessionMinutes
   );
-  const focusGoalPercent = Math.min(100, Math.round((todaySessions.length / settings.cyclesBeforeLongBreak) * 100));
+  const dailyGoalMinutes = (settings.dailyGoalHours || 4) * 60;
+  const focusGoalPercent = Math.min(100, Math.round((totalMinutesToday / dailyGoalMinutes) * 100));
 
   // Study Streak Days
   const calculateStreak = (allSessions: Session[]): number => {
@@ -1122,8 +1135,23 @@ export default function App() {
     );
   }
 
+  const customThemeStyles = settings.theme === 'custom' && settings.customTheme ? {
+    '--tm-primary': settings.customTheme.primary,
+    '--tm-accent': settings.customTheme.accent,
+    '--tm-glow': `${settings.customTheme.primary}4d`, // 30% opacity
+    '--tm-wave-a': `${settings.customTheme.primary}40`, // 25% opacity
+    '--tm-wave-b': `${settings.customTheme.accent}33`,  // 20% opacity
+    '--tm-bg-from': settings.customTheme.bgFrom,
+    '--tm-bg-to': settings.customTheme.bgTo,
+    '--tm-ink': '#f1f5f9',
+    '--tm-ink-dim': '#cbd5e1',
+  } as CSSProperties : {};
+
   return (
-    <div className={`min-h-screen theme-${settings.theme} ${isCurrentlyAutoDimmed ? 'auto-dimmed' : ''} bg-gradient-to-b from-tm-bg-from to-tm-bg-to text-white font-sans transition-all duration-700 ease-in-out`}>
+    <div 
+      className={`min-h-screen theme-${settings.theme} ${isCurrentlyAutoDimmed ? 'auto-dimmed' : ''} bg-gradient-to-b from-tm-bg-from to-tm-bg-to text-white font-sans transition-all duration-700 ease-in-out`}
+      style={customThemeStyles}
+    >
       
       {/* Branded Defs Gradients */}
       <BrandedDefs />
@@ -1144,7 +1172,7 @@ export default function App() {
           </div>
 
           {/* Subjects board Selector widget in Navbar */}
-          <div className="flex items-center gap-2 sm:gap-3 overflow-x-auto no-scrollbar max-w-[calc(100%-120px)] sm:max-w-none">
+          <div className="flex items-center gap-2 sm:gap-3 overflow-x-auto no-scrollbar py-1 max-w-[calc(100%-120px)] sm:max-w-none">
             {/* Vault Milestone button */}
             <button
               onClick={() => { playClick(); setShowMilestoneVault(true); }}
@@ -1154,7 +1182,7 @@ export default function App() {
               <Award className="w-3.5 h-3.5 text-amber-400 animate-pulse" />
               <span className="hidden sm:inline font-bold">Vault</span>
               {unseenVaultCount > 0 && (
-                <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-amber-500 border border-[#060814] animate-pulse" />
+                <span className="absolute top-0.5 right-0.5 w-2.5 h-2.5 rounded-full bg-amber-500 border border-[#060814] animate-pulse" />
               )}
             </button>
 
@@ -1197,7 +1225,7 @@ export default function App() {
               <Bell className="w-3.5 h-3.5 text-slate-300" />
               <span className="hidden sm:inline font-bold">Logs</span>
               {unreadNotificationCount > 0 && (
-                <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-rose-500 text-[8px] font-bold text-white flex items-center justify-center border border-[#060814]">
+                <span className="absolute top-0.5 right-0.5 w-3.5 h-3.5 rounded-full bg-rose-500 text-[8px] font-bold text-white flex items-center justify-center border border-[#060814]">
                   {unreadNotificationCount}
                 </span>
               )}
@@ -1242,7 +1270,7 @@ export default function App() {
               </div>
               <div className="flex items-center gap-1.5">
                 <span className="text-slate-400 font-medium leading-none">Daily Goal:</span>
-                <span className="text-white font-bold font-mono leading-none">{todaySessions.length}/{settings.cyclesBeforeLongBreak}</span>
+                <span className="text-white font-bold font-mono leading-none">{(totalMinutesToday / 60).toFixed(1)}/{settings.dailyGoalHours || 4} hrs</span>
                 <span className="text-[10px] text-emerald-400/80 font-mono leading-none">({focusGoalPercent}%)</span>
               </div>
             </div>
@@ -1273,6 +1301,18 @@ export default function App() {
           subject={settings.subject}
           isFullscreen={isFullscreen}
         />
+
+        {/* Standalone Stop & Break Button under the Orb */}
+        {!isFullscreen && ['focus', 'deepFocus', 'sprint', 'marathon', 'zen', 'infinityFocus'].includes(mode) && (
+          <div className="flex justify-center -mt-2 mb-6 animate-fade-in relative z-20">
+            <button
+              onClick={handleReset}
+              className="px-6 py-2.5 bg-rose-500/15 hover:bg-rose-500/25 text-rose-400 hover:text-rose-300 border border-rose-500/35 hover:border-rose-500/55 rounded-full text-xs font-bold uppercase tracking-wider transition-all cursor-pointer flex items-center gap-1.5 active:scale-95 shadow-[0_8px_16px_rgba(244,63,94,0.15)] tm-3d-bar-shadow"
+            >
+              <Pause className="w-3.5 h-3.5 animate-pulse" /> Stop & Start Break
+            </button>
+          </div>
+        )}
 
         {/* Curved Buttons Deck */}
         {!isFullscreen ? (
@@ -1628,8 +1668,14 @@ export default function App() {
       {/* FOOTER STRAPLINE */}
       {!isFullscreen && (
         <footer className="w-full text-center py-10 mt-16 border-t border-white/[0.03] select-none text-[10px] text-slate-500 uppercase font-semibold tracking-[0.2em] max-w-7xl mx-auto px-4 sm:px-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 animate-fade-in">
-          <span>Timerra — Advanced End-to-End Encrypted Offline Sync</span>
-          <span>Secure Local Client • PBKDF2 + AES-GCM</span>
+          <div className="flex flex-col items-center sm:items-start gap-1">
+            <span>Timerra — Advanced End-to-End Encrypted Offline Sync</span>
+            <span className="text-[9px] text-slate-600">Secure Local Client • PBKDF2 + AES-GCM</span>
+          </div>
+          <div className="flex items-center gap-2 bg-white/[0.02] border border-white/5 rounded-full px-4 py-2 shadow-sm font-mono text-[10px] text-tm-primary font-bold">
+            <span className="w-1.5 h-1.5 rounded-full bg-tm-primary animate-ping" />
+            <span>On Site: {formatSessionTime(sessionTime)}</span>
+          </div>
         </footer>
       )}
 
