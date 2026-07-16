@@ -7,6 +7,65 @@ import { Session, TimerMode } from '../types';
 import { TimerraDB } from '../lib/db';
 import { playClick } from '../lib/audio';
 
+interface InlineSessionNoteProps {
+  s: Session;
+  onSave: (notes: string) => Promise<void>;
+}
+
+const InlineSessionNote: React.FC<InlineSessionNoteProps> = ({ s, onSave }) => {
+  const [val, setVal] = useState(s.notes || '');
+  const [isSaving, setIsSaving] = useState(false);
+  const [isSaved, setIsSaved] = useState(false);
+
+  useEffect(() => {
+    setVal(s.notes || '');
+  }, [s.notes]);
+
+  const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setVal(e.target.value);
+    setIsSaved(false);
+  };
+
+  const handleBlur = async () => {
+    if (val !== (s.notes || '')) {
+      setIsSaving(true);
+      await onSave(val);
+      setIsSaving(false);
+      setIsSaved(true);
+      const t = setTimeout(() => setIsSaved(false), 2000);
+      return () => clearTimeout(t);
+    }
+  };
+
+  return (
+    <div className="relative w-full">
+      <textarea
+        value={val}
+        onChange={handleChange}
+        onBlur={handleBlur}
+        placeholder="Type brief, context-aware notes..."
+        rows={1}
+        className="w-full bg-white/[0.03] hover:bg-white/[0.06] focus:bg-black/40 border border-white/5 focus:border-tm-primary/40 rounded-xl px-3 py-2 text-xs text-slate-200 placeholder-slate-600 focus:outline-none transition-all resize-none min-h-[44px] font-sans leading-relaxed shadow-inner"
+      />
+      {isSaving && (
+        <span className="absolute bottom-1.5 right-2 text-[9px] text-tm-primary font-bold animate-pulse">
+          Saving...
+        </span>
+      )}
+      {isSaved && !isSaving && (
+        <span className="absolute bottom-1.5 right-2 text-[9px] text-emerald-400 font-bold flex items-center gap-1">
+          <Check className="w-2.5 h-2.5" /> Saved
+        </span>
+      )}
+      {!isSaving && !isSaved && val !== (s.notes || '') && (
+        <span className="absolute bottom-1.5 right-2 text-[9px] text-amber-400 font-bold">
+          Click away to save
+        </span>
+      )}
+    </div>
+  );
+};
+
 interface HistoryPanelProps {
   isOpen: boolean;
   onClose: () => void;
@@ -30,6 +89,136 @@ export const HistoryPanel: React.FC<HistoryPanelProps> = ({
   const [editNotes, setEditNotes] = useState('');
   const [editGoal, setEditGoal] = useState('');
   const [editMood, setEditMood] = useState('');
+
+  // Manual Logging Form state
+  const [showManualForm, setShowManualForm] = useState(false);
+  const [subjectsList, setSubjectsList] = useState<string[]>([]);
+  const [manualSubject, setManualSubject] = useState('');
+  const [customSubject, setCustomSubject] = useState('');
+  const [selectCustomSubject, setSelectCustomSubject] = useState(false);
+  const [manualMode, setManualMode] = useState<TimerMode>('focus');
+  const [manualDuration, setManualDuration] = useState<number>(25);
+  const [manualDate, setManualDate] = useState('');
+  const [manualTime, setManualTime] = useState('');
+  const [manualGoal, setManualGoal] = useState('');
+  const [manualNotes, setManualNotes] = useState('');
+  const [manualMood, setManualMood] = useState('Focused');
+
+  const getTodayString = () => {
+    const d = new Date();
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  const getCurrentTimeString = () => {
+    const d = new Date();
+    const hours = String(d.getHours()).padStart(2, '0');
+    const minutes = String(d.getMinutes()).padStart(2, '0');
+    return `${hours}:${minutes}`;
+  };
+
+  useEffect(() => {
+    if (isOpen) {
+      setManualDate(getTodayString());
+      setManualTime(getCurrentTimeString());
+      setManualMode('focus');
+      setManualDuration(25);
+      setManualGoal('');
+      setManualNotes('');
+      setManualMood('Focused');
+      setCustomSubject('');
+      setSelectCustomSubject(false);
+
+      // Fetch subjects list
+      const fetchSubjects = async () => {
+        try {
+          const subs = await TimerraDB.allSubjects();
+          setSubjectsList(subs);
+          if (subs.length > 0) {
+            setManualSubject(subs[0]);
+          } else {
+            setManualSubject('Deep Work');
+          }
+        } catch (err) {
+          console.error('Failed to load subjects', err);
+        }
+      };
+      fetchSubjects();
+    }
+  }, [isOpen]);
+
+  const handleLogManualSession = async (e: React.FormEvent) => {
+    e.preventDefault();
+    playClick();
+
+    const subjectToSave = selectCustomSubject ? customSubject.trim() : manualSubject;
+
+    if (!subjectToSave) {
+      alert("Please select or enter a subject name.");
+      return;
+    }
+
+    if (!manualDuration || manualDuration <= 0) {
+      alert("Please enter a valid duration in minutes.");
+      return;
+    }
+
+    try {
+      const [year, month, day] = manualDate.split('-').map(Number);
+      const [hours, minutes] = manualTime.split(':').map(Number);
+      const completedDate = new Date(year, month - 1, day, hours, minutes);
+      const completedAt = completedDate.getTime();
+      const durationSec = manualDuration * 60;
+      const startTime = completedAt - durationSec * 1000;
+
+      const getWeekNumber = (date: Date): string => {
+        const firstDayOfYear = new Date(date.getFullYear(), 0, 1);
+        const pastDaysOfYear = (date.getTime() - firstDayOfYear.getTime()) / 86400000;
+        return `Week ${Math.ceil((pastDaysOfYear + firstDayOfYear.getDay() + 1) / 7)}`;
+      };
+
+      const getMonthName = (date: Date): string => {
+        const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+        return months[date.getMonth()];
+      };
+
+      const newSession: Session = {
+        mode: manualMode,
+        subject: subjectToSave,
+        durationSec: durationSec,
+        completedAt: completedAt,
+        startTime: startTime,
+        endTime: completedAt,
+        actualDurationSec: durationSec,
+        plannedDurationSec: durationSec,
+        completed: true,
+        goal: manualGoal.trim() || undefined,
+        notes: manualNotes.trim() || undefined,
+        mood: manualMood || 'Focused',
+        device: 'Offline Log',
+        date: manualDate,
+        week: getWeekNumber(completedDate),
+        month: getMonthName(completedDate)
+      };
+
+      // Add to IndexedDB
+      await TimerraDB.addSession(newSession);
+
+      // Save custom subject if newly created
+      if (selectCustomSubject) {
+        await TimerraDB.addSubject(subjectToSave);
+      }
+
+      // Close the form & reload history
+      setShowManualForm(false);
+      await reloadHistory();
+    } catch (err) {
+      console.error("Failed to manually log focus session:", err);
+      alert("Failed to save the focus session. Please check your inputs.");
+    }
+  };
 
   // Local storage cache or fetch to make sure database is fully aligned
   const reloadHistory = async () => {
@@ -257,12 +446,12 @@ export const HistoryPanel: React.FC<HistoryPanelProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-md animate-fade-in select-none">
+    <div className="fixed inset-0 z-50 flex justify-end bg-black/75 backdrop-blur-md animate-fade-in select-none">
       {/* Backdrop Click Dismiss */}
       <div className="absolute inset-0 cursor-default" onClick={onClose} />
 
-      {/* Main Container Card */}
-      <div className="relative w-full max-w-5xl h-[90vh] max-h-[820px] bg-[#070b1a]/95 border border-white/10 rounded-3xl shadow-[0_0_50px_rgba(0,0,0,0.8)] flex flex-col overflow-hidden animate-scale-up">
+      {/* Main Container Card: Slide-over on Desktop, Bottom Sheet on Mobile */}
+      <div className="relative w-full md:max-w-2xl h-full md:h-screen mt-auto md:mt-0 bg-[#070b1a]/95 border-t md:border-t-0 md:border-l border-white/10 shadow-[0_0_50px_rgba(0,0,0,0.8)] flex flex-col overflow-hidden rounded-t-[2.5rem] md:rounded-t-none md:rounded-l-[2.5rem] animate-slide-in">
         
         {/* Subtle glowing highlights */}
         <div className="absolute top-0 right-1/4 w-96 h-96 bg-tm-primary/5 rounded-full blur-[120px] pointer-events-none" />
@@ -290,8 +479,11 @@ export const HistoryPanel: React.FC<HistoryPanelProps> = ({
           </button>
         </div>
 
-        {/* BENTO STATS METRICS GRID */}
-        <div className="p-6 bg-white/[0.01] border-b border-white/5 grid grid-cols-2 sm:grid-cols-5 gap-3.5 relative z-10 shrink-0">
+        {/* UNIFIED SCROLLABLE CORE BODY */}
+        <div className="flex-1 overflow-y-auto overscroll-contain flex flex-col relative z-10 scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent custom-scrollbar">
+
+          {/* BENTO STATS METRICS GRID */}
+          <div className="p-6 bg-white/[0.01] border-b border-white/5 grid grid-cols-2 sm:grid-cols-5 gap-3.5 shrink-0">
           
           <div className="bg-black/30 border border-white/5 rounded-2xl p-4 flex flex-col gap-1">
             <span className="text-[9px] uppercase tracking-[0.2em] text-slate-400/80 font-bold select-none">Total Hours</span>
@@ -333,8 +525,8 @@ export const HistoryPanel: React.FC<HistoryPanelProps> = ({
 
         </div>
 
-        {/* CONTROLS (SEARCH, FILTER, SORT, ACTIONS) */}
-        <div className="px-6 py-4 border-b border-white/5 relative z-10 flex flex-col md:flex-row gap-4 items-center justify-between shrink-0 bg-[#060a17]/50">
+        {/* CONTROLS (SEARCH, FILTER, SORT, ACTIONS) - STICKY FOR ACCESSIBILITY */}
+        <div className="px-6 py-4 border-b border-white/5 sticky top-0 z-20 flex flex-col md:flex-row gap-4 items-center justify-between shrink-0 bg-[#070b1a]/95 backdrop-blur-md">
           
           {/* Left: Search input */}
           <div className="relative w-full md:w-72">
@@ -395,7 +587,19 @@ export const HistoryPanel: React.FC<HistoryPanelProps> = ({
           </div>
 
           {/* Right: Export/Delete buttons */}
-          <div className="flex gap-2 w-full md:w-auto shrink-0">
+          <div className="flex flex-wrap gap-2 w-full md:w-auto shrink-0">
+            <button
+              onClick={() => { playClick(); setShowManualForm(prev => !prev); }}
+              className={`flex-1 md:flex-none h-10 px-4 rounded-2xl text-[10px] font-extrabold uppercase tracking-wider transition-all cursor-pointer flex items-center justify-center gap-1.5 active:scale-95 ${
+                showManualForm 
+                  ? 'bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/20 text-rose-400 font-bold' 
+                  : 'bg-tm-primary/20 hover:bg-tm-primary/30 border border-tm-primary/20 text-white font-bold shadow-[0_0_15px_-3px_var(--tm-glow)]'
+              }`}
+              title="Manually log a past focus session completed offline"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>Log Session</span>
+            </button>
             <button
               onClick={handleExportCSV}
               className="flex-1 md:flex-none h-10 px-4 bg-tm-primary/10 hover:bg-tm-primary/20 border border-tm-primary/15 text-tm-primary hover:text-white rounded-2xl text-[10px] font-extrabold uppercase tracking-wider transition-all cursor-pointer flex items-center justify-center gap-1.5 active:scale-95"
@@ -425,8 +629,229 @@ export const HistoryPanel: React.FC<HistoryPanelProps> = ({
 
         </div>
 
-        {/* SESSIONS CARDS GRID/LIST CONTAINER */}
-        <div className="flex-1 overflow-y-auto overscroll-contain p-6 space-y-4 relative z-10 scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
+        {/* SESSIONS CARDS LIST */}
+        <div className="p-6 space-y-4 relative z-10 flex-1">
+          
+          {/* Manual Logging Form Card */}
+          {showManualForm && (
+            <form 
+              onSubmit={handleLogManualSession}
+              className="p-5 rounded-3xl bg-white/[0.03] border border-tm-primary/20 hover:border-tm-primary/30 transition-all flex flex-col gap-4 shadow-[0_0_25px_rgba(59,130,246,0.1)] animate-slide-in relative overflow-hidden"
+            >
+              {/* Subtle top decoration line */}
+              <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-tm-primary/40 via-tm-accent/40 to-tm-primary/40" />
+
+              <div className="flex items-center justify-between border-b border-white/5 pb-2">
+                <div className="flex items-center gap-2">
+                  <div className="w-6 h-6 rounded-lg bg-tm-primary/10 flex items-center justify-center">
+                    <Plus className="w-3.5 h-3.5 text-tm-primary" />
+                  </div>
+                  <span className="text-xs font-bold uppercase tracking-wider text-slate-200">
+                    Log Past Focus Session
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => { playClick(); setShowManualForm(false); }}
+                  className="p-1 text-slate-500 hover:text-white transition-colors cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Grid of Inputs */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                
+                {/* Subject Selector / Input */}
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-[9px] uppercase tracking-wider font-bold text-slate-400 flex items-center gap-1">
+                    <Tag className="w-3 h-3 text-slate-500" />
+                    Subject / Project
+                  </label>
+                  {!selectCustomSubject ? (
+                    <div className="flex gap-1.5">
+                      <select
+                        value={manualSubject}
+                        onChange={(e) => {
+                          if (e.target.value === '__custom__') {
+                            setSelectCustomSubject(true);
+                          } else {
+                            setManualSubject(e.target.value);
+                          }
+                        }}
+                        className="flex-1 bg-[#0b1020] border border-white/5 focus:border-tm-primary/40 rounded-xl px-3 py-2 text-xs text-white focus:outline-none cursor-pointer"
+                      >
+                        {subjectsList.map((sub) => (
+                          <option key={sub} value={sub} className="bg-[#0b1020] text-white">
+                            {sub}
+                          </option>
+                        ))}
+                        <option value="__custom__" className="bg-[#0b1020] text-tm-primary font-bold">
+                          + Create Custom Subject...
+                        </option>
+                      </select>
+                    </div>
+                  ) : (
+                    <div className="flex gap-1.5">
+                      <input
+                        type="text"
+                        value={customSubject}
+                        onChange={(e) => setCustomSubject(e.target.value)}
+                        placeholder="Enter custom subject name..."
+                        className="flex-1 bg-white/[0.02] border border-tm-primary/30 focus:border-tm-primary rounded-xl px-3 py-2 text-xs text-white focus:outline-none placeholder-slate-600"
+                        required
+                        maxLength={40}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => { playClick(); setSelectCustomSubject(false); }}
+                        className="px-2.5 bg-white/5 hover:bg-white/10 rounded-xl text-[10px] font-bold text-slate-400 hover:text-white transition-colors cursor-pointer"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {/* Focus Mode Selector */}
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-[9px] uppercase tracking-wider font-bold text-slate-400 flex items-center gap-1">
+                    <Compass className="w-3 h-3 text-slate-500" />
+                    Focus Style
+                  </label>
+                  <select
+                    value={manualMode}
+                    onChange={(e) => setManualMode(e.target.value as TimerMode)}
+                    className="bg-[#0b1020] border border-white/5 focus:border-tm-primary/40 rounded-xl px-3 py-2 text-xs text-white focus:outline-none cursor-pointer"
+                  >
+                    <option value="focus" className="bg-[#0b1020]">Timerra Pomodoro (Solar Orb)</option>
+                    <option value="deepFocus" className="bg-[#0b1020]">Crystal Core (Calm)</option>
+                    <option value="sprint" className="bg-[#0b1020]">Rocket Engine (Fast)</option>
+                    <option value="marathon" className="bg-[#0b1020]">Ancient Library (Warm)</option>
+                    <option value="zen" className="bg-[#0b1020]">Japanese Zen Garden (Peaceful)</option>
+                  </select>
+                </div>
+
+                {/* Duration in Minutes */}
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-[9px] uppercase tracking-wider font-bold text-slate-400 flex items-center gap-1">
+                    <Clock className="w-3 h-3 text-slate-500" />
+                    Duration (Minutes)
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="480"
+                    value={manualDuration}
+                    onChange={(e) => setManualDuration(Math.max(1, parseInt(e.target.value, 10) || 0))}
+                    className="bg-white/[0.02] border border-white/5 focus:border-tm-primary/40 rounded-xl px-3 py-2 text-xs text-white focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none font-mono"
+                    required
+                  />
+                </div>
+
+                {/* Mood Selector */}
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-[9px] uppercase tracking-wider font-bold text-slate-400 flex items-center gap-1">
+                    <Smile className="w-3 h-3 text-slate-500" />
+                    Focus Mindset / Mood
+                  </label>
+                  <select
+                    value={manualMood}
+                    onChange={(e) => setManualMood(e.target.value)}
+                    className="bg-[#0b1020] border border-white/5 focus:border-tm-primary/40 rounded-xl px-3 py-2 text-xs text-white focus:outline-none cursor-pointer"
+                  >
+                    <option value="Focused" className="bg-[#0b1020]">Focused</option>
+                    <option value="Calm" className="bg-[#0b1020]">Calm</option>
+                    <option value="Energetic" className="bg-[#0b1020]">Energetic</option>
+                    <option value="Tired" className="bg-[#0b1020]">Tired</option>
+                    <option value="Distracted" className="bg-[#0b1020]">Distracted</option>
+                  </select>
+                </div>
+
+                {/* Date Input */}
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-[9px] uppercase tracking-wider font-bold text-slate-400 flex items-center gap-1">
+                    <Calendar className="w-3 h-3 text-slate-500" />
+                    Date Completed
+                  </label>
+                  <input
+                    type="date"
+                    value={manualDate}
+                    onChange={(e) => setManualDate(e.target.value)}
+                    className="bg-white/[0.02] border border-white/5 focus:border-tm-primary/40 rounded-xl px-3 py-2 text-xs text-white focus:outline-none cursor-pointer font-mono text-slate-200"
+                    required
+                  />
+                </div>
+
+                {/* Time Input */}
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-[9px] uppercase tracking-wider font-bold text-slate-400 flex items-center gap-1">
+                    <Clock className="w-3 h-3 text-slate-500" />
+                    Time Completed
+                  </label>
+                  <input
+                    type="time"
+                    value={manualTime}
+                    onChange={(e) => setManualTime(e.target.value)}
+                    className="bg-white/[0.02] border border-white/5 focus:border-tm-primary/40 rounded-xl px-3 py-2 text-xs text-white focus:outline-none cursor-pointer font-mono text-slate-200"
+                    required
+                  />
+                </div>
+
+                {/* Target Goal / Intention */}
+                <div className="flex flex-col gap-1.5 sm:col-span-2">
+                  <label className="text-[9px] uppercase tracking-wider font-bold text-slate-400 flex items-center gap-1">
+                    <Award className="w-3 h-3 text-slate-500" />
+                    Intended Goal / Milestone
+                  </label>
+                  <input
+                    type="text"
+                    value={manualGoal}
+                    onChange={(e) => setManualGoal(e.target.value)}
+                    placeholder="e.g. Completed Chapter 3 of Calculus study guide..."
+                    className="bg-white/[0.02] border border-white/5 focus:border-tm-primary/40 rounded-xl px-3 py-2 text-xs text-white focus:outline-none placeholder-slate-600"
+                    maxLength={100}
+                  />
+                </div>
+
+                {/* Session Notes */}
+                <div className="flex flex-col gap-1.5 sm:col-span-2">
+                  <label className="text-[9px] uppercase tracking-wider font-bold text-slate-400 flex items-center gap-1">
+                    <Edit2 className="w-3 h-3 text-slate-500" />
+                    Self-Reflection / Session Notes
+                  </label>
+                  <textarea
+                    value={manualNotes}
+                    onChange={(e) => setManualNotes(e.target.value)}
+                    placeholder="Type deep focus notes or reflection..."
+                    rows={2}
+                    className="bg-white/[0.02] border border-white/5 focus:border-tm-primary/40 rounded-xl px-3 py-2 text-xs text-white focus:outline-none placeholder-slate-600 resize-none font-sans"
+                    maxLength={300}
+                  />
+                </div>
+
+              </div>
+
+              {/* Submit Buttons */}
+              <div className="flex gap-2.5 justify-end border-t border-white/5 pt-3">
+                <button
+                  type="button"
+                  onClick={() => { playClick(); setShowManualForm(false); }}
+                  className="h-9 px-4 bg-white/5 hover:bg-white/10 rounded-2xl text-[10px] font-extrabold uppercase tracking-wider text-slate-300 hover:text-white transition-all cursor-pointer active:scale-95"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="h-9 px-5 bg-tm-primary hover:bg-tm-primary/80 text-white rounded-2xl text-[10px] font-extrabold uppercase tracking-wider transition-all cursor-pointer active:scale-95 flex items-center gap-1.5 shadow-[0_0_20px_rgba(59,130,246,0.3)]"
+                >
+                  <Check className="w-3.5 h-3.5 font-bold" />
+                  <span>Commit Session Log</span>
+                </button>
+              </div>
+
+            </form>
+          )}
           
           {filteredSessions.length === 0 ? (
             <div className="h-full flex flex-col items-center justify-center text-center py-20 space-y-3">
@@ -560,33 +985,49 @@ export const HistoryPanel: React.FC<HistoryPanelProps> = ({
                           </div>
                         ) : (
                           <>
-                            {(s.goal || s.notes || s.mood) ? (
-                              <div className="bg-black/20 rounded-2xl p-3 border border-white/5 text-[11px] leading-relaxed text-slate-400 space-y-1 select-text">
-                                {s.goal && (
-                                  <div>
-                                    <span className="text-slate-500 font-extrabold uppercase text-[8px] tracking-wider block">Goal</span>
-                                    <span className="text-slate-300 font-medium">{s.goal}</span>
-                                  </div>
-                                )}
-                                {s.notes && (
-                                  <div className="mt-1">
-                                    <span className="text-slate-500 font-extrabold uppercase text-[8px] tracking-wider block">Notes</span>
-                                    <span className="text-slate-300 italic">"{s.notes}"</span>
-                                  </div>
-                                )}
-                                {s.mood && (
-                                  <div className="flex items-center gap-1 mt-1">
-                                    <span className="text-slate-500 font-extrabold uppercase text-[8px] tracking-wider">Mood:</span>
-                                    <span className="text-tm-primary font-bold text-[10px] bg-tm-primary/5 px-1.5 py-0.2 rounded border border-tm-primary/10 flex items-center gap-1">
-                                      <Smile className="w-3 h-3" />
-                                      {s.mood}
-                                    </span>
-                                  </div>
-                                )}
+                            <div className="space-y-2">
+                              {(s.goal || s.mood) && (
+                                <div className="bg-black/20 rounded-2xl p-3 border border-white/5 text-[11px] leading-relaxed text-slate-400 space-y-1 select-text">
+                                  {s.goal && (
+                                    <div>
+                                      <span className="text-slate-500 font-extrabold uppercase text-[8px] tracking-wider block">Goal</span>
+                                      <span className="text-slate-300 font-medium">{s.goal}</span>
+                                    </div>
+                                  )}
+                                  {s.mood && (
+                                    <div className="flex items-center gap-1 mt-1">
+                                      <span className="text-slate-500 font-extrabold uppercase text-[8px] tracking-wider">Mood:</span>
+                                      <span className="text-tm-primary font-bold text-[10px] bg-tm-primary/5 px-1.5 py-0.2 rounded border border-tm-primary/10 flex items-center gap-1">
+                                        <Smile className="w-3 h-3" />
+                                        {s.mood}
+                                      </span>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                              
+                              <div className="space-y-1">
+                                <span className="text-slate-500 font-extrabold uppercase text-[8px] tracking-wider block">
+                                  Session Notes
+                                </span>
+                                <InlineSessionNote s={s} onSave={async (newNotes) => {
+                                  try {
+                                    const all = await TimerraDB.allSessions();
+                                    const match = all.find(item => item.id === s.id);
+                                    if (match) {
+                                      const updated: Session = {
+                                        ...match,
+                                        notes: newNotes
+                                      };
+                                      await TimerraDB.updateSession(updated);
+                                      await reloadHistory();
+                                    }
+                                  } catch (e) {
+                                    console.error('Failed to update session notes inline:', e);
+                                  }
+                                }} />
                               </div>
-                            ) : (
-                              <p className="text-[10px] text-slate-500 italic">No notes or goals registered for this session. Hover card to edit.</p>
-                            )}
+                            </div>
                           </>
                         )}
                       </div>
@@ -619,6 +1060,8 @@ export const HistoryPanel: React.FC<HistoryPanelProps> = ({
         </div>
 
       </div>
+
     </div>
+  </div>
   );
 };

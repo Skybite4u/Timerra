@@ -114,8 +114,12 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-md z-50 flex items-center justify-center p-4 overflow-y-auto">
-      <div className="w-full max-w-2xl rounded-[32px] tm-glass-dense text-white shadow-2xl relative overflow-hidden flex flex-col my-8">
+    <div className="fixed inset-0 z-50 flex justify-end bg-black/75 backdrop-blur-md select-none">
+      {/* Backdrop Click Dismiss */}
+      <div className="absolute inset-0 cursor-default" onClick={onClose} />
+
+      {/* Main Container Card: Slide-over on Desktop, Bottom Sheet on Mobile */}
+      <div className="relative w-full md:max-w-2xl h-full md:h-screen mt-auto md:mt-0 bg-[#070b1a]/95 border-t md:border-t-0 md:border-l border-white/10 shadow-[0_0_50px_rgba(0,0,0,0.8)] flex flex-col overflow-hidden rounded-t-[2.5rem] md:rounded-t-none md:rounded-l-[2.5rem] animate-slide-in">
         
         {/* Glowing atmospheric header glow */}
         <div className="absolute top-0 inset-x-0 h-1.5 bg-gradient-to-r from-tm-primary to-tm-accent" />
@@ -137,7 +141,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
         </div>
 
         {/* Form panel body */}
-        <div className="px-6 py-6 overflow-y-auto overscroll-contain space-y-7 max-h-[75vh]">
+        <div className="flex-1 px-6 py-6 overflow-y-auto overscroll-contain space-y-7 custom-scrollbar">
           
           {/* Preset buttons */}
           <div className="space-y-3">

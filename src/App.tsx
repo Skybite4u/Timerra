@@ -43,11 +43,12 @@ import { WeeklyBarChart } from './components/WeeklyBarChart';
 import { SubjectPieChart } from './components/SubjectPieChart';
 import { AmbientMixer } from './components/AmbientMixer';
 import { ModeSelector } from './components/ModeSelector';
-import { ImmersiveFocus } from './components/ImmersiveFocus';
 import { BrandedDefs } from './components/BrandedIcons';
 import { NotificationCenter } from './components/NotificationCenter';
 import { HistoryPanel } from './components/HistoryPanel';
 import { GuideModal } from './components/GuideModal';
+import { MorePanel } from './components/MorePanel';
+import { NavigationRail } from './components/NavigationRail';
 
 // Custom Libs and Hooks
 import { TimerraDB } from './lib/db';
@@ -95,7 +96,6 @@ export default function App() {
   const [showBackup, setShowBackup] = useState<boolean>(false);
   const [showMilestoneVault, setShowMilestoneVault] = useState<boolean>(false);
   const [showLegacyCardCenter, setShowLegacyCardCenter] = useState<boolean>(false);
-  const [isImmersiveFocus, setIsImmersiveFocus] = useState<boolean>(false);
   const [showHistoryPanel, setShowHistoryPanel] = useState<boolean>(false);
   const [showGuideModal, setShowGuideModal] = useState<boolean>(false);
   const [showFocusDna, setShowFocusDna] = useState<boolean>(false);
@@ -107,9 +107,24 @@ export default function App() {
 
   // --- Notification Center States ---
   const [showNotificationCenter, setShowNotificationCenter] = useState<boolean>(false);
+  const [showMorePanel, setShowMorePanel] = useState<boolean>(false);
   const [isFocusSilenceMode, setIsFocusSilenceMode] = useState<boolean>(false);
   const [unseenVaultCount, setUnseenVaultCount] = useState<number>(0);
   const [unreadNotificationCount, setUnreadNotificationCount] = useState<number>(0);
+
+  // Close all panels to preserve context or return to core workspace
+  const closeAllPanels = useCallback(() => {
+    setShowSettings(false);
+    setShowBackup(false);
+    setShowMilestoneVault(false);
+    setShowLegacyCardCenter(false);
+    setShowHistoryPanel(false);
+    setShowGuideModal(false);
+    setShowFocusDna(false);
+    setShowConstellation(false);
+    setShowNotificationCenter(false);
+    setShowMorePanel(false);
+  }, []);
 
   // Local silent-wrapped audio functions that obey Silence Mode
   const playClick = useCallback(() => {
@@ -124,17 +139,13 @@ export default function App() {
     }
   }, [isFocusSilenceMode]);
 
-  // Synchronize Silence Mode with Immersive Focus
+  // Flush queued silent notifications once on initialization
   useEffect(() => {
-    setIsFocusSilenceMode(isImmersiveFocus);
-    if (!isImmersiveFocus) {
-      // Exiting immersive focus! Flush queued silent notifications and show them in Notification Center
-      const flushed = NotificationManager.flushSilenceQueue();
-      if (flushed.length > 0) {
-        console.log(`Exited Immersive Focus. Released ${flushed.length} stored logs.`);
-      }
+    const flushed = NotificationManager.flushSilenceQueue();
+    if (flushed.length > 0) {
+      console.log(`Initialized workspace. Released ${flushed.length} stored logs.`);
     }
-  }, [isImmersiveFocus]);
+  }, []);
 
   // Synchronize counts/badges with local storage and Custom Events
   const refreshNotificationMetrics = useCallback(() => {
@@ -261,10 +272,8 @@ export default function App() {
             );
           });
 
-          // Only queue for fullscreen ceremony if we are in Immersive Focus (which suppresses rendering till they exit)
-          if (isImmersiveFocus) {
-            setCeremonyQueue(prev => [...prev, ...checkResult.newlyUnlocked]);
-          }
+          // Queue for fullscreen ceremony celebration
+          setCeremonyQueue(prev => [...prev, ...checkResult.newlyUnlocked]);
         }
 
         // Daily Focus Goal Reached Notification check
@@ -829,11 +838,11 @@ export default function App() {
 
   // Bind keydown hotkeys
   useHotkeys({
-    onTogglePlay: isImmersiveFocus ? () => {} : handleTogglePlay,
-    onReset: isImmersiveFocus ? () => {} : handleReset,
-    onToggleFullscreen: isImmersiveFocus ? () => {} : handleToggleFS,
-    onToggleSettings: isImmersiveFocus ? () => {} : handleOpenSettings,
-    onToggleStopwatchMode: isImmersiveFocus ? () => {} : handleToggleStopwatchMode,
+    onTogglePlay: handleTogglePlay,
+    onReset: handleReset,
+    onToggleFullscreen: handleToggleFS,
+    onToggleSettings: handleOpenSettings,
+    onToggleStopwatchMode: handleToggleStopwatchMode,
   });
 
   // Save Config update handler
@@ -1127,16 +1136,6 @@ export default function App() {
                   {unreadNotificationCount}
                 </span>
               )}
-            </button>
-
-            {/* Immersive Focus button */}
-            <button
-              onClick={() => { playClick(); setIsImmersiveFocus(true); }}
-              className="flex items-center gap-1.5 bg-white/[0.02] hover:bg-white/5 border border-white/5 rounded-2xl px-3 py-1.5 text-xs text-slate-300 hover:text-white transition-all cursor-pointer animate-pulse"
-              title="Immersive Focus"
-            >
-              <Eye className="w-3.5 h-3.5 text-tm-primary" />
-              <span className="hidden sm:inline font-bold text-white">Immersive</span>
             </button>
 
             <div className="flex items-center gap-1.5 bg-white/[0.02] border border-white/5 rounded-2xl px-3 py-1.5 text-xs text-slate-300">
@@ -1455,33 +1454,10 @@ export default function App() {
       )}
 
       {/* CINEMATIC CEREMONY OVERLAY */}
-      {ceremonyQueue.length > 0 && !isImmersiveFocus && (
+      {ceremonyQueue.length > 0 && (
         <MilestoneCeremony
           milestone={ceremonyQueue[0]}
           onClose={() => setCeremonyQueue(prev => prev.slice(1))}
-        />
-      )}
-
-      {/* IMMERSIVE FOCUS STUDY ENVIRONMENT */}
-      {isImmersiveFocus && (
-        <ImmersiveFocus
-          mode={mode}
-          status={status}
-          remainingSec={remainingSec}
-          elapsedSec={elapsedSec}
-          totalDurationSec={totalDurationSec}
-          cycle={cycle}
-          subject={settings.subject}
-          settings={settings}
-          todaySessionsCount={todaySessions.length}
-          totalMinutesToday={totalMinutesToday}
-          onTogglePlay={handleTogglePlay}
-          onReset={handleReset}
-          onStop={handleStop}
-          onSkip={handleSkip}
-          onAdjustTime={handleAdjustTime}
-          onExit={() => setIsImmersiveFocus(false)}
-          isSilenceModeActive={isFocusSilenceMode}
         />
       )}
 
@@ -1532,6 +1508,59 @@ export default function App() {
           onClose={() => setDnaEvolutionStage(null)}
         />
       )}
+
+      {/* 🧭 NAVIGATION SYSTEM: LEFT NAVIGATION RAIL & FLOATING ORB DOCK */}
+      <NavigationRail
+        onOpenNotificationCenter={() => { playClick(); setShowNotificationCenter(true); }}
+        onOpenHistoryPanel={() => { playClick(); setShowHistoryPanel(true); }}
+        onOpenFocusDna={() => { playClick(); setShowFocusDna(true); }}
+        onOpenConstellation={() => { playClick(); setShowConstellation(true); }}
+        onOpenMorePanel={() => { playClick(); setShowMorePanel(true); }}
+        onOpenSettings={() => { playClick(); setShowSettings(true); }}
+        onOpenBackup={() => { playClick(); setShowBackup(true); }}
+        onOpenGuide={() => { playClick(); setShowGuideModal(true); }}
+        
+        timerRunning={status === 'running'}
+        onTogglePlay={handleTogglePlay}
+        onReset={handleReset}
+        onSkip={handleSkip}
+        onReturnToWorkspace={() => {
+          playClick();
+          closeAllPanels();
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }}
+        unreadCount={unreadNotificationCount}
+      />
+
+      {/* ☰ MORE PANEL PORTAL OVERLAY */}
+      <MorePanel
+        isOpen={showMorePanel}
+        onClose={() => setShowMorePanel(false)}
+        onTriggerAction={(actionId) => {
+          playClick();
+          setShowMorePanel(false);
+          
+          if (actionId === 'logs') {
+            setShowNotificationCenter(true);
+          } else if (actionId === 'history') {
+            setShowHistoryPanel(true);
+          } else if (actionId === 'dna') {
+            setShowFocusDna(true);
+          } else if (actionId === 'constellation') {
+            setShowConstellation(true);
+          } else if (actionId === 'settings') {
+            setShowSettings(true);
+          } else if (actionId === 'backup') {
+            setShowBackup(true);
+          } else if (actionId === 'guide') {
+            setShowGuideModal(true);
+          } else if (actionId === 'milestone') {
+            setShowMilestoneVault(true);
+          } else if (actionId === 'legacy') {
+            setShowLegacyCardCenter(true);
+          }
+        }}
+      />
 
     </div>
   );

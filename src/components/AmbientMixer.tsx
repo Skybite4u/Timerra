@@ -104,8 +104,26 @@ export const AmbientMixer: React.FC<AmbientMixerProps> = ({ timerStatus, timerMo
   });
 
   const [masterMuted, setMasterMuted] = useState<boolean>(false);
+  const [globalVolume, setGlobalVolume] = useState<number>(80);
   const [autoStopOnBreak, setAutoStopOnBreak] = useState<boolean>(true);
   const [isFadedOut, setIsFadedOut] = useState<boolean>(false);
+
+  // Keep Refs of states to prevent stale closures in synthetic track audio generation (e.g., recursive setTimeouts)
+  const volumesRef = useRef(volumes);
+  const globalVolumeRef = useRef(globalVolume);
+  const masterMutedRef = useRef(masterMuted);
+
+  useEffect(() => {
+    volumesRef.current = volumes;
+  }, [volumes]);
+
+  useEffect(() => {
+    globalVolumeRef.current = globalVolume;
+  }, [globalVolume]);
+
+  useEffect(() => {
+    masterMutedRef.current = masterMuted;
+  }, [masterMuted]);
 
   // --- YouTube Focus Music Player States ---
   const [ytActive, setYtActive] = useState<boolean>(false);
@@ -168,6 +186,17 @@ export const AmbientMixer: React.FC<AmbientMixerProps> = ({ timerStatus, timerMo
       setAutoStopOnBreak(savedAutoStop === 'true');
     }
 
+    const savedGlobalVol = localStorage.getItem('ambient_global_volume');
+    if (savedGlobalVol) {
+      try {
+        const val = parseInt(savedGlobalVol, 10);
+        setGlobalVolume(val);
+        globalVolumeRef.current = val;
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
     // Load saved YouTube state
     const savedYtVideoId = localStorage.getItem('yt_video_id');
     if (savedYtVideoId) {
@@ -183,6 +212,10 @@ export const AmbientMixer: React.FC<AmbientMixerProps> = ({ timerStatus, timerMo
   useEffect(() => {
     localStorage.setItem('ambient_volumes', JSON.stringify(volumes));
   }, [volumes]);
+
+  useEffect(() => {
+    localStorage.setItem('ambient_global_volume', globalVolume.toString());
+  }, [globalVolume]);
 
   useEffect(() => {
     localStorage.setItem('ambient_auto_stop', autoStopOnBreak.toString());
@@ -259,7 +292,7 @@ export const AmbientMixer: React.FC<AmbientMixerProps> = ({ timerStatus, timerMo
     source.loop = true;
 
     const gainNode = ctx.createGain();
-    const targetVolume = masterMuted ? 0 : (volume / 100) * 0.15; // Soft ceiling
+    const targetVolume = masterMutedRef.current ? 0 : (volume / 100) * 0.15 * (globalVolumeRef.current / 100); // Soft ceiling
     gainNode.gain.setValueAtTime(targetVolume, ctx.currentTime);
 
     source.connect(gainNode);
@@ -284,7 +317,7 @@ export const AmbientMixer: React.FC<AmbientMixerProps> = ({ timerStatus, timerMo
     source.loop = true;
 
     const gainNode = ctx.createGain();
-    const targetVolume = masterMuted ? 0 : (volume / 100) * 0.22;
+    const targetVolume = masterMutedRef.current ? 0 : (volume / 100) * 0.22 * (globalVolumeRef.current / 100);
     gainNode.gain.setValueAtTime(targetVolume, ctx.currentTime);
 
     source.connect(gainNode);
@@ -314,7 +347,7 @@ export const AmbientMixer: React.FC<AmbientMixerProps> = ({ timerStatus, timerMo
     filterNode.frequency.setValueAtTime(1400, ctx.currentTime);
 
     const pinkGainNode = ctx.createGain();
-    const targetVolume = masterMuted ? 0 : (volume / 100) * 0.25;
+    const targetVolume = masterMutedRef.current ? 0 : (volume / 100) * 0.25 * (globalVolumeRef.current / 100);
     pinkGainNode.gain.setValueAtTime(targetVolume, ctx.currentTime);
 
     pinkSource.connect(filterNode);
@@ -327,7 +360,7 @@ export const AmbientMixer: React.FC<AmbientMixerProps> = ({ timerStatus, timerMo
     const dropletIntervals: any[] = [];
     const triggerRaindroplet = () => {
       // Fetch latest values directly from refs to avoid stale capture
-      if (!activeSources.current['rain'] || masterMuted) return;
+      if (!activeSources.current['rain'] || masterMutedRef.current) return;
 
       try {
         const osc = ctx.createOscillator();
@@ -342,7 +375,7 @@ export const AmbientMixer: React.FC<AmbientMixerProps> = ({ timerStatus, timerMo
         dropFilter.frequency.setValueAtTime(freq, ctx.currentTime);
         dropFilter.Q.setValueAtTime(6, ctx.currentTime);
 
-        const latestVolRatio = volumes['rain'] / 100;
+        const latestVolRatio = (volumesRef.current['rain'] / 100) * (globalVolumeRef.current / 100);
         const dropVolume = latestVolRatio * (0.01 + Math.random() * 0.035);
         dropGain.gain.setValueAtTime(0, ctx.currentTime);
         dropGain.gain.linearRampToValueAtTime(dropVolume, ctx.currentTime + 0.002);
@@ -392,7 +425,7 @@ export const AmbientMixer: React.FC<AmbientMixerProps> = ({ timerStatus, timerMo
     rumbleOsc2.frequency.setValueAtTime(105, ctx.currentTime);
 
     const rumbleGain = ctx.createGain();
-    const targetRumbleVol = masterMuted ? 0 : (volume / 100) * 0.04;
+    const targetRumbleVol = masterMutedRef.current ? 0 : (volume / 100) * 0.04 * (globalVolumeRef.current / 100);
     rumbleGain.gain.setValueAtTime(targetRumbleVol, ctx.currentTime);
 
     rumbleOsc1.connect(rumbleGain);
@@ -421,7 +454,7 @@ export const AmbientMixer: React.FC<AmbientMixerProps> = ({ timerStatus, timerMo
     chatterLfoGain.gain.setValueAtTime(0.02, ctx.currentTime);
 
     const babbleGain = ctx.createGain();
-    const targetBabbleVol = masterMuted ? 0 : (volume / 100) * 0.20;
+    const targetBabbleVol = masterMutedRef.current ? 0 : (volume / 100) * 0.20 * (globalVolumeRef.current / 100);
     babbleGain.gain.setValueAtTime(targetBabbleVol, ctx.currentTime);
 
     chatterLfo.connect(chatterLfoGain);
@@ -437,7 +470,7 @@ export const AmbientMixer: React.FC<AmbientMixerProps> = ({ timerStatus, timerMo
     // Random coffee cup clinks
     const clinkIntervals: any[] = [];
     const triggerCupClink = () => {
-      if (!activeSources.current['cafe'] || masterMuted) return;
+      if (!activeSources.current['cafe'] || masterMutedRef.current) return;
 
       try {
         const osc = ctx.createOscillator();
@@ -452,7 +485,7 @@ export const AmbientMixer: React.FC<AmbientMixerProps> = ({ timerStatus, timerMo
         clinkFilter.frequency.setValueAtTime(freq, ctx.currentTime);
         clinkFilter.Q.setValueAtTime(8, ctx.currentTime);
 
-        const latestVolRatio = volumes['cafe'] / 100;
+        const latestVolRatio = (volumesRef.current['cafe'] / 100) * (globalVolumeRef.current / 100);
         const maxVol = latestVolRatio * (0.005 + Math.random() * 0.015);
         clinkGain.gain.setValueAtTime(0, ctx.currentTime);
         clinkGain.gain.linearRampToValueAtTime(maxVol, ctx.currentTime + 0.001);
@@ -514,25 +547,57 @@ export const AmbientMixer: React.FC<AmbientMixerProps> = ({ timerStatus, timerMo
   const handleVolumeChange = (trackId: string, value: number) => {
     setVolumes(prev => ({ ...prev, [trackId]: value }));
     
-    if (masterMuted) return;
+    if (masterMutedRef.current) return;
     if (!playingTracks[trackId]) return;
 
     const active = activeSources.current[trackId];
     if (active && active.gains.length > 0) {
       const ctx = audioCtxRef.current;
       const time = ctx ? ctx.currentTime : 0;
+      const globalRatio = globalVolumeRef.current / 100;
       
       if (trackId === 'rain') {
-        active.gains[0].gain.setValueAtTime((value / 100) * 0.25, time);
+        active.gains[0].gain.setValueAtTime((value / 100) * 0.25 * globalRatio, time);
       } else if (trackId === 'white_noise') {
-        active.gains[0].gain.setValueAtTime((value / 100) * 0.15, time);
+        active.gains[0].gain.setValueAtTime((value / 100) * 0.15 * globalRatio, time);
       } else if (trackId === 'cafe') {
-        if (active.gains[0]) active.gains[0].gain.setValueAtTime((value / 100) * 0.04, time);
-        if (active.gains[1]) active.gains[1].gain.setValueAtTime((value / 100) * 0.20, time);
+        if (active.gains[0]) active.gains[0].gain.setValueAtTime((value / 100) * 0.04 * globalRatio, time);
+        if (active.gains[1]) active.gains[1].gain.setValueAtTime((value / 100) * 0.20 * globalRatio, time);
       } else if (trackId === 'brown_noise') {
-        active.gains[0].gain.setValueAtTime((value / 100) * 0.22, time);
+        active.gains[0].gain.setValueAtTime((value / 100) * 0.22 * globalRatio, time);
       }
     }
+  };
+
+  // Handle global volume slider change
+  const handleGlobalVolumeChange = (value: number) => {
+    setGlobalVolume(value);
+    globalVolumeRef.current = value;
+    
+    if (masterMutedRef.current) return;
+
+    const ctx = audioCtxRef.current;
+    const time = ctx ? ctx.currentTime : 0;
+    const globalRatio = value / 100;
+
+    TRACKS.forEach(track => {
+      if (playingTracks[track.id]) {
+        const active = activeSources.current[track.id];
+        if (active && active.gains.length > 0) {
+          const trackVol = volumesRef.current[track.id];
+          if (track.id === 'rain') {
+            active.gains[0].gain.setValueAtTime((trackVol / 100) * 0.25 * globalRatio, time);
+          } else if (track.id === 'white_noise') {
+            active.gains[0].gain.setValueAtTime((trackVol / 100) * 0.15 * globalRatio, time);
+          } else if (track.id === 'cafe') {
+            if (active.gains[0]) active.gains[0].gain.setValueAtTime((trackVol / 100) * 0.04 * globalRatio, time);
+            if (active.gains[1]) active.gains[1].gain.setValueAtTime((trackVol / 100) * 0.20 * globalRatio, time);
+          } else if (track.id === 'brown_noise') {
+            active.gains[0].gain.setValueAtTime((trackVol / 100) * 0.22 * globalRatio, time);
+          }
+        }
+      }
+    });
   };
 
   // Master Control: Pause All / Resume Mix
@@ -579,6 +644,7 @@ export const AmbientMixer: React.FC<AmbientMixerProps> = ({ timerStatus, timerMo
   const handleMasterMuteToggle = () => {
     const nextMute = !masterMuted;
     setMasterMuted(nextMute);
+    masterMutedRef.current = nextMute;
 
     TRACKS.forEach(track => {
       if (playingTracks[track.id]) {
@@ -587,16 +653,17 @@ export const AmbientMixer: React.FC<AmbientMixerProps> = ({ timerStatus, timerMo
           const ctx = audioCtxRef.current;
           const time = ctx ? ctx.currentTime : 0;
           
-          const currentVol = volumes[track.id];
+          const currentVol = volumesRef.current[track.id];
+          const globalRatio = globalVolumeRef.current / 100;
           if (track.id === 'rain') {
-            active.gains[0].gain.setValueAtTime(nextMute ? 0 : (currentVol / 100) * 0.25, time);
+            active.gains[0].gain.setValueAtTime(nextMute ? 0 : (currentVol / 100) * 0.25 * globalRatio, time);
           } else if (track.id === 'white_noise') {
-            active.gains[0].gain.setValueAtTime(nextMute ? 0 : (currentVol / 100) * 0.15, time);
+            active.gains[0].gain.setValueAtTime(nextMute ? 0 : (currentVol / 100) * 0.15 * globalRatio, time);
           } else if (track.id === 'cafe') {
-            if (active.gains[0]) active.gains[0].gain.setValueAtTime(nextMute ? 0 : (currentVol / 100) * 0.04, time);
-            if (active.gains[1]) active.gains[1].gain.setValueAtTime(nextMute ? 0 : (currentVol / 100) * 0.20, time);
+            if (active.gains[0]) active.gains[0].gain.setValueAtTime(nextMute ? 0 : (currentVol / 100) * 0.04 * globalRatio, time);
+            if (active.gains[1]) active.gains[1].gain.setValueAtTime(nextMute ? 0 : (currentVol / 100) * 0.20 * globalRatio, time);
           } else if (track.id === 'brown_noise') {
-            active.gains[0].gain.setValueAtTime(nextMute ? 0 : (currentVol / 100) * 0.22, time);
+            active.gains[0].gain.setValueAtTime(nextMute ? 0 : (currentVol / 100) * 0.22 * globalRatio, time);
           }
         }
       }
@@ -640,16 +707,17 @@ export const AmbientMixer: React.FC<AmbientMixerProps> = ({ timerStatus, timerMo
             const ctx = audioCtxRef.current;
             const time = ctx ? ctx.currentTime : 0;
             
-            const currentVol = volumes[track.id];
+            const currentVol = volumesRef.current[track.id];
+            const globalRatio = globalVolumeRef.current / 100;
             if (track.id === 'rain') {
-              active.gains[0].gain.setValueAtTime(masterMuted ? 0 : (currentVol / 100) * 0.25 * ratio, time);
+              active.gains[0].gain.setValueAtTime(masterMutedRef.current ? 0 : (currentVol / 100) * 0.25 * globalRatio * ratio, time);
             } else if (track.id === 'white_noise') {
-              active.gains[0].gain.setValueAtTime(masterMuted ? 0 : (currentVol / 100) * 0.15 * ratio, time);
+              active.gains[0].gain.setValueAtTime(masterMutedRef.current ? 0 : (currentVol / 100) * 0.15 * globalRatio * ratio, time);
             } else if (track.id === 'cafe') {
-              if (active.gains[0]) active.gains[0].gain.setValueAtTime(masterMuted ? 0 : (currentVol / 100) * 0.04 * ratio, time);
-              if (active.gains[1]) active.gains[1].gain.setValueAtTime(masterMuted ? 0 : (currentVol / 100) * 0.20 * ratio, time);
+              if (active.gains[0]) active.gains[0].gain.setValueAtTime(masterMutedRef.current ? 0 : (currentVol / 100) * 0.04 * globalRatio * ratio, time);
+              if (active.gains[1]) active.gains[1].gain.setValueAtTime(masterMutedRef.current ? 0 : (currentVol / 100) * 0.20 * globalRatio * ratio, time);
             } else if (track.id === 'brown_noise') {
-              active.gains[0].gain.setValueAtTime(masterMuted ? 0 : (currentVol / 100) * 0.22 * ratio, time);
+              active.gains[0].gain.setValueAtTime(masterMutedRef.current ? 0 : (currentVol / 100) * 0.22 * globalRatio * ratio, time);
             }
           }
         }
@@ -696,16 +764,17 @@ export const AmbientMixer: React.FC<AmbientMixerProps> = ({ timerStatus, timerMo
             const ctx = audioCtxRef.current;
             const time = ctx ? ctx.currentTime : 0;
             
-            const currentVol = volumes[track.id];
+            const currentVol = volumesRef.current[track.id];
+            const globalRatio = globalVolumeRef.current / 100;
             if (track.id === 'rain') {
-              active.gains[0].gain.setValueAtTime(masterMuted ? 0 : (currentVol / 100) * 0.25 * ratio, time);
+              active.gains[0].gain.setValueAtTime(masterMutedRef.current ? 0 : (currentVol / 100) * 0.25 * globalRatio * ratio, time);
             } else if (track.id === 'white_noise') {
-              active.gains[0].gain.setValueAtTime(masterMuted ? 0 : (currentVol / 100) * 0.15 * ratio, time);
+              active.gains[0].gain.setValueAtTime(masterMutedRef.current ? 0 : (currentVol / 100) * 0.15 * globalRatio * ratio, time);
             } else if (track.id === 'cafe') {
-              if (active.gains[0]) active.gains[0].gain.setValueAtTime(masterMuted ? 0 : (currentVol / 100) * 0.04 * ratio, time);
-              if (active.gains[1]) active.gains[1].gain.setValueAtTime(masterMuted ? 0 : (currentVol / 100) * 0.20 * ratio, time);
+              if (active.gains[0]) active.gains[0].gain.setValueAtTime(masterMutedRef.current ? 0 : (currentVol / 100) * 0.04 * globalRatio * ratio, time);
+              if (active.gains[1]) active.gains[1].gain.setValueAtTime(masterMutedRef.current ? 0 : (currentVol / 100) * 0.20 * globalRatio * ratio, time);
             } else if (track.id === 'brown_noise') {
-              active.gains[0].gain.setValueAtTime(masterMuted ? 0 : (currentVol / 100) * 0.22 * ratio, time);
+              active.gains[0].gain.setValueAtTime(masterMutedRef.current ? 0 : (currentVol / 100) * 0.22 * globalRatio * ratio, time);
             }
           }
         }
@@ -772,6 +841,31 @@ export const AmbientMixer: React.FC<AmbientMixerProps> = ({ timerStatus, timerMo
             )}
           </button>
         </div>
+      </div>
+
+      {/* Global Master Volume Control Slider */}
+      <div className="flex items-center gap-3 bg-white/[0.02] border border-white/5 rounded-2xl p-2.5 px-3.5 mb-4 relative z-10">
+        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 whitespace-nowrap">
+          Master Volume
+        </span>
+        <div className="flex-1 flex items-center gap-2">
+          <VolumeX size={12} className="text-slate-600" />
+          <input
+            id="slider-ambient-global-volume"
+            type="range"
+            min="0"
+            max="100"
+            value={globalVolume}
+            onChange={(e) => handleGlobalVolumeChange(parseInt(e.target.value, 10))}
+            style={{ touchAction: 'none' }}
+            className="flex-grow accent-blue-500 bg-white/10 h-1.5 rounded-lg cursor-pointer appearance-none transition-all duration-300 hover:bg-white/15 focus:outline-none"
+            title="Global master volume"
+          />
+          <Volume2 size={12} className="text-slate-400" />
+        </div>
+        <span className="text-[10px] font-mono font-medium text-slate-400 w-7 text-right">
+          {globalVolume}%
+        </span>
       </div>
 
       {/* Autopilot and status indicators */}
@@ -852,6 +946,7 @@ export const AmbientMixer: React.FC<AmbientMixerProps> = ({ timerStatus, timerMo
                   max="100"
                   value={volValue}
                   onChange={(e) => handleVolumeChange(track.id, parseInt(e.target.value, 10))}
+                  style={{ touchAction: 'none' }}
                   className="flex-1 h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-blue-500"
                 />
                 <span className="text-[9px] font-mono text-slate-500 min-w-[20px] text-right">

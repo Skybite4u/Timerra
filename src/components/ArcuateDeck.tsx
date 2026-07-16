@@ -51,34 +51,60 @@ export const ArcuateDeck: React.FC<ArcuateDeckProps> = ({
   ];
 
   if (isMobile) {
-    // Clean, robust linear flex row/grid on mobile to prevent clipping and guarantee perfect touch target sizes (>= 44px)
+    // Clean, spacious iOS-style double row on mobile to prevent clipping and guarantee perfect touch target sizes (>= 44px)
+    const primaryRow = [
+      { id: 'reset', label: resetLabel, icon: RotateCcw, action: onReset, isCenter: false },
+      { id: 'play', label: status === 'running' ? 'Pause' : 'Play', icon: status === 'running' ? Pause : Play, action: onTogglePlay, isCenter: true },
+      { id: 'skip', label: 'Skip Cycle', icon: SkipForward, action: onSkip, isCenter: false },
+    ];
+
+    const secondaryRow = [
+      { id: 'settings', label: 'Settings', icon: Settings, action: onOpenSettings },
+      { id: 'backup', label: 'Capsule', icon: Database, action: onOpenBackup },
+      { id: 'fullscreen', label: 'Fullscreen', icon: isFullscreen ? Minimize2 : Maximize2, action: onToggleFullscreen },
+    ];
+
     return (
-      <div className="w-full max-w-sm mx-auto px-4 mt-6">
-        <div className="flex items-center justify-around gap-1 bg-white/[0.02] border border-white/5 p-2.5 rounded-2xl tm-glass shadow-xl">
-          {buttons.map((btn) => {
+      <div className="w-full max-w-sm mx-auto px-4 mt-6 space-y-4">
+        {/* Primary Controls Row */}
+        <div className="flex items-center justify-center gap-6">
+          {primaryRow.map((btn) => {
             const Icon = btn.icon;
             return (
               <button
                 key={btn.id}
                 onClick={btn.action}
                 title={btn.label}
-                className={`rounded-full flex items-center justify-center group active:scale-95 cursor-pointer tm-btn transition-all duration-300 relative ${
+                className={`rounded-full flex items-center justify-center group active:scale-95 cursor-pointer transition-all duration-300 relative ${
                   btn.isCenter
-                    ? 'w-13 h-13 bg-gradient-to-tr from-tm-primary to-tm-accent border-tm-primary/30 text-white shadow-md z-20'
-                    : 'w-11 h-11 text-white/80 hover:text-white border border-white/5 bg-white/[0.01]'
+                    ? 'w-16 h-16 bg-gradient-to-tr from-tm-primary to-tm-accent border-2 border-white/20 text-white shadow-[0_0_25px_rgba(251,146,60,0.3)] z-20 animate-pulse-slow'
+                    : 'w-12 h-12 text-white/80 hover:text-white border border-white/10 bg-white/[0.03] backdrop-blur-md'
                 }`}
                 style={{
-                  minWidth: btn.isCenter ? '52px' : '44px',
-                  minHeight: btn.isCenter ? '52px' : '44px',
+                  minWidth: btn.isCenter ? '64px' : '48px',
+                  minHeight: btn.isCenter ? '64px' : '48px',
                 }}
               >
-                {/* White reflection glints */}
                 <span className="absolute inset-0 rounded-full bg-gradient-to-b from-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
+                <Icon className={btn.isCenter ? 'w-6 h-6' : 'w-5 h-5'} />
+              </button>
+            );
+          })}
+        </div>
 
-                {/* Glowing ring underlay on hover/touch */}
-                <span className={`absolute -inset-0.5 rounded-full border border-tm-primary/0 group-hover:border-tm-primary/40 group-hover:shadow-[0_0_12px_var(--tm-glow)] transition-all pointer-events-none ${btn.isCenter ? 'border-white/20' : ''}`} />
-
-                <Icon className={btn.isCenter ? 'w-5 h-5' : 'w-4.5 h-4.5'} />
+        {/* Secondary Controls Row (iOS inspired card tab) */}
+        <div className="flex items-center justify-around bg-white/[0.02] border border-white/5 py-1.5 px-3 rounded-2xl backdrop-blur-xl shadow-xl max-w-[260px] mx-auto">
+          {secondaryRow.map((btn) => {
+            const Icon = btn.icon;
+            return (
+              <button
+                key={btn.id}
+                onClick={btn.action}
+                title={btn.label}
+                className="w-12 h-12 text-slate-400 hover:text-white active:scale-95 cursor-pointer flex flex-col items-center justify-center transition-all duration-300 relative rounded-xl"
+              >
+                <Icon className="w-4 h-4" />
+                <span className="text-[8px] font-bold uppercase tracking-wider text-slate-500 mt-1">{btn.label}</span>
               </button>
             );
           })}

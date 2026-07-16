@@ -557,7 +557,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   );
 
   return (
-    <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-xl flex items-center justify-center z-50 p-4" id="timerra-capsule-portal">
+    <div className="fixed inset-0 z-50 flex justify-end bg-black/75 backdrop-blur-md select-none" id="timerra-capsule-portal">
+      {/* Backdrop Click Dismiss */}
+      <div className="absolute inset-0 cursor-default" onClick={onClose} />
+
       {/* Ambient glowing background blur */}
       <div className="absolute top-[10%] left-[10%] w-[45%] h-[45%] bg-tm-primary/10 rounded-full blur-[140px] pointer-events-none" />
       <div className="absolute bottom-[10%] right-[10%] w-[45%] h-[45%] bg-tm-accent/10 rounded-full blur-[140px] pointer-events-none" />
@@ -611,9 +614,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         }
       `}</style>
 
-      {/* Glassmorphic Modal Body */}
+      {/* Glassmorphic Modal Body: Slide-over on Desktop, Bottom Sheet on Mobile */}
       <div 
-        className="bg-[#0a0e1c]/80 backdrop-blur-2xl border border-white/10 rounded-[32px] overflow-hidden shadow-[0_25px_60px_-15px_rgba(0,0,0,0.7)] max-w-2xl w-full relative flex flex-col max-h-[90vh] transition-all duration-500 hover:border-white/15"
+        className="relative w-full md:max-w-2xl h-full md:h-screen mt-auto md:mt-0 bg-[#070b1a]/95 border-t md:border-t-0 md:border-l border-white/10 shadow-[0_0_50px_rgba(0,0,0,0.8)] flex flex-col overflow-hidden rounded-t-[2.5rem] md:rounded-t-none md:rounded-l-[2.5rem] animate-slide-in"
         id="capsule-modal-card"
       >
         {/* Header bar */}

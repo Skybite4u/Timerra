@@ -3,6 +3,7 @@ import {
   Play, 
   Pause, 
   RotateCcw, 
+  RotateCw,
   SkipForward, 
   Minimize2, 
   Maximize2,
@@ -20,7 +21,10 @@ import {
   Sliders,
   ChevronDown,
   Info,
-  Square
+  Square,
+  Plus,
+  Trash,
+  Edit3
 } from 'lucide-react';
 import { TimerMode, TimerStatus, TimerSettings } from '../types';
 import { MODES } from './ModeSelector';
@@ -107,6 +111,12 @@ interface ImmersiveFocusProps {
   onExit: () => void;
   onAdjustTime: (deltaMins: number) => void;
   isSilenceModeActive?: boolean;
+  subjects?: string[];
+  onAddSubject?: (sub: string) => Promise<void>;
+  onRenameSubject?: (oldName: string, newName: string) => Promise<void>;
+  onDeleteSubject?: (name: string) => Promise<void>;
+  onSaveSettings?: (newSettings: TimerSettings) => Promise<void>;
+  onModeChange?: (newMode: TimerMode) => Promise<void>;
 }
 
 interface Particle {
@@ -118,6 +128,35 @@ interface Particle {
   speedY: number;
   speedX: number;
   color: string;
+}
+
+// --- Custom Hook for Focus Transition ---
+export function useFocusTransition(isActive: boolean, onExitCallback: () => void, durationMs: number = 1500) {
+  const [isEntering, setIsEntering] = useState(true);
+  const [isExiting, setIsExiting] = useState(false);
+
+  useEffect(() => {
+    if (isActive) {
+      setIsEntering(true);
+      const timer = setTimeout(() => {
+        setIsEntering(false);
+      }, durationMs);
+      return () => clearTimeout(timer);
+    }
+  }, [isActive, durationMs]);
+
+  const triggerExit = () => {
+    setIsExiting(true);
+    setTimeout(() => {
+      onExitCallback();
+    }, durationMs);
+  };
+
+  return {
+    isEntering,
+    isExiting,
+    triggerExit,
+  };
 }
 
 export const ImmersiveFocus: React.FC<ImmersiveFocusProps> = ({
@@ -138,7 +177,16 @@ export const ImmersiveFocus: React.FC<ImmersiveFocusProps> = ({
   onExit,
   onAdjustTime,
   isSilenceModeActive = false,
+  subjects = ['Deep Work', 'Coding', 'Research', 'Design', 'Reading', 'Writing'],
+  onAddSubject,
+  onRenameSubject,
+  onDeleteSubject,
+  onSaveSettings,
+  onModeChange,
 }) => {
+  // --- Focus transition setup (1.5s CSS transition) ---
+  const { isEntering, isExiting, triggerExit } = useFocusTransition(true, onExit, 1500);
+
   // Silence clicks during silence mode
   const playClick = () => {
     if (!isSilenceModeActive) {
@@ -174,6 +222,11 @@ export const ImmersiveFocus: React.FC<ImmersiveFocusProps> = ({
   });
 
   // Save changes locally
+  const [isAddingSubject, setIsAddingSubject] = useState(false);
+  const [newSubjectName, setNewSubjectName] = useState('');
+  const [isRenamingSubject, setIsRenamingSubject] = useState(false);
+  const [renameSubjectName, setRenameSubjectName] = useState('');
+
   useEffect(() => {
     localStorage.setItem('timerra_orb_config', JSON.stringify(orbConfig));
   }, [orbConfig]);
@@ -185,6 +238,17 @@ export const ImmersiveFocus: React.FC<ImmersiveFocusProps> = ({
   // --- Cursor and Controls Visibility ---
   const [controlsVisible, setControlsVisible] = useState(true);
   const controlsTimeoutRef = useRef<number | null>(null);
+
+  // --- Mobile detection & landscape helpers ---
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768 || /Mobi|Android/i.test(navigator.userAgent));
+    };
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   // --- Clock Settings ---
   const [showClock, setShowClock] = useState(() => {
@@ -201,6 +265,17 @@ export const ImmersiveFocus: React.FC<ImmersiveFocusProps> = ({
 
   // --- Fullscreen State ---
   const [isFullscreen, setIsFullscreen] = useState(!!document.fullscreenElement);
+
+  // Safe ref to avoid stale closures in listeners
+  const latestRef = useRef({ isFullscreen, status });
+  useEffect(() => {
+    latestRef.current = { isFullscreen, status };
+  }, [isFullscreen, status]);
+
+  // Handle activity timeout trigger on fullscreen changes
+  useEffect(() => {
+    handleActivity();
+  }, [isFullscreen]);
 
   // --- Keyboard Shortcuts Help ---
   const [showShortcuts, setShowShortcuts] = useState(false);
@@ -292,11 +367,8 @@ export const ImmersiveFocus: React.FC<ImmersiveFocusProps> = ({
       window.clearTimeout(controlsTimeoutRef.current);
     }
     controlsTimeoutRef.current = window.setTimeout(() => {
-      // Hide controls only if timer is running (to keep controls always active when paused/idle)
-      if (status === 'running') {
-        setControlsVisible(false);
-      }
-    }, 4000);
+      setControlsVisible(false);
+    }, 3000);
   };
 
   useEffect(() => {
@@ -306,16 +378,41 @@ export const ImmersiveFocus: React.FC<ImmersiveFocusProps> = ({
     window.addEventListener('mousemove', handleActivity);
     window.addEventListener('touchstart', handleActivity);
     window.addEventListener('click', handleActivity);
+    window.addEventListener('keydown', handleActivity);
 
     return () => {
       window.removeEventListener('mousemove', handleActivity);
       window.removeEventListener('touchstart', handleActivity);
       window.removeEventListener('click', handleActivity);
+      window.removeEventListener('keydown', handleActivity);
       if (controlsTimeoutRef.current) {
         window.clearTimeout(controlsTimeoutRef.current);
       }
     };
   }, [status]);
+
+  // Screen orientation helper for mobile
+  const handleToggleOrientation = () => {
+    try {
+      playClick();
+      const orientation = screen.orientation as any;
+      if (window.innerHeight > window.innerWidth) {
+        // currently portrait, request landscape
+        if (orientation && orientation.lock) {
+          orientation.lock('landscape').catch((err: any) => {
+            console.log("Orientation lock failed:", err);
+          });
+        }
+      } else {
+        // currently landscape, unlock
+        if (orientation && orientation.unlock) {
+          orientation.unlock();
+        }
+      }
+    } catch (err) {
+      console.warn("Screen orientation not fully supported:", err);
+    }
+  };
 
   // Fullscreen helper
   const toggleFullscreen = () => {
@@ -397,7 +494,7 @@ export const ImmersiveFocus: React.FC<ImmersiveFocusProps> = ({
             playClick();
             setShowConfig(false);
           } else {
-            onExit();
+            triggerExit();
           }
           break;
         default:
@@ -407,7 +504,7 @@ export const ImmersiveFocus: React.FC<ImmersiveFocusProps> = ({
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [onTogglePlay, onReset, onStop, onSkip, onExit, showShortcuts, showConfig]);
+  }, [onTogglePlay, onReset, onStop, onSkip, triggerExit, showShortcuts, showConfig]);
 
   // Compute fill ratio
   let fillLevel = 0;
@@ -528,7 +625,8 @@ export const ImmersiveFocus: React.FC<ImmersiveFocusProps> = ({
       glowOpacity = 0.28;
     }
 
-    glowShadow = `0 0 ${glowRadius} rgba(${glowColor.startsWith('#') ? hexToRgb(glowColor) : '245, 158, 11'}, ${glowOpacity})`;
+    const rgbStr = glowColor.startsWith('#') ? hexToRgb(glowColor) : '245, 158, 11';
+    glowShadow = `0 0 ${glowRadius} rgba(${rgbStr}, ${glowOpacity}), 0 0 calc(${glowRadius} * 2) rgba(${rgbStr}, ${glowOpacity * 0.45}), 0 12px 40px rgba(0, 0, 0, 0.45), inset 0 0 25px rgba(255, 255, 255, 0.06), inset 0 0 15px rgba(${rgbStr}, ${glowOpacity * 0.6})`;
 
     switch (orbConfig.theme) {
       case 'glass':
@@ -596,12 +694,14 @@ export const ImmersiveFocus: React.FC<ImmersiveFocusProps> = ({
 
   return (
     <div 
-      className={`fixed inset-0 theme-${settings.theme} bg-gradient-to-b from-tm-bg-from to-tm-bg-to z-50 overflow-hidden flex flex-col items-center justify-between py-6 sm:py-10 px-4 sm:px-6 transition-all duration-1000 ${
+      className={`fixed inset-0 theme-${settings.theme} bg-gradient-to-b from-tm-bg-from to-tm-bg-to z-50 overflow-hidden flex flex-col items-center justify-between py-6 sm:py-10 px-4 sm:px-6 transition-all duration-[1500ms] ease-in-out ${
+        (isEntering || isExiting) ? 'opacity-0 scale-95 pointer-events-none' : 'opacity-100 scale-100'
+      } ${
         controlsVisible ? '' : 'cursor-none'
       }`}
       style={{
-        '--orb-base-size': '36vw',
-        '--orb-max-size': '380px',
+        '--orb-base-size': '45vw',
+        '--orb-max-size': '480px',
         fontFamily: 'var(--font-sans)',
       } as any}
     >
@@ -615,8 +715,8 @@ export const ImmersiveFocus: React.FC<ImmersiveFocusProps> = ({
             padding-bottom: 0.5rem !important;
           }
           .immersive-orb-area {
-            --orb-base-size: 34vh !important;
-            --orb-max-size: 210px !important;
+            --orb-base-size: 42vh !important;
+            --orb-max-size: 260px !important;
           }
           .controls-panel-container {
             margin-top: 0 !important;
@@ -624,14 +724,14 @@ export const ImmersiveFocus: React.FC<ImmersiveFocusProps> = ({
         }
         @media (max-width: 640px) {
           .immersive-orb-area {
-            --orb-base-size: 58vw !important;
-            --orb-max-size: 250px !important;
+            --orb-base-size: 72vw !important;
+            --orb-max-size: 310px !important;
           }
         }
         @media (min-width: 641px) and (max-width: 1024px) {
           .immersive-orb-area {
-            --orb-base-size: 45vw !important;
-            --orb-max-size: 330px !important;
+            --orb-base-size: 56vw !important;
+            --orb-max-size: 410px !important;
           }
         }
         .no-scrollbar::-webkit-scrollbar {
@@ -695,10 +795,10 @@ export const ImmersiveFocus: React.FC<ImmersiveFocusProps> = ({
 
       {/* 2. CINEMATIC GRADIENT LIGHTING BACKGROUND (Enhances theme gradient with backdrop-blur overlay on top of ambient lights) */}
       <div 
-        className="absolute inset-0 z-0 transition-all duration-700"
+        className="absolute inset-0 z-0 transition-all duration-[1500ms] ease-in-out"
         style={{ 
-          backdropFilter: 'blur(20px)',
-          WebkitBackdropFilter: 'blur(20px)',
+          backdropFilter: (isEntering || isExiting) ? 'blur(2px)' : 'blur(20px)',
+          WebkitBackdropFilter: (isEntering || isExiting) ? 'blur(2px)' : 'blur(20px)',
           background: `radial-gradient(circle at center, rgba(4, 5, 13, ${(bgConfig.darkOverlay / 100) * 0.45}) 0%, rgba(4, 5, 13, ${bgConfig.darkOverlay / 100}) 100%)`,
           opacity: bgConfig.bgOpacity / 100,
           filter: `brightness(${bgConfig.brightness}%)`
@@ -707,7 +807,12 @@ export const ImmersiveFocus: React.FC<ImmersiveFocusProps> = ({
 
       {/* 3. GENTLE VIGNETTE EFFECT (Smoothly darkens edges to focus attention on the central timer) */}
       <div 
-        className="absolute inset-0 pointer-events-none z-0 bg-[radial-gradient(circle_at_center,rgba(0,0,0,0)_35%,rgba(4,5,13,0.72)_100%)]" 
+        className="absolute inset-0 pointer-events-none z-0 transition-all duration-[1500ms] ease-in-out" 
+        style={{
+          background: (isEntering || isExiting)
+            ? 'radial-gradient(circle at center, rgba(0,0,0,0) 80%, rgba(4,5,13,0.15) 100%)'
+            : 'radial-gradient(circle at center, rgba(0,0,0,0) 25%, rgba(4,5,13,0.85) 100%)'
+        }}
       />
 
       {/* Slow Breathing Ambient Background Animation */}
@@ -735,13 +840,13 @@ export const ImmersiveFocus: React.FC<ImmersiveFocusProps> = ({
 
       {/* 3. TOP META PANEL (Clock, Subject, Goal, Back, toggles) */}
       <div 
-        className={`w-full max-w-5xl flex items-center justify-between z-10 transition-opacity duration-700 ease-in-out ${
-          controlsVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'
+        className={`w-full max-w-5xl flex items-center justify-between z-10 transition-all duration-[1500ms] ease-in-out ${
+          (controlsVisible && !isEntering && !isExiting) ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-4 pointer-events-none'
         }`}
       >
         <div className="flex items-center gap-2 sm:gap-3">
           <button
-            onClick={onExit}
+            onClick={triggerExit}
             className="flex items-center justify-center gap-1.5 bg-white/5 hover:bg-white/10 border border-white/10 px-4 h-11 rounded-2xl text-xs font-bold text-slate-300 hover:text-white transition-all cursor-pointer shadow-lg active:scale-95"
           >
             <Minimize2 className="w-4 h-4 text-tm-primary" />
@@ -799,6 +904,16 @@ export const ImmersiveFocus: React.FC<ImmersiveFocusProps> = ({
             <Keyboard className="w-4 h-4 text-tm-primary" />
           </button>
 
+          {isMobile && (
+            <button
+              onClick={handleToggleOrientation}
+              className="w-11 h-11 flex items-center justify-center bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl text-slate-400 hover:text-white transition-colors cursor-pointer"
+              title="Rotate Screen"
+            >
+              <RotateCw className="w-4 h-4 text-emerald-400" />
+            </button>
+          )}
+
           <button
             onClick={toggleFullscreen}
             className="w-11 h-11 flex items-center justify-center bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl text-slate-400 hover:text-white transition-colors cursor-pointer"
@@ -813,7 +928,13 @@ export const ImmersiveFocus: React.FC<ImmersiveFocusProps> = ({
       <div className="flex-1 w-full max-w-5xl flex flex-col md:flex-row items-center justify-center gap-6 md:gap-14 z-10 px-4 py-4 overflow-y-auto no-scrollbar max-h-[82vh] adaptive-workspace">
         
         {/* Left Area: Hero Orb */}
-        <div className="relative flex flex-col items-center justify-center immersive-orb-area">
+        <div 
+          className={`relative flex flex-col items-center justify-center immersive-orb-area transition-all duration-[1500ms] ease-in-out ${
+            (isEntering || isExiting) 
+              ? 'scale-[0.65] opacity-0' 
+              : (!controlsVisible ? 'scale-110 sm:scale-120' : 'scale-100')
+          }`}
+        >
           {/* Cinematic double orbital orbits surrounding the core (responsive sizing) */}
           <div 
             className={`absolute rounded-full border border-dashed border-tm-primary/10 pointer-events-none ${isReducedMotion ? '' : 'animate-ring-1'}`}
@@ -891,10 +1012,23 @@ export const ImmersiveFocus: React.FC<ImmersiveFocusProps> = ({
           >
             {/* Glass specular sweep highlight */}
             {orbConfig.reflection > 0 && (
-              <div 
-                className="absolute top-2 inset-x-8 h-[20%] bg-gradient-to-b from-white/10 to-transparent rounded-full blur-[2px] z-10 pointer-events-none"
-                style={{ opacity: orbConfig.reflection / 100 }}
-              />
+              <>
+                <div 
+                  className="absolute top-2 left-[15%] w-[70%] h-[24%] bg-gradient-to-b from-white/25 via-white/5 to-transparent rounded-[50%] blur-[1px] z-10 pointer-events-none"
+                  style={{ opacity: (orbConfig.reflection / 100) * 1.2 }}
+                />
+                <div 
+                  className="absolute bottom-2 right-[20%] w-[30%] h-[10%] bg-white/5 rounded-full blur-[3px] z-10 pointer-events-none"
+                  style={{ opacity: (orbConfig.reflection / 100) * 0.5 }}
+                />
+                <div 
+                  className="absolute inset-0 rounded-full border border-white/10 pointer-events-none z-10"
+                  style={{
+                    background: 'radial-gradient(circle at 75% 75%, rgba(255,255,255,0.04) 0%, transparent 60%)',
+                    boxShadow: 'inset 0 0 20px rgba(255,255,255,0.08)'
+                  }}
+                />
+              </>
             )}
 
             {/* Dynamic Wave levels Inside Orb */}
@@ -959,30 +1093,38 @@ export const ImmersiveFocus: React.FC<ImmersiveFocusProps> = ({
             )}
 
             {/* Inside-Orb Information Block */}
-            <div className="flex flex-col items-center justify-center text-center px-4 relative z-10 select-text">
+            <div className={`flex flex-col items-center justify-center text-center px-4 relative z-10 select-text transition-all duration-[1500ms] ease-in-out ${
+              (isEntering || isExiting) ? 'opacity-0 scale-[0.85]' : 'opacity-100 scale-100'
+            }`}>
               {/* Minimalist Subject */}
-              <span className={`text-[9px] sm:text-[10px] font-bold tracking-[0.25em] uppercase mb-1.5 px-3 py-1 rounded-full transition-all duration-300 truncate max-w-[150px] sm:max-w-[200px] ${
+              <span className={`text-[9px] sm:text-[10px] font-bold tracking-[0.25em] uppercase mb-1.5 px-3 py-1 rounded-full transition-all duration-[1500ms] truncate max-w-[150px] sm:max-w-[200px] ${
                 status === 'running'
                   ? 'text-tm-primary bg-tm-primary/5 border border-tm-primary/15'
                   : 'text-white/40 bg-white/[0.01]'
-              }`}>
+              } ${controlsVisible ? 'opacity-100 scale-100' : 'opacity-40 scale-95'}`}>
                 {subject || 'Silent Focus'}
               </span>
 
               {/* HIGH-READABILITY DYNAMIC RESPONSIVE TIMER READOUT */}
-              <div className="min-h-[44px] sm:min-h-[64px] flex items-center justify-center w-full">
+              <div className={`min-h-[44px] sm:min-h-[64px] flex items-center justify-center w-full transition-all duration-[1500ms] ${
+                controlsVisible ? 'scale-100' : 'scale-110 sm:scale-115'
+              }`}>
                 {mode === 'stopwatch' ? renderStopwatch() : renderStandardTime()}
               </div>
 
               {/* Dynamic Live Minute/Remaining Time Counter */}
               {mode !== 'stopwatch' && mode !== 'infinityFocus' && (
-                <div className="text-[9px] font-mono font-bold uppercase tracking-[0.15em] text-tm-primary/90 mt-0.5 animate-pulse">
+                <div className={`text-[9px] font-mono font-bold uppercase tracking-[0.15em] text-tm-primary/90 mt-0.5 animate-pulse transition-all duration-[1500ms] ${
+                  controlsVisible ? 'opacity-100' : 'opacity-60'
+                }`}>
                   Remaining: {Math.floor(remainingSec / 60)}m {Math.floor(remainingSec % 60)}s
                 </div>
               )}
 
               {/* Active Period Label */}
-              <span className="text-[9px] font-bold tracking-[0.25em] uppercase text-white/50 mt-1.5 flex items-center gap-1.5 justify-center">
+              <span className={`text-[9px] font-bold tracking-[0.25em] uppercase text-white/50 mt-1.5 flex items-center gap-1.5 justify-center transition-all duration-[1500ms] ${
+                controlsVisible ? 'opacity-100' : 'opacity-40'
+              }`}>
                 <span className={`w-1.5 h-1.5 rounded-full ${
                   status === 'running' ? 'bg-tm-primary animate-pulse shadow-[0_0_8px_var(--tm-primary)]' : 'bg-white/20'
                 }`} />
@@ -991,7 +1133,9 @@ export const ImmersiveFocus: React.FC<ImmersiveFocusProps> = ({
 
               {/* Cycle and duration estimate details */}
               {mode !== 'stopwatch' && mode !== 'infinityFocus' && (
-                <span className="text-[8px] text-white/30 uppercase tracking-[0.18em] mt-1">
+                <span className={`text-[8px] text-white/30 uppercase tracking-[0.18em] mt-1 transition-all duration-[1500ms] ${
+                  controlsVisible ? 'opacity-100 max-h-[20px]' : 'opacity-0 max-h-0 overflow-hidden mt-0'
+                }`}>
                   Cycle {cycle} • {settings.cyclesBeforeLongBreak - (cycle % settings.cyclesBeforeLongBreak || settings.cyclesBeforeLongBreak)} Left
                 </span>
               )}
@@ -1024,17 +1168,257 @@ export const ImmersiveFocus: React.FC<ImmersiveFocusProps> = ({
         </div>
 
         {/* Right Area: Controls & Quick Action Panel */}
-        <div className="flex flex-col items-center md:items-start text-center md:text-left gap-3.5 max-w-sm sm:max-w-md w-full controls-panel-container">
-          {/* Active subject info & streak overview */}
-          <div className="bg-white/[0.02] border border-white/5 p-3.5 sm:p-4 rounded-3xl w-full text-center md:text-left flex flex-col gap-1 shadow-lg">
-            <span className="text-[10px] uppercase tracking-[0.25em] text-slate-400/70 font-bold select-none">
-              Focus Context
-            </span>
-            <div className="text-sm font-extrabold text-white truncate max-w-full">
-              {subject || 'No Subject Defined'}
+        <div className={`flex flex-col items-center md:items-start text-center md:text-left gap-3.5 max-w-sm sm:max-w-md w-full controls-panel-container transition-all duration-[1500ms] ease-in-out ${
+          (controlsVisible && !isEntering && !isExiting) 
+            ? 'opacity-100 translate-x-0 scale-100' 
+            : 'opacity-0 translate-x-12 scale-90 pointer-events-none max-h-0 md:max-w-0 md:h-0 overflow-hidden p-0 m-0 border-0'
+        }`}>
+          {/* Interactive Inline Control Center */}
+          <div className="bg-white/[0.02] border border-white/5 p-4 rounded-[28px] w-full text-left flex flex-col gap-3.5 shadow-xl backdrop-blur-md select-none">
+            <div className="flex items-center justify-between border-b border-white/5 pb-2">
+              <span className="text-[10px] uppercase tracking-[0.25em] text-tm-primary font-bold">
+                Control Center
+              </span>
+              <span className="text-[8px] uppercase tracking-wider text-slate-400 font-semibold bg-white/5 px-2 py-0.5 rounded-full">
+                Active Settings
+              </span>
             </div>
-            <div className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider mt-0.5">
-              Cycle Length: {settings.focusMinutes} minutes
+
+            {/* SUBJECT MANAGEMENT SECTION */}
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center justify-between">
+                <span className="text-[9px] uppercase tracking-widest text-slate-400 font-bold">Subject</span>
+                <div className="flex items-center gap-1">
+                  {!isAddingSubject && !isRenamingSubject && (
+                    <>
+                      <button
+                        onClick={() => {
+                          playClick();
+                          setRenameSubjectName(settings.subject);
+                          setIsRenamingSubject(true);
+                        }}
+                        className="w-7 h-7 rounded-lg bg-white/5 hover:bg-white/10 flex items-center justify-center transition-all cursor-pointer border border-white/5 active:scale-90"
+                        title="Rename Current Subject"
+                      >
+                        <Edit3 className="w-3.5 h-3.5 text-slate-300" />
+                      </button>
+                      <button
+                        onClick={() => {
+                          playClick();
+                          setIsAddingSubject(true);
+                          setNewSubjectName('');
+                        }}
+                        className="w-7 h-7 rounded-lg bg-white/5 hover:bg-white/10 flex items-center justify-center transition-all cursor-pointer border border-white/5 active:scale-90"
+                        title="Add New Subject"
+                      >
+                        <Plus className="w-3.5 h-3.5 text-slate-300" />
+                      </button>
+                      <button
+                        onClick={async () => {
+                          playClick();
+                          if (subjects.length <= 1) {
+                            alert("At least one subject must remain.");
+                            return;
+                          }
+                          if (window.confirm(`Delete subject "${settings.subject}"?`)) {
+                            if (onDeleteSubject) {
+                              await onDeleteSubject(settings.subject);
+                            }
+                          }
+                        }}
+                        className="w-7 h-7 rounded-lg bg-white/5 hover:bg-rose-500/10 flex items-center justify-center transition-all cursor-pointer border border-white/5 active:scale-90 group"
+                        title="Delete Current Subject"
+                      >
+                        <Trash className="w-3.5 h-3.5 text-slate-400 group-hover:text-rose-400" />
+                      </button>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              {/* Add Subject Inline Form */}
+              {isAddingSubject ? (
+                <div className="flex items-center gap-1.5 bg-white/5 p-1.5 rounded-xl border border-white/10">
+                  <input
+                    type="text"
+                    value={newSubjectName}
+                    onChange={(e) => setNewSubjectName(e.target.value)}
+                    className="bg-transparent text-xs text-white outline-none w-full px-2"
+                    placeholder="New subject..."
+                    autoFocus
+                    onKeyDown={async (e) => {
+                      if (e.key === 'Enter') {
+                        if (newSubjectName.trim() && onAddSubject) {
+                          await onAddSubject(newSubjectName.trim());
+                          await onSaveSettings?.({ ...settings, subject: newSubjectName.trim() });
+                          setNewSubjectName('');
+                        }
+                        setIsAddingSubject(false);
+                      } else if (e.key === 'Escape') {
+                        setIsAddingSubject(false);
+                      }
+                    }}
+                  />
+                  <button
+                    onClick={async () => {
+                      playClick();
+                      if (newSubjectName.trim() && onAddSubject) {
+                        await onAddSubject(newSubjectName.trim());
+                        await onSaveSettings?.({ ...settings, subject: newSubjectName.trim() });
+                        setNewSubjectName('');
+                      }
+                      setIsAddingSubject(false);
+                    }}
+                    className="w-7 h-7 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 flex items-center justify-center text-emerald-400 border border-emerald-500/30 cursor-pointer"
+                  >
+                    <Check className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    onClick={() => { playClick(); setIsAddingSubject(false); }}
+                    className="w-7 h-7 rounded-lg bg-white/5 hover:bg-white/10 flex items-center justify-center text-slate-300 border border-white/10 cursor-pointer"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              ) : isRenamingSubject ? (
+                /* Rename Subject Inline Form */
+                <div className="flex items-center gap-1.5 bg-white/5 p-1.5 rounded-xl border border-white/10">
+                  <input
+                    type="text"
+                    value={renameSubjectName}
+                    onChange={(e) => setRenameSubjectName(e.target.value)}
+                    className="bg-transparent text-xs text-white outline-none w-full px-2"
+                    placeholder="Rename to..."
+                    autoFocus
+                    onKeyDown={async (e) => {
+                      if (e.key === 'Enter') {
+                        if (renameSubjectName.trim() && onRenameSubject) {
+                          await onRenameSubject(settings.subject, renameSubjectName.trim());
+                        }
+                        setIsRenamingSubject(false);
+                      } else if (e.key === 'Escape') {
+                        setIsRenamingSubject(false);
+                      }
+                    }}
+                  />
+                  <button
+                    onClick={async () => {
+                      playClick();
+                      if (renameSubjectName.trim() && onRenameSubject) {
+                        await onRenameSubject(settings.subject, renameSubjectName.trim());
+                      }
+                      setIsRenamingSubject(false);
+                    }}
+                    className="w-7 h-7 rounded-lg bg-tm-primary/20 hover:bg-tm-primary/30 flex items-center justify-center text-tm-primary border border-tm-primary/30 cursor-pointer"
+                  >
+                    <Check className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    onClick={() => { playClick(); setIsRenamingSubject(false); }}
+                    className="w-7 h-7 rounded-lg bg-white/5 hover:bg-white/10 flex items-center justify-center text-slate-300 border border-white/10 cursor-pointer"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              ) : (
+                /* Subject Select Dropdown */
+                <select
+                  value={settings.subject}
+                  onChange={(e) => {
+                    playClick();
+                    onSaveSettings?.({ ...settings, subject: e.target.value });
+                  }}
+                  className="w-full bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl px-3 py-2 text-xs text-white outline-none cursor-pointer transition-all shadow-inner"
+                >
+                  {subjects.map((sub) => (
+                    <option key={sub} value={sub} className="bg-[#0c0f19] text-white">
+                      {sub}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
+
+            {/* TIMER MODE SECTION */}
+            <div className="flex flex-col gap-1.5">
+              <span className="text-[9px] uppercase tracking-widest text-slate-400 font-bold">Timer Mode</span>
+              <select
+                value={mode}
+                onChange={(e) => {
+                  playClick();
+                  onModeChange?.(e.target.value as TimerMode);
+                }}
+                className="w-full bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl px-3 py-2 text-xs text-white outline-none cursor-pointer transition-all"
+              >
+                {MODES.map((m) => (
+                  <option key={m.id} value={m.id} className="bg-[#0c0f19] text-white">
+                    {m.themeName} ({m.name})
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* DURATION CONFIGURATION ROW */}
+            <div className="grid grid-cols-2 gap-3.5 border-t border-white/5 pt-3">
+              {/* Pomodoro Focus Minutes */}
+              <div className="flex flex-col gap-1">
+                <span className="text-[8px] uppercase tracking-widest text-slate-400 font-extrabold">
+                  Focus Period
+                </span>
+                <div className="flex items-center justify-between bg-white/5 border border-white/10 rounded-xl p-1 h-9">
+                  <button
+                    onClick={() => {
+                      playClick();
+                      onSaveSettings?.({ ...settings, focusMinutes: Math.max(1, settings.focusMinutes - 1) });
+                    }}
+                    className="w-7 h-7 rounded-lg hover:bg-white/10 flex items-center justify-center text-xs text-slate-300 font-bold active:scale-90"
+                  >
+                    -
+                  </button>
+                  <span className="text-xs font-black text-white px-1">
+                    {settings.focusMinutes}m
+                  </span>
+                  <button
+                    onClick={() => {
+                      playClick();
+                      onSaveSettings?.({ ...settings, focusMinutes: Math.min(180, settings.focusMinutes + 1) });
+                    }}
+                    className="w-7 h-7 rounded-lg hover:bg-white/10 flex items-center justify-center text-xs text-slate-300 font-bold active:scale-90"
+                  >
+                    +
+                  </button>
+                </div>
+              </div>
+
+              {/* Short Break Minutes */}
+              <div className="flex flex-col gap-1">
+                <span className="text-[8px] uppercase tracking-widest text-slate-400 font-extrabold">
+                  Break Period
+                </span>
+                <div className="flex items-center justify-between bg-white/5 border border-white/10 rounded-xl p-1 h-9">
+                  <button
+                    onClick={() => {
+                      playClick();
+                      onSaveSettings?.({ ...settings, shortBreakMinutes: Math.max(1, settings.shortBreakMinutes - 1) });
+                    }}
+                    className="w-7 h-7 rounded-lg hover:bg-white/10 flex items-center justify-center text-xs text-slate-300 font-bold active:scale-90"
+                  >
+                    -
+                  </button>
+                  <span className="text-xs font-black text-white px-1">
+                    {settings.shortBreakMinutes}m
+                  </span>
+                  <button
+                    onClick={() => {
+                      playClick();
+                      onSaveSettings?.({ ...settings, shortBreakMinutes: Math.min(60, settings.shortBreakMinutes + 1) });
+                    }}
+                    className="w-7 h-7 rounded-lg hover:bg-white/10 flex items-center justify-center text-xs text-slate-300 font-bold active:scale-90"
+                  >
+                    +
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -1127,8 +1511,8 @@ export const ImmersiveFocus: React.FC<ImmersiveFocusProps> = ({
 
       {/* 5. MINIMAL CONTROLS TRAY TRANSITIONED HEADER/FOOTER METRICS */}
       <div 
-        className={`w-full max-w-5xl flex items-center justify-center z-10 transition-opacity duration-700 ease-in-out pb-4 ${
-          controlsVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'
+        className={`w-full max-w-5xl flex items-center justify-center z-10 transition-all duration-[1500ms] ease-in-out pb-4 ${
+          (controlsVisible && !isEntering && !isExiting) ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'
         }`}
       >
         <p className="text-[9px] text-slate-500/80 font-medium tracking-widest uppercase text-center select-none">
