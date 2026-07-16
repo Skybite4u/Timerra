@@ -1,13 +1,8 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { 
-  X, Search, ChevronRight
+  X, Search, ChevronRight, Award, Sparkles, Clock, Dna, Star, HelpCircle, Database, Sliders, BarChart2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { 
-  BackupCapsuleIcon, MilestoneCapsuleIcon, LegacyCapsuleIcon,
-  HistoryCapsuleIcon, DnaCapsuleIcon, PortalCapsuleIcon,
-  GuideCapsuleIcon, SettingsCapsuleIcon
-} from './NavigationCapsuleIcons';
 
 interface MorePanelProps {
   isOpen: boolean;
@@ -48,62 +43,53 @@ export const MorePanel: React.FC<MorePanelProps> = ({
 
   const navItems: NavItem[] = useMemo(() => [
     {
-      id: 'capsule',
-      name: 'Capsule Portal',
-      description: 'End-to-end encrypted backup files & keys',
-      category: 'workspace',
-      icon: BackupCapsuleIcon,
-      color: 'border-blue-500/10',
-      badge: 'Secure'
-    },
-    {
-      id: 'milestone-vault',
+      id: 'milestone',
       name: 'Milestone Vault',
       description: 'Audit study achievements & active streaks',
       category: 'workspace',
-      icon: MilestoneCapsuleIcon,
+      icon: Award,
       color: 'border-amber-500/10',
       badge: `${streakDays}d Streak`
     },
     {
-      id: 'legacy-cards',
+      id: 'legacy',
       name: 'Legacy Cards',
       description: 'Collect holographic digital focus memory cards',
       category: 'workspace',
-      icon: LegacyCapsuleIcon,
+      icon: Sparkles,
       color: 'border-rose-500/10'
     },
     {
-      id: 'chronicle',
+      id: 'history',
       name: 'Focus Chronicle',
       description: 'Central chronological timeline of deep work',
       category: 'workspace',
-      icon: HistoryCapsuleIcon,
+      icon: Clock,
       color: 'border-purple-500/10'
     },
     {
-      id: 'focus-dna',
+      id: 'constellation',
+      name: 'Focus Constellation',
+      description: 'Interactive sky coordinates of study habits',
+      category: 'workspace',
+      icon: Star,
+      color: 'border-amber-500/10'
+    },
+    {
+      id: 'dna',
       name: 'Focus DNA',
       description: 'Cognitive behavior profiles & trait analyzer',
       category: 'growth',
-      icon: DnaCapsuleIcon,
+      icon: Dna,
       color: 'border-indigo-500/10',
       badge: 'Growth'
     },
     {
-      id: 'focus-constellation',
-      name: 'Focus Constellation',
-      description: 'Interactive sky coordinates of study habits',
-      category: 'growth',
-      icon: PortalCapsuleIcon,
-      color: 'border-amber-500/10'
-    },
-    {
       id: 'analytics',
       name: 'Analytics Dashboard',
-      description: 'Performance charts & weekly frequency metrics',
+      description: 'Performance charts & weekly focus trends',
       category: 'growth',
-      icon: PortalCapsuleIcon,
+      icon: BarChart2,
       color: 'border-emerald-500/10'
     },
     {
@@ -111,7 +97,7 @@ export const MorePanel: React.FC<MorePanelProps> = ({
       name: 'Help Guide',
       description: 'Shortcuts, systems explanation & FAQ manual',
       category: 'application',
-      icon: GuideCapsuleIcon,
+      icon: HelpCircle,
       color: 'border-teal-500/10'
     },
     {
@@ -119,7 +105,7 @@ export const MorePanel: React.FC<MorePanelProps> = ({
       name: 'Backup / Sync',
       description: 'Export raw database JSON or restore payload',
       category: 'application',
-      icon: BackupCapsuleIcon,
+      icon: Database,
       color: 'border-sky-500/10'
     },
     {
@@ -127,7 +113,7 @@ export const MorePanel: React.FC<MorePanelProps> = ({
       name: 'System Settings',
       description: 'Timer intervals, sound effects & theme presets',
       category: 'application',
-      icon: SettingsCapsuleIcon,
+      icon: Sliders,
       color: 'border-white/5'
     }
   ], [streakDays]);
@@ -226,8 +212,8 @@ export const MorePanel: React.FC<MorePanelProps> = ({
                           className="w-full text-left p-3 bg-white/[0.02] hover:bg-white/[0.05] border border-white/5 hover:border-white/10 rounded-2xl transition-all duration-300 flex items-center justify-between group cursor-pointer active:scale-[0.99] shadow-sm hover:shadow-md"
                         >
                           <div className="flex items-center gap-3.5">
-                            <div className="w-12 h-12 rounded-xl flex items-center justify-center transition-all group-hover:scale-105 shrink-0">
-                              <Icon size={44} />
+                            <div className="w-10 h-10 rounded-xl bg-white/[0.03] border border-white/5 flex items-center justify-center transition-all group-hover:scale-110 shrink-0 group-hover:bg-tm-primary/10 group-hover:border-tm-primary/30">
+                              <Icon size={18} className="text-slate-300 group-hover:text-tm-primary transition-colors" />
                             </div>
                             <div className="space-y-0.5">
                               <span className="text-xs font-bold text-white group-hover:text-tm-primary transition-colors flex items-center gap-1.5">

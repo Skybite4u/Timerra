@@ -1,11 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { 
-  Play, Pause, RotateCcw, Sliders, Database, HelpCircle
+  Play, Pause, RotateCcw, Sliders, Database, HelpCircle,
+  Bell, History, Dna, LayoutGrid
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { 
-  BellCapsuleIcon, HistoryCapsuleIcon, DnaCapsuleIcon, PortalCapsuleIcon 
-} from './NavigationCapsuleIcons';
 
 interface NavigationRailProps {
   // Navigation actions
@@ -201,9 +199,9 @@ export const NavigationRail: React.FC<NavigationRailProps> = ({
               : 'border border-transparent hover:border-white/10'
           }`}
         >
-          <BellCapsuleIcon size={30} />
+          <Bell size={18} className={activePanel === 'logs' ? 'text-tm-primary' : 'text-slate-400 group-hover:text-white transition-colors'} />
           {unreadCount > 0 && (
-            <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
+            <span className="absolute top-2.5 right-2.5 w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />
           )}
 
           <AnimatePresence>
@@ -231,7 +229,7 @@ export const NavigationRail: React.FC<NavigationRailProps> = ({
               : 'border border-transparent hover:border-white/10'
           }`}
         >
-          <HistoryCapsuleIcon size={30} />
+          <History size={18} className={activePanel === 'history' ? 'text-purple-400' : 'text-slate-400 group-hover:text-white transition-colors'} />
 
           <AnimatePresence>
             {isHovered === 'history' && (
@@ -258,7 +256,7 @@ export const NavigationRail: React.FC<NavigationRailProps> = ({
               : 'border border-transparent hover:border-white/10'
           }`}
         >
-          <DnaCapsuleIcon size={30} />
+          <Dna size={18} className={activePanel === 'dna' ? 'text-indigo-400' : 'text-slate-400 group-hover:text-white transition-colors'} />
 
           <AnimatePresence>
             {isHovered === 'dna' && (
@@ -288,7 +286,7 @@ export const NavigationRail: React.FC<NavigationRailProps> = ({
               : 'border border-transparent hover:border-white/10'
           }`}
         >
-          <PortalCapsuleIcon size={30} className="animate-pulse-slow" />
+          <LayoutGrid size={18} className={activePanel === 'more' ? 'text-amber-400' : 'text-slate-400 group-hover:text-white transition-colors'} />
 
           <AnimatePresence>
             {isHovered === 'more' && (
@@ -319,9 +317,9 @@ export const NavigationRail: React.FC<NavigationRailProps> = ({
               : 'border border-transparent'
           }`}
         >
-          <BellCapsuleIcon size={26} />
+          <Bell size={18} className={activePanel === 'logs' ? 'text-tm-primary' : 'text-slate-400'} />
           {unreadCount > 0 && (
-            <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
+            <span className="absolute top-2.5 right-2.5 w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />
           )}
         </button>
 
@@ -334,7 +332,7 @@ export const NavigationRail: React.FC<NavigationRailProps> = ({
               : 'border border-transparent'
           }`}
         >
-          <HistoryCapsuleIcon size={26} />
+          <History size={18} className={activePanel === 'history' ? 'text-purple-400' : 'text-slate-400'} />
         </button>
 
         {/* 🟢 CENTERED MOBILE ORB (Sleek, Core Active Glow) */}
@@ -367,7 +365,7 @@ export const NavigationRail: React.FC<NavigationRailProps> = ({
               : 'border border-transparent'
           }`}
         >
-          <DnaCapsuleIcon size={26} />
+          <Dna size={18} className={activePanel === 'dna' ? 'text-indigo-400' : 'text-slate-400'} />
         </button>
 
         {/* ☰ Mobile More Button */}
@@ -379,7 +377,7 @@ export const NavigationRail: React.FC<NavigationRailProps> = ({
               : 'border border-transparent'
           }`}
         >
-          <PortalCapsuleIcon size={26} className="animate-pulse-slow" />
+          <LayoutGrid size={18} className={activePanel === 'more' ? 'text-amber-400' : 'text-slate-400'} />
         </button>
       </div>
 

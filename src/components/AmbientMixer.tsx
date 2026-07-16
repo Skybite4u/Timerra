@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { CloudRain, Trees, Coffee, Sparkles, Volume2, VolumeX, Play, Pause, RefreshCw, Music, Youtube, Link2 } from 'lucide-react';
+import { CloudRain, Coffee, Sparkles, Volume2, VolumeX, Play, Pause, Music, Youtube, Link2 } from 'lucide-react';
 
 import { TimerMode, TimerStatus } from '../types';
 
@@ -42,7 +42,7 @@ const TRACKS: Track[] = [
   }
 ];
 
-// Pure Web Audio Buffer Generators (placed at top-level to prevent re-creation)
+// Pure Web Audio Buffer Generators
 const createWhiteNoiseBuffer = (ctx: AudioContext) => {
   const bufferSize = 2 * ctx.sampleRate;
   const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
@@ -108,7 +108,7 @@ export const AmbientMixer: React.FC<AmbientMixerProps> = ({ timerStatus, timerMo
   const [autoStopOnBreak, setAutoStopOnBreak] = useState<boolean>(true);
   const [isFadedOut, setIsFadedOut] = useState<boolean>(false);
 
-  // Keep Refs of states to prevent stale closures in synthetic track audio generation (e.g., recursive setTimeouts)
+  // Keep Refs of states to prevent stale closures in synthetic track audio generation
   const volumesRef = useRef(volumes);
   const globalVolumeRef = useRef(globalVolume);
   const masterMutedRef = useRef(masterMuted);
@@ -232,14 +232,10 @@ export const AmbientMixer: React.FC<AmbientMixerProps> = ({ timerStatus, timerMo
   // Clean up all audio elements on unmount
   useEffect(() => {
     return () => {
-      // Clear interval
       if (fadeIntervalRef.current) clearInterval(fadeIntervalRef.current);
-      
-      // Stop all synthetic tracks
       TRACKS.forEach(track => {
         stopSyntheticTrack(track.id);
       });
-
       if (audioCtxRef.current) {
         audioCtxRef.current.close();
       }
@@ -292,7 +288,7 @@ export const AmbientMixer: React.FC<AmbientMixerProps> = ({ timerStatus, timerMo
     source.loop = true;
 
     const gainNode = ctx.createGain();
-    const targetVolume = masterMutedRef.current ? 0 : (volume / 100) * 0.15 * (globalVolumeRef.current / 100); // Soft ceiling
+    const targetVolume = masterMutedRef.current ? 0 : (volume / 100) * 0.15 * (globalVolumeRef.current / 100);
     gainNode.gain.setValueAtTime(targetVolume, ctx.currentTime);
 
     source.connect(gainNode);
@@ -331,12 +327,11 @@ export const AmbientMixer: React.FC<AmbientMixerProps> = ({ timerStatus, timerMo
     };
   };
 
-  // 3. Gentle Rain Synthesizer (Pink Noise + Lowpass + random crackle droplets)
+  // 3. Gentle Rain Synthesizer
   const startRain = (volume: number) => {
     stopSyntheticTrack('rain');
     const ctx = initAudioCtx();
 
-    // Pink noise base
     const pinkBuffer = createPinkNoiseBuffer(ctx);
     const pinkSource = ctx.createBufferSource();
     pinkSource.buffer = pinkBuffer;
@@ -356,17 +351,15 @@ export const AmbientMixer: React.FC<AmbientMixerProps> = ({ timerStatus, timerMo
 
     pinkSource.start(0);
 
-    // Random droplet generator
     const dropletIntervals: any[] = [];
     const triggerRaindroplet = () => {
-      // Fetch latest values directly from refs to avoid stale capture
       if (!activeSources.current['rain'] || masterMutedRef.current) return;
 
       try {
         const osc = ctx.createOscillator();
         const dropGain = ctx.createGain();
 
-        const freq = 1100 + Math.random() * 800; // 1100Hz to 1900Hz
+        const freq = 1100 + Math.random() * 800;
         osc.frequency.setValueAtTime(freq, ctx.currentTime);
         osc.type = 'sine';
 
@@ -391,7 +384,7 @@ export const AmbientMixer: React.FC<AmbientMixerProps> = ({ timerStatus, timerMo
     };
 
     const scheduleNextDroplet = () => {
-      const delay = 50 + Math.random() * 160; // droplets speed trigger
+      const delay = 50 + Math.random() * 160;
       const timeoutId = setTimeout(() => {
         triggerRaindroplet();
         if (activeSources.current['rain']) {
@@ -410,12 +403,11 @@ export const AmbientMixer: React.FC<AmbientMixerProps> = ({ timerStatus, timerMo
     };
   };
 
-  // 4. Cozy Cafe Synthesizer (Room rumble + voice-frequency bandpass babble + random clinks)
+  // 4. Cozy Cafe Synthesizer
   const startCafe = (volume: number) => {
     stopSyntheticTrack('cafe');
     const ctx = initAudioCtx();
 
-    // Low crowd room rumble
     const rumbleOsc1 = ctx.createOscillator();
     rumbleOsc1.type = 'sine';
     rumbleOsc1.frequency.setValueAtTime(85, ctx.currentTime);
@@ -435,7 +427,6 @@ export const AmbientMixer: React.FC<AmbientMixerProps> = ({ timerStatus, timerMo
     rumbleOsc1.start(0);
     rumbleOsc2.start(0);
 
-    // Crowd babble simulation
     const babbleBuffer = createPinkNoiseBuffer(ctx);
     const babbleSource = ctx.createBufferSource();
     babbleSource.buffer = babbleBuffer;
@@ -467,7 +458,6 @@ export const AmbientMixer: React.FC<AmbientMixerProps> = ({ timerStatus, timerMo
     babbleSource.start(0);
     chatterLfo.start(0);
 
-    // Random coffee cup clinks
     const clinkIntervals: any[] = [];
     const triggerCupClink = () => {
       if (!activeSources.current['cafe'] || masterMutedRef.current) return;
@@ -501,7 +491,7 @@ export const AmbientMixer: React.FC<AmbientMixerProps> = ({ timerStatus, timerMo
     };
 
     const scheduleNextClink = () => {
-      const delay = 1400 + Math.random() * 3800; // random coffee cups clink intervals
+      const delay = 1400 + Math.random() * 3800;
       const timeoutId = setTimeout(() => {
         triggerCupClink();
         if (activeSources.current['cafe']) {
@@ -524,7 +514,6 @@ export const AmbientMixer: React.FC<AmbientMixerProps> = ({ timerStatus, timerMo
   const toggleTrack = (trackId: string) => {
     const isNowPlaying = !playingTracks[trackId];
     
-    // Clear any active fade operations
     if (fadeIntervalRef.current) {
       clearInterval(fadeIntervalRef.current);
       fadeIntervalRef.current = null;
@@ -670,7 +659,7 @@ export const AmbientMixer: React.FC<AmbientMixerProps> = ({ timerStatus, timerMo
     });
   };
 
-  // Intelligent Autopilot: Trigger Fade-Out or Fade-In based on Timer changes!
+  // Intelligent Autopilot
   useEffect(() => {
     const isTimerActive = timerStatus === 'running';
     const isFocusSession = timerMode === 'focus';
@@ -693,7 +682,7 @@ export const AmbientMixer: React.FC<AmbientMixerProps> = ({ timerStatus, timerMo
     if (fadeIntervalRef.current) clearInterval(fadeIntervalRef.current);
 
     const steps = 15;
-    const stepDuration = 100; // Total 1.5 second fade
+    const stepDuration = 100;
     let currentStep = 0;
 
     fadeIntervalRef.current = setInterval(() => {
@@ -726,17 +715,15 @@ export const AmbientMixer: React.FC<AmbientMixerProps> = ({ timerStatus, timerMo
       if (currentStep >= steps) {
         clearInterval(fadeIntervalRef.current!);
         fadeIntervalRef.current = null;
-        
         TRACKS.forEach(track => {
           stopSyntheticTrack(track.id);
         });
-        
         setIsFadedOut(true);
       }
     }, stepDuration);
   };
 
-  // Graceful Fade In (Restore audio to user set levels)
+  // Graceful Fade In
   const triggerGracefulFadeIn = () => {
     if (fadeIntervalRef.current) clearInterval(fadeIntervalRef.current);
 
@@ -750,7 +737,7 @@ export const AmbientMixer: React.FC<AmbientMixerProps> = ({ timerStatus, timerMo
     });
 
     const steps = 15;
-    const stepDuration = 100; // Total 1.5 second fade
+    const stepDuration = 100;
     let currentStep = 0;
 
     fadeIntervalRef.current = setInterval(() => {
@@ -789,198 +776,269 @@ export const AmbientMixer: React.FC<AmbientMixerProps> = ({ timerStatus, timerMo
   };
 
   return (
-    <div className="w-full flex flex-col p-5 rounded-3xl glossy-panel glossy-panel-hover relative overflow-hidden animate-fade-in select-none">
-      <div className="absolute -right-10 -bottom-10 w-28 h-28 bg-blue-500/5 blur-2xl pointer-events-none" />
-      
-      {/* Header section with Master Trigger */}
-      <div className="flex items-center justify-between gap-4 mb-5 relative z-10">
-        <div className="flex items-center gap-2.5">
-          <div className="p-2 rounded-xl bg-blue-500/10 text-blue-400 border border-blue-500/20">
-            <Volume2 size={16} className={isAnyPlaying && !isFadedOut ? 'animate-pulse' : ''} />
+    <div className="w-full flex flex-col p-6 rounded-[2.5rem] bg-gradient-to-br from-[#0c0202]/95 via-[#130303]/90 to-[#070101]/95 backdrop-blur-[24px] border border-rose-500/15 relative overflow-hidden animate-fade-in select-none shadow-[0_0_60px_rgba(239,68,68,0.08)] group/mixer">
+      {/* Dynamic atmospheric hot glowing elements */}
+      <div className="absolute -right-24 -bottom-24 w-48 h-48 bg-rose-500/[0.08] rounded-full blur-[80px] pointer-events-none group-hover/mixer:bg-rose-500/[0.12] transition-all duration-1000" />
+      <div className="absolute -left-24 -top-24 w-48 h-48 bg-red-600/[0.06] rounded-full blur-[80px] pointer-events-none group-hover/mixer:bg-red-600/[0.10] transition-all duration-1000" />
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-80 h-32 bg-red-500/[0.02] rounded-full blur-[100px] pointer-events-none" />
+
+      {/* Header section with Master Controls */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 relative z-10 pb-5 border-b border-rose-500/10">
+        <div className="flex items-center gap-3.5">
+          <div className="p-3 rounded-2xl bg-gradient-to-br from-rose-500/15 to-rose-500/5 text-rose-500 border border-rose-500/25 shadow-[0_0_20px_rgba(239,68,68,0.25)] relative overflow-hidden">
+            <div className="absolute inset-0 bg-rose-500/5 animate-pulse" />
+            <Volume2 size={18} className={isAnyPlaying && !isFadedOut ? 'animate-pulse text-rose-400' : 'text-rose-500'} />
           </div>
           <div>
-            <h3 className="text-xs font-bold uppercase tracking-widest text-slate-400">Ambient Soundscapes</h3>
-            <p className="text-[10px] text-slate-500">Simultaneous Multi-Track Mixer</p>
+            <h3 className="text-xs font-black uppercase tracking-[0.2em] bg-clip-text text-transparent bg-gradient-to-r from-slate-200 via-rose-100 to-slate-200">
+              SOUND SCAPE COCKPIT
+            </h3>
+            <p className="text-[10px] text-rose-400/70 font-semibold uppercase tracking-wider mt-0.5">
+              Premium Redvibe Studio Mixer
+            </p>
           </div>
         </div>
 
         {/* Master mute/unmute and global toggle */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2.5">
           {/* Mute button */}
           <button
-            id="btn-ambient-mute-toggle"
             onClick={handleMasterMuteToggle}
-            className={`p-2 rounded-xl border transition-all active:scale-95 cursor-pointer ${
+            className={`p-2.5 rounded-xl border transition-all duration-300 active:scale-95 cursor-pointer flex items-center justify-center ${
               masterMuted 
-                ? 'bg-rose-500/20 border-rose-500/30 text-rose-400' 
-                : 'bg-white/5 border-white/5 hover:bg-white/10 text-slate-400'
+                ? 'bg-rose-500/25 border-rose-500/40 text-rose-400 shadow-[0_0_15px_rgba(239,68,68,0.3)]' 
+                : 'bg-white/[0.02] border-white/5 hover:bg-white/10 hover:border-white/10 text-slate-400 hover:text-white'
             }`}
             title={masterMuted ? "Unmute Master" : "Mute Master"}
           >
-            {masterMuted ? <VolumeX size={14} /> : <Volume2 size={14} />}
+            {masterMuted ? <VolumeX size={15} /> : <Volume2 size={15} />}
           </button>
 
           {/* Master Play / Pause */}
           <button
-            id="btn-ambient-master-toggle"
             onClick={handleMasterToggle}
-            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-[10px] font-bold border uppercase tracking-widest transition-all duration-300 cursor-pointer active:scale-95 ${
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-full text-[10px] font-black border uppercase tracking-[0.15em] transition-all duration-300 cursor-pointer active:scale-95 ${
               isAnyPlaying && !isFadedOut
-                ? 'bg-blue-500/20 text-blue-300 border-blue-500/30 hover:bg-blue-500/30'
-                : 'bg-white/5 text-slate-300 border-white/10 hover:bg-white/10 hover:text-white'
+                ? 'bg-rose-500/20 text-rose-300 border-rose-500/40 hover:bg-rose-500/30 hover:shadow-[0_0_15px_rgba(239,68,68,0.15)]'
+                : 'bg-white/5 text-slate-300 border-white/10 hover:bg-white/10 hover:border-white/20 hover:text-white'
             }`}
           >
             {isAnyPlaying && !isFadedOut ? (
               <>
-                <Pause size={10} fill="currentColor" /> Stop Mix
+                <span className="w-1.5 h-1.5 rounded-full bg-rose-400 animate-ping" />
+                <Pause size={11} fill="currentColor" /> Stop Mix
               </>
             ) : (
               <>
-                <Play size={10} fill="currentColor" /> Play Mix
+                <Play size={11} fill="currentColor" /> Play Mix
               </>
             )}
           </button>
         </div>
       </div>
 
-      {/* Global Master Volume Control Slider */}
-      <div className="flex items-center gap-3 bg-white/[0.02] border border-white/5 rounded-2xl p-2.5 px-3.5 mb-4 relative z-10">
-        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 whitespace-nowrap">
-          Master Volume
-        </span>
-        <div className="flex-1 flex items-center gap-2">
-          <VolumeX size={12} className="text-slate-600" />
-          <input
-            id="slider-ambient-global-volume"
-            type="range"
-            min="0"
-            max="100"
-            value={globalVolume}
-            onChange={(e) => handleGlobalVolumeChange(parseInt(e.target.value, 10))}
-            style={{ touchAction: 'none' }}
-            className="flex-grow accent-blue-500 bg-white/10 h-1.5 rounded-lg cursor-pointer appearance-none transition-all duration-300 hover:bg-white/15 focus:outline-none"
-            title="Global master volume"
-          />
-          <Volume2 size={12} className="text-slate-400" />
+      {/* Global Master Volume Control Slider (styled as a custom switch path) */}
+      <div className="flex flex-col sm:flex-row sm:items-center gap-4 bg-[#1a0505]/50 border border-rose-500/15 rounded-2xl p-4 mb-6 relative z-10 backdrop-blur-md">
+        <div className="flex items-center justify-between sm:justify-start gap-2 shrink-0">
+          <span className="text-[10px] font-black uppercase tracking-widest text-rose-400/95">
+            Console Output Gain
+          </span>
+          <span className="sm:hidden text-xs font-mono font-bold text-rose-400 bg-rose-500/10 px-2 py-0.5 rounded-lg border border-rose-500/15">
+            {globalVolume}%
+          </span>
         </div>
-        <span className="text-[10px] font-mono font-medium text-slate-400 w-7 text-right">
+        <div className="flex-grow flex items-center gap-3">
+          <VolumeX size={13} className="text-slate-600 shrink-0" />
+          <div className="flex-grow relative flex items-center group/master">
+            <input
+              type="range"
+              min="0"
+              max="100"
+              value={globalVolume}
+              onChange={(e) => handleGlobalVolumeChange(parseInt(e.target.value, 10))}
+              style={{ touchAction: 'none' }}
+              className="w-full h-3 bg-black/60 rounded-full appearance-none cursor-pointer border border-white/5 relative focus:outline-none transition-all
+              [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:w-8 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-gradient-to-b [&::-webkit-slider-thumb]:from-rose-400 [&::-webkit-slider-thumb]:to-rose-600 [&::-webkit-slider-thumb]:shadow-[0_0_12px_rgba(239,68,68,0.9)] [&::-webkit-slider-thumb]:transition-all [&::-webkit-slider-thumb]:cursor-ew-resize [&::-webkit-slider-thumb]:border [&::-webkit-slider-thumb]:border-rose-300
+              [&::-moz-range-thumb]:appearance-none [&::-moz-range-thumb]:h-4 [&::-moz-range-thumb]:w-8 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:bg-gradient-to-b [&::-moz-range-thumb]:from-rose-400 [&::-moz-range-thumb]:to-rose-600 [&::-moz-range-thumb]:shadow-[0_0_12px_rgba(239,68,68,0.9)] [&::-moz-range-thumb]:transition-all [&::-moz-range-thumb]:cursor-ew-resize [&::-moz-range-thumb]:border [&::-moz-range-thumb]:border-rose-300"
+              title="Global master volume"
+            />
+            {/* Soft background neon glow fill matching the master volume slider */}
+            <div 
+              className="absolute left-0 top-1/2 -translate-y-1/2 h-1 bg-gradient-to-r from-rose-600 to-rose-400 rounded-full pointer-events-none opacity-50 blur-[2px]" 
+              style={{ width: `${globalVolume}%` }}
+            />
+          </div>
+          <Volume2 size={13} className="text-slate-400 shrink-0" />
+        </div>
+        <span className="hidden sm:block text-xs font-mono font-bold text-rose-400 w-10 text-right shrink-0">
           {globalVolume}%
         </span>
       </div>
 
       {/* Autopilot and status indicators */}
-      <div className="flex flex-wrap items-center justify-between gap-2.5 mb-4 px-1 relative z-10 text-[10px]">
-        <label className="flex items-center gap-1.5 text-slate-500 cursor-pointer hover:text-slate-400 select-none">
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-6 px-1 relative z-10 text-[10px]">
+        <label className="flex items-center gap-2 text-slate-400 cursor-pointer hover:text-slate-300 select-none font-bold">
           <input
             type="checkbox"
             checked={autoStopOnBreak}
             onChange={(e) => setAutoStopOnBreak(e.target.checked)}
-            className="w-3.5 h-3.5 bg-black border border-white/10 rounded text-blue-600 focus:ring-0 cursor-pointer"
+            className="w-4 h-4 bg-black border border-rose-500/20 rounded text-rose-600 focus:ring-0 cursor-pointer accent-rose-500"
           />
-          Auto-Stop/Fade during breaks
+          Auto-Stop during breaks
         </label>
 
         {isFadedOut && (
-          <span className="text-blue-400 animate-pulse font-semibold uppercase tracking-wider bg-blue-500/10 border border-blue-500/20 px-2 py-0.5 rounded-full text-[9px]">
+          <span className="text-rose-400 animate-pulse font-extrabold uppercase tracking-wider bg-rose-500/10 border border-rose-500/25 px-3 py-1 rounded-full text-[9px] shadow-[0_0_10px_rgba(239,68,68,0.1)]">
             Autopilot Paused
           </span>
         )}
       </div>
 
-      {/* Mixer Tracks list */}
-      <div className="flex flex-col gap-3.5 relative z-10">
+      {/* Mixer Tracks list - Glassy volume channel cards (2x2 Grid) */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 relative z-10">
         {TRACKS.map(track => {
           const isPlaying = playingTracks[track.id] && !isFadedOut;
           const volValue = volumes[track.id];
           return (
             <div
               key={track.id}
-              className={`p-3 rounded-2xl border transition-all duration-300 ${
+              className={`p-4 rounded-3xl border transition-all duration-300 flex flex-col justify-between gap-4 backdrop-blur-xl relative overflow-hidden group/card ${
                 isPlaying 
-                  ? 'bg-blue-500/[0.02] border-blue-500/20 shadow-md shadow-blue-500/[0.02]' 
-                  : 'bg-white/[0.01] border-white/5'
+                  ? 'bg-gradient-to-b from-rose-950/20 to-transparent border-rose-500/35 shadow-[0_0_25px_rgba(239,68,68,0.1)]' 
+                  : 'bg-white/[0.01] hover:bg-[#1a0505]/20 border-white/5 hover:border-rose-500/15'
               }`}
             >
-              <div className="flex items-center justify-between gap-3 mb-2">
+              {/* Subtle local glow for active channels */}
+              {isPlaying && (
+                <div className="absolute -right-12 -top-12 w-24 h-24 bg-rose-500/[0.06] rounded-full blur-2xl pointer-events-none" />
+              )}
+
+              <div className="flex items-center justify-between gap-3 relative z-10">
                 {/* Track icon & title */}
-                <div className="flex items-center gap-2.5">
-                  <div className={`p-1.5 rounded-lg border transition-all ${
+                <div className="flex items-center gap-3">
+                  <div className={`p-2.5 rounded-xl border transition-all duration-300 ${
                     isPlaying 
-                      ? 'bg-blue-500/10 border-blue-500/30 text-blue-400 shadow-[0_0_8px_rgba(59,130,246,0.1)]' 
+                      ? 'bg-rose-500/20 border-rose-500/40 text-rose-400 shadow-[0_0_12px_rgba(239,68,68,0.3)] animate-pulse' 
                       : 'bg-white/5 border-white/5 text-slate-500'
                   }`}>
                     {track.icon}
                   </div>
                   <div>
-                    <h4 className={`text-[11px] font-bold uppercase tracking-wider ${isPlaying ? 'text-slate-200' : 'text-slate-400'}`}>
+                    <h4 className={`text-[11px] font-black uppercase tracking-wider ${isPlaying ? 'text-white' : 'text-slate-400'}`}>
                       {track.name}
                     </h4>
                     {track.isSynthetic && (
-                      <p className="text-[8px] text-blue-400 font-semibold tracking-wider uppercase">Local Synth</p>
+                      <div className="flex items-center gap-1 mt-0.5">
+                        <span className={`w-1 h-1 rounded-full ${isPlaying ? 'bg-rose-500 animate-ping' : 'bg-slate-700'}`} />
+                        <span className="text-[8px] text-rose-500/90 font-extrabold tracking-wider uppercase">SYNTH CORE</span>
+                      </div>
                     )}
                   </div>
                 </div>
 
-                {/* Individual play state */}
+                {/* Tactile play state capsule switch */}
                 <button
-                  id={`btn-track-toggle-${track.id}`}
                   onClick={() => toggleTrack(track.id)}
-                  className={`p-1.5 rounded-lg border transition-all active:scale-95 cursor-pointer ${
+                  className={`px-3 py-1.5 rounded-xl text-[9px] font-extrabold tracking-widest border transition-all duration-300 active:scale-90 cursor-pointer flex items-center gap-1.5 ${
                     isPlaying
-                      ? 'bg-blue-500/20 border-blue-500/30 text-blue-400'
+                      ? 'bg-rose-500/20 border-rose-500/45 text-rose-300 shadow-[inset_0_0_8px_rgba(239,68,68,0.2)]'
                       : 'bg-white/5 border-white/10 text-slate-500 hover:text-slate-300 hover:bg-white/10'
                   }`}
                 >
-                  {isPlaying ? <Pause size={10} fill="currentColor" /> : <Play size={10} fill="currentColor" />}
+                  <span className={`w-1.5 h-1.5 rounded-full ${isPlaying ? 'bg-rose-400' : 'bg-slate-600'}`} />
+                  {isPlaying ? 'ON' : 'OFF'}
                 </button>
               </div>
 
-              {/* Slider track control */}
-              <div className="flex items-center gap-3">
-                <span className="text-[9px] font-mono text-slate-600 w-3">
-                  {isPlaying ? <Volume2 size={10} className="text-blue-500/70" /> : <VolumeX size={10} />}
-                </span>
-                <input
-                  type="range"
-                  min="0"
-                  max="100"
-                  value={volValue}
-                  onChange={(e) => handleVolumeChange(track.id, parseInt(e.target.value, 10))}
-                  style={{ touchAction: 'none' }}
-                  className="flex-1 h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-blue-500"
-                />
-                <span className="text-[9px] font-mono text-slate-500 min-w-[20px] text-right">
-                  {volValue}%
-                </span>
+              {/* Slider channel control with hardware console style switch-lever design */}
+              <div className="space-y-2 relative z-10">
+                <div className="flex items-center justify-between text-[9px] font-semibold text-slate-500">
+                  <span className="flex items-center gap-1">
+                    {isPlaying ? <Volume2 size={10} className="text-rose-500 animate-pulse" /> : <VolumeX size={10} />}
+                    {isPlaying ? 'ACTIVE' : 'STANDBY'}
+                  </span>
+                  <span className="font-mono font-bold text-rose-400/90 bg-rose-500/5 px-2 py-0.5 rounded-md border border-rose-500/10">
+                    {volValue}%
+                  </span>
+                </div>
+
+                {/* High precision horizontal slider styled as a tactile hardware mixing deck slider */}
+                <div className="relative flex items-center p-2.5 bg-black/45 border border-white/5 rounded-2xl group/slider">
+                  <input
+                    type="range"
+                    min="0"
+                    max="100"
+                    value={volValue}
+                    onChange={(e) => handleVolumeChange(track.id, parseInt(e.target.value, 10))}
+                    style={{ touchAction: 'none' }}
+                    className="w-full h-4 bg-transparent appearance-none cursor-pointer relative focus:outline-none transition-all z-10
+                    [&::-webkit-slider-runnable-track]:h-1 [&::-webkit-slider-runnable-track]:bg-neutral-900 [&::-webkit-slider-runnable-track]:rounded-full [&::-webkit-slider-runnable-track]:border [&::-webkit-slider-runnable-track]:border-white/5
+                    [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:h-5 [&::-webkit-slider-thumb]:w-3.5 [&::-webkit-slider-thumb]:rounded-sm [&::-webkit-slider-thumb]:bg-gradient-to-b [&::-webkit-slider-thumb]:from-rose-400 [&::-webkit-slider-thumb]:to-rose-600 [&::-webkit-slider-thumb]:shadow-[0_0_8px_rgba(239,68,68,0.85)] [&::-webkit-slider-thumb]:transition-all [&::-webkit-slider-thumb]:cursor-ew-resize [&::-webkit-slider-thumb]:border [&::-webkit-slider-thumb]:border-rose-300 [&::-webkit-slider-thumb]:-translate-y-[8px]
+                    [&::-moz-range-track]:h-1 [&::-moz-range-track]:bg-neutral-900 [&::-moz-range-track]:rounded-full [&::-moz-range-track]:border [&::-moz-range-track]:border-white/5
+                    [&::-moz-range-thumb]:appearance-none [&::-moz-range-thumb]:h-5 [&::-moz-range-thumb]:w-3.5 [&::-moz-range-thumb]:rounded-sm [&::-moz-range-thumb]:bg-gradient-to-b [&::-moz-range-thumb]:from-rose-400 [&::-moz-range-thumb]:to-rose-600 [&::-moz-range-thumb]:shadow-[0_0_8px_rgba(239,68,68,0.85)] [&::-moz-range-thumb]:transition-all [&::-moz-range-thumb]:cursor-ew-resize [&::-moz-range-thumb]:border [&::-moz-range-thumb]:border-rose-300"
+                  />
+                  {/* Real-time slider glowing track highlights */}
+                  <div 
+                    className="absolute left-3 top-1/2 -translate-y-1/2 h-[2px] bg-gradient-to-r from-rose-600 to-rose-400 rounded-full pointer-events-none opacity-40 group-hover/slider:opacity-60 blur-[1px] transition-opacity" 
+                    style={{ width: `calc(${volValue}% - ${volValue * 0.1}px)` }}
+                  />
+                </div>
+
+                {/* Tactile volume preset buttons that behave like custom switch triggers */}
+                <div className="flex justify-between items-center gap-1 pt-1.5">
+                  {[
+                    { val: 0, label: 'MUTE' },
+                    { val: 30, label: 'LOW' },
+                    { val: 65, label: 'MID' },
+                    { val: 100, label: 'MAX' }
+                  ].map(p => {
+                    const isPresetActive = volValue === p.val;
+                    return (
+                      <button
+                        key={p.val}
+                        type="button"
+                        onClick={() => handleVolumeChange(track.id, p.val)}
+                        className={`flex-1 text-[8px] font-extrabold py-1.5 rounded-lg border transition-all cursor-pointer active:scale-95 text-center ${
+                          isPresetActive
+                            ? 'bg-rose-500/20 border-rose-500/35 text-rose-300 shadow-[inset_0_0_5px_rgba(239,68,68,0.15)] font-black'
+                            : 'bg-white/[0.01] border-white/5 text-slate-500 hover:text-slate-400 hover:border-white/10'
+                        }`}
+                      >
+                        {p.label}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
             </div>
           );
         })}
       </div>
 
-      {/* --- YouTube Focus Music Station --- */}
-      <div className="mt-5 pt-5 border-t border-white/5 flex flex-col gap-4 relative z-10">
+      {/* --- YouTube Focus Music Station with Premium Redvibe Overhaul --- */}
+      <div className="mt-6 pt-6 border-t border-rose-500/10 flex flex-col gap-4 relative z-10">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="p-1.5 rounded-lg bg-rose-500/10 text-rose-400 border border-rose-500/20">
-              <Youtube size={14} className={ytActive ? 'animate-pulse' : ''} />
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 rounded-xl bg-red-500/10 text-red-500 border border-red-500/20 shadow-[0_0_15px_rgba(239,68,68,0.15)]">
+              <Youtube size={16} className={ytActive ? 'animate-pulse text-red-400' : 'text-red-500'} />
             </div>
             <div>
-              <h4 className="text-[11px] font-bold uppercase tracking-wider text-slate-300">
+              <h4 className="text-[11px] font-black uppercase tracking-[0.15em] text-slate-200">
                 YouTube Ambient Radio
               </h4>
-              <p className="text-[8px] text-slate-500 font-medium uppercase">Background Focus Streamer</p>
+              <p className="text-[8px] text-rose-400/50 font-extrabold uppercase tracking-widest mt-0.5">
+                Background focus stream
+              </p>
             </div>
           </div>
 
           {/* Toggle Switch */}
           <button
             type="button"
-            id="toggle-yt-player"
             onClick={() => setYtActive(!ytActive)}
             className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-300 ease-in-out focus:outline-none ${
               ytActive 
-                ? 'bg-rose-500 shadow-[0_0_8px_rgba(239,68,68,0.3)]' 
+                ? 'bg-red-600 shadow-[0_0_12px_rgba(220,38,38,0.5)]' 
                 : 'bg-slate-800'
             }`}
           >
@@ -994,10 +1052,10 @@ export const AmbientMixer: React.FC<AmbientMixerProps> = ({ timerStatus, timerMo
 
         {/* Playback status */}
         {ytActive && (
-          <div className="p-2 bg-rose-500/5 border border-rose-500/10 rounded-xl text-[9px] text-rose-300/90 leading-relaxed font-mono flex items-center gap-1.5 animate-fade-in">
-            <span className="flex h-1.5 w-1.5 relative">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-rose-500"></span>
+          <div className="p-3 bg-red-950/20 border border-red-500/15 rounded-2xl text-[9px] text-red-300/90 leading-relaxed font-mono flex items-center gap-2 animate-fade-in">
+            <span className="flex h-1.5 w-1.5 relative shrink-0">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-red-500"></span>
             </span>
             <span>
               {!autoStopOnBreak || (timerStatus === 'running' && timerMode === 'focus') 
@@ -1008,11 +1066,11 @@ export const AmbientMixer: React.FC<AmbientMixerProps> = ({ timerStatus, timerMo
         )}
 
         {/* Curated Stations Grid */}
-        <div className="flex flex-col gap-1.5">
-          <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest pl-0.5">
+        <div className="flex flex-col gap-2">
+          <span className="text-[9px] font-black text-rose-400/60 uppercase tracking-[0.15em] pl-0.5">
             Curated Ambient Streams
           </span>
-          <div className="flex flex-wrap gap-1.5">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
             {YT_STATIONS.map(station => {
               const isSelected = ytVideoId === station.id;
               return (
@@ -1022,13 +1080,14 @@ export const AmbientMixer: React.FC<AmbientMixerProps> = ({ timerStatus, timerMo
                     setYtVideoId(station.id);
                     setYtActive(true);
                   }}
-                  className={`px-2.5 py-1.5 rounded-xl text-[9px] font-medium border transition-all duration-300 cursor-pointer ${
+                  className={`px-3 py-2 rounded-xl text-[9.5px] font-bold border transition-all duration-300 cursor-pointer text-left truncate flex items-center justify-between ${
                     isSelected
-                      ? 'bg-rose-500/15 text-rose-300 border-rose-500/30 font-semibold shadow-[0_0_8px_rgba(239,68,68,0.08)]'
+                      ? 'bg-red-500/15 text-red-300 border-red-500/35 font-extrabold shadow-[0_0_10px_rgba(239,68,68,0.15)]'
                       : 'bg-white/[0.01] border-white/5 hover:border-white/10 text-slate-400 hover:text-slate-200'
                   }`}
                 >
-                  {station.name}
+                  <span className="truncate">{station.name}</span>
+                  {isSelected && <span className="w-1.5 h-1.5 rounded-full bg-red-400 shrink-0 ml-1" />}
                 </button>
               );
             })}
@@ -1036,25 +1095,25 @@ export const AmbientMixer: React.FC<AmbientMixerProps> = ({ timerStatus, timerMo
         </div>
 
         {/* Custom Input */}
-        <div className="flex flex-col gap-1.5">
-          <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest pl-0.5">
+        <div className="flex flex-col gap-2">
+          <span className="text-[9px] font-black text-rose-400/60 uppercase tracking-[0.15em] pl-0.5">
             Load Custom YouTube Stream
           </span>
           <div className="flex gap-1.5">
-            <div className="flex-1 relative flex items-center">
-              <Link2 size={11} className="absolute left-3 text-slate-500" />
+            <div className="flex-grow relative flex items-center">
+              <Link2 size={11} className="absolute left-3.5 text-slate-500" />
               <input
                 type="text"
                 placeholder="Paste video ID or watch link..."
                 value={customYtInput}
                 onChange={(e) => setCustomYtInput(e.target.value)}
                 onKeyDown={(e) => { if (e.key === 'Enter') handleApplyCustomYt(); }}
-                className="w-full pl-7 pr-3 py-1.5 bg-black/20 border border-white/5 rounded-xl text-[10px] text-slate-200 placeholder-slate-600 focus:outline-none focus:border-rose-500/30 transition-colors"
+                className="w-full pl-8 pr-3.5 py-2.5 bg-black/40 border border-white/5 rounded-xl text-[10px] text-slate-200 placeholder-slate-600 focus:outline-none focus:border-red-500/35 transition-colors"
               />
             </div>
             <button
               onClick={handleApplyCustomYt}
-              className="px-3.5 py-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/20 hover:border-rose-500/30 rounded-xl text-[9px] font-bold transition-all cursor-pointer"
+              className="px-4 py-2.5 bg-red-500/15 hover:bg-red-500/30 text-red-300 border border-red-500/20 hover:border-red-500/35 rounded-xl text-[10px] font-black transition-all cursor-pointer shadow-sm active:scale-95 shrink-0"
             >
               Load Stream
             </button>
@@ -1065,10 +1124,6 @@ export const AmbientMixer: React.FC<AmbientMixerProps> = ({ timerStatus, timerMo
             </span>
           )}
         </div>
-
-        <p className="text-[9px] text-slate-600 leading-relaxed pl-0.5">
-          ⚠️ <strong>Note:</strong> YouTube stream is fetched server-side or rendered via browser iframe directly to keep ambient focus private and seamless.
-        </p>
       </div>
 
       {/* Hidden iframe background streaming engine */}

@@ -30,6 +30,8 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
   const [tickSnd, setTickSnd] = useState(settings.tickSound);
   const [activeTheme, setActiveTheme] = useState<ThemeName>(settings.theme);
   const [activeSub, setActiveSub] = useState(settings.subject);
+  const [autoDimVal, setAutoDimVal] = useState(settings.autoDim !== false);
+  const [syncWithSystem, setSyncWithSystem] = useState(settings.syncWithSystem === true);
 
   useEffect(() => {
     const originalStyle = document.body.style.overflow;
@@ -99,6 +101,8 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
       tickSound: tickSnd,
       theme: activeTheme,
       subject: activeSub,
+      autoDim: autoDimVal,
+      syncWithSystem: syncWithSystem,
     });
     onClose();
   };
@@ -364,7 +368,10 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                 return (
                   <button
                     key={theme.id}
-                    onClick={() => setActiveTheme(theme.id)}
+                    onClick={() => {
+                      setActiveTheme(theme.id);
+                      setSyncWithSystem(false);
+                    }}
                     type="button"
                     className={`p-3 rounded-2xl text-left border transition-all active:scale-95 cursor-pointer flex flex-col justify-between h-[80px] ${
                       isSelected
@@ -391,6 +398,29 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                   </button>
                 );
               })}
+            </div>
+
+            {/* Sync with System toggle */}
+            <div className="pt-2">
+              <label className="flex items-center justify-between p-3.5 rounded-2xl bg-white/[0.01] border border-white/5 hover:border-white/10 transition-all cursor-pointer">
+                <div className="flex flex-col pr-4">
+                  <span className="text-xs font-semibold">Sync with System Theme</span>
+                  <span className="text-[10px] text-slate-400 mt-0.5">Automatically switch theme depending on operating system light/dark mode preference</span>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={syncWithSystem}
+                  onChange={(e) => {
+                    const checked = e.target.checked;
+                    setSyncWithSystem(checked);
+                    if (checked) {
+                      const isSystemDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+                      setActiveTheme(isSystemDark ? 'midnight' : 'blue');
+                    }
+                  }}
+                  className="w-4 h-4 rounded text-tm-primary bg-white/10 border-white/5 focus:ring-tm-primary focus:ring-offset-0"
+                />
+              </label>
             </div>
           </div>
 
@@ -426,6 +456,20 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                   type="checkbox"
                   checked={tickSnd}
                   onChange={(e) => setTickSnd(e.target.checked)}
+                  className="w-4 h-4 rounded text-tm-primary bg-white/10 border-white/5 focus:ring-tm-primary focus:ring-offset-0"
+                />
+              </label>
+
+              {/* Auto-Dim late night toggle */}
+              <label className="flex items-center justify-between p-3.5 rounded-2xl bg-white/[0.01] border border-white/5 hover:border-white/10 transition-all cursor-pointer sm:col-span-2">
+                <div className="flex flex-col pr-4">
+                  <span className="text-xs font-semibold">Auto-Dim (Night Mode)</span>
+                  <span className="text-[10px] text-slate-400 mt-0.5">Automatically softens colors, brightness, and contrast after 10 PM to protect your eyes</span>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={autoDimVal}
+                  onChange={(e) => setAutoDimVal(e.target.checked)}
                   className="w-4 h-4 rounded text-tm-primary bg-white/10 border-white/5 focus:ring-tm-primary focus:ring-offset-0"
                 />
               </label>

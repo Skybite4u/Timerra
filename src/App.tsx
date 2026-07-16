@@ -19,10 +19,14 @@ import {
   Pause,
   RotateCcw,
   Eye,
+  Moon,
   Bell,
   BellOff,
   Star,
-  Compass
+  Compass,
+  Target,
+  Plus,
+  Check
 } from 'lucide-react';
 
 // Focus DNA system imports
@@ -72,6 +76,8 @@ const defaultSettings: TimerSettings = {
   tickSound: false,
   theme: 'blue',
   subject: 'Deep Work',
+  autoDim: true,
+  syncWithSystem: false,
 };
 
 export default function App() {
@@ -104,6 +110,11 @@ export default function App() {
 
   // --- Milestone Ceremony Queue ---
   const [ceremonyQueue, setCeremonyQueue] = useState<any[]>([]);
+
+  // --- Focus Subject & Mood states ---
+  const [newSubjectInput, setNewSubjectInput] = useState<string>('');
+  const [completedSubjects, setCompletedSubjects] = useState<string[]>([]);
+  const [currentFocusMood, setCurrentFocusMood] = useState<string>('Calm');
 
   // --- Notification Center States ---
   const [showNotificationCenter, setShowNotificationCenter] = useState<boolean>(false);
@@ -226,7 +237,7 @@ export default function App() {
         cancelled,
         goal: settings.focusGoal || '',
         notes: '',
-        mood: 'Focused',
+        mood: currentFocusMood,
         orbTheme: settings.orbColorPalette || 'Sunset Flare',
         device: 'Browser App',
         date: dateStr,
@@ -351,7 +362,7 @@ export default function App() {
         }
       }
     }
-  }, [mode, settings, setCeremonyQueue, isFocusSilenceMode, setDnaEvolutionStage]);
+  }, [mode, settings, setCeremonyQueue, isFocusSilenceMode, setDnaEvolutionStage, currentFocusMood]);
 
   // Synchronize unlogged study seconds to localStorage on tab close / unload
   useEffect(() => {
@@ -499,6 +510,38 @@ export default function App() {
     };
     initApp();
   }, []);
+
+  // Effect to sync theme with operating system preferences if enabled
+  useEffect(() => {
+    if (!isLoaded || !settings.syncWithSystem) return;
+
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    
+    const applySystemTheme = (e: MediaQueryListEvent | MediaQueryList) => {
+      const isDark = e.matches;
+      const targetTheme: ThemeName = isDark ? 'midnight' : 'blue';
+      
+      if (settings.theme !== targetTheme) {
+        setSettings(prev => {
+          const updated = { ...prev, theme: targetTheme };
+          TimerraDB.saveSettings(updated);
+          return updated;
+        });
+      }
+    };
+
+    // Run initial sync
+    applySystemTheme(mediaQuery);
+
+    // Listen for changes
+    if (mediaQuery.addEventListener) {
+      mediaQuery.addEventListener('change', applySystemTheme);
+      return () => mediaQuery.removeEventListener('change', applySystemTheme);
+    } else {
+      mediaQuery.addListener(applySystemTheme);
+      return () => mediaQuery.removeListener(applySystemTheme);
+    }
+  }, [isLoaded, settings.syncWithSystem, settings.theme]);
 
   // Write live running/paused timer state to localStorage continuously (saves work state securely)
   useEffect(() => {
@@ -874,6 +917,25 @@ export default function App() {
     setSubjects(loadedSubjects);
   };
 
+  const handleCompleteSubject = (sub: string) => {
+    setCompletedSubjects(prev => {
+      const exists = prev.includes(sub);
+      if (exists) {
+        return prev.filter(s => s !== sub);
+      } else {
+        if (navigator.vibrate) navigator.vibrate([40, 30, 40]);
+        NotificationManager.addNotification(
+          `Subject Goal Achieved! 🌟`,
+          `Congratulations on completing all objectives for the subject: "${sub}". Deep work logged.`,
+          'Focus Goals',
+          false,
+          isFocusSilenceMode
+        );
+        return [...prev, sub];
+      }
+    });
+  };
+
   const handleRenameSubject = async (oldName: string, newName: string) => {
     if (oldName === newName || !newName.trim()) return;
     await TimerraDB.renameSubject(oldName, newName.trim());
@@ -1045,6 +1107,9 @@ export default function App() {
 
   const streakDays = calculateStreak(sessions);
   const totalOverallFocusHours = (sessions.filter(s => s.mode === 'focus').reduce((sum, s) => sum + (s.durationSec / 3600), 0)).toFixed(1);
+  
+  const currentHour = new Date().getHours();
+  const isCurrentlyAutoDimmed = (settings.autoDim !== false) && (currentHour >= 22 || currentHour < 6);
 
   if (!isHydrated || !isLoaded) {
     return (
@@ -1058,7 +1123,7 @@ export default function App() {
   }
 
   return (
-    <div className={`min-h-screen theme-${settings.theme} bg-gradient-to-b from-tm-bg-from to-tm-bg-to text-white font-sans transition-all duration-700 ease-in-out`}>
+    <div className={`min-h-screen theme-${settings.theme} ${isCurrentlyAutoDimmed ? 'auto-dimmed' : ''} bg-gradient-to-b from-tm-bg-from to-tm-bg-to text-white font-sans transition-all duration-700 ease-in-out`}>
       
       {/* Branded Defs Gradients */}
       <BrandedDefs />
@@ -1137,20 +1202,6 @@ export default function App() {
                 </span>
               )}
             </button>
-
-            <div className="flex items-center gap-1.5 bg-white/[0.03] border border-white/[0.06] rounded-2xl px-3 py-1.5 text-xs text-slate-200 shrink-0">
-              <BookOpen className="w-3.5 h-3.5 text-tm-primary" />
-              <span className="font-bold">Subject:</span>
-              <select
-                value={settings.subject}
-                onChange={(e) => handleSaveSettings({ ...settings, subject: e.target.value })}
-                className="bg-transparent border-none text-white focus:outline-none focus:ring-0 font-medium ml-1 cursor-pointer"
-              >
-                {subjects.map(s => (
-                  <option key={s} value={s} className="bg-[#0b1020] text-white">{s}</option>
-                ))}
-              </select>
-            </div>
           </div>
         </header>
       )}
@@ -1201,6 +1252,13 @@ export default function App() {
               <span className="text-slate-400 font-medium leading-none">Focused:</span>
               <span className="text-white font-bold font-mono leading-none">{totalMinutesToday} mins</span>
             </div>
+
+            {isCurrentlyAutoDimmed && (
+              <div className="flex items-center gap-1 bg-indigo-500/10 text-indigo-300 border border-indigo-400/15 rounded-full px-2 py-0.5 text-[10px] font-semibold tracking-wide animate-pulse-slow shrink-0" title="Auto-Dim Active (Night Owl Protection)">
+                <Moon className="w-2.5 h-2.5" />
+                <span>Night Mode Active</span>
+              </div>
+            )}
           </div>
         )}
 
@@ -1260,8 +1318,145 @@ export default function App() {
         {!isFullscreen && (
           <div className="w-full grid grid-cols-1 lg:grid-cols-3 gap-6 mt-16 animate-fade-in">
           
-          {/* Column 1: Multi-track audio ambient mixer */}
-          <div className="lg:col-span-1">
+          {/* Column 1: Focus Subject & Mood Board + Multi-track audio ambient mixer */}
+          <div className="lg:col-span-1 space-y-6">
+            
+            {/* Subject Board & Mood Selector */}
+            <div className="w-full p-5 rounded-3xl tm-glass-dense border border-white/5 relative overflow-hidden flex flex-col gap-4 animate-fade-in select-none">
+              {/* background decorative flow */}
+              <div className="absolute top-0 left-0 w-24 h-24 bg-tm-primary/5 rounded-full blur-2xl pointer-events-none" />
+              
+              {/* Row 1: Title and direct settings path */}
+              <div className="flex items-center justify-between border-b border-white/10 pb-3 relative z-10">
+                <div className="flex items-center gap-2">
+                  <Target className="w-4 h-4 text-tm-primary animate-pulse" />
+                  <span className="text-[10px] font-extrabold uppercase tracking-[0.2em] text-white">Focus Hub</span>
+                </div>
+                <button
+                  onClick={() => { playClick(); setShowSettings(true); }}
+                  className="text-[9px] font-bold text-slate-400 hover:text-tm-primary transition-colors flex items-center gap-1 bg-white/5 hover:bg-white/10 px-2.5 py-1 rounded-xl border border-white/5 cursor-pointer"
+                >
+                  <Sliders className="w-3 h-3" /> Settings Path
+                </button>
+              </div>
+
+              {/* SECTION: Direct Subject Board */}
+              <div className="space-y-3 relative z-10">
+                <div className="flex items-center justify-between">
+                  <span className="text-[9px] font-extrabold uppercase tracking-widest text-slate-400">Target Subject</span>
+                  <span className="text-[10px] bg-tm-primary/10 text-tm-primary px-2.5 py-1 rounded-lg border border-tm-primary/25 font-bold max-w-[140px] truncate">{settings.subject}</span>
+                </div>
+
+                {/* Inline list of subjects with Mark Complete */}
+                <div className="space-y-1.5 max-h-[140px] overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-white/10">
+                  {subjects.map(sub => {
+                    const isSelected = settings.subject === sub;
+                    const isCompleted = completedSubjects.includes(sub);
+                    return (
+                      <div 
+                        key={sub}
+                        onClick={() => { playClick(); handleSaveSettings({ ...settings, subject: sub }); }}
+                        className={`group/item flex items-center justify-between p-2 rounded-xl border transition-all cursor-pointer ${
+                          isSelected 
+                            ? 'bg-tm-primary/15 border-tm-primary/35 text-white shadow-sm' 
+                            : 'bg-white/[0.01] border-white/5 text-slate-400 hover:bg-white/[0.04] hover:text-slate-200'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2 max-w-[calc(100%-48px)]">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              playClick();
+                              handleCompleteSubject(sub);
+                            }}
+                            className={`w-4 h-4 rounded-full border flex items-center justify-center transition-all shrink-0 ${
+                              isCompleted
+                                ? 'bg-emerald-500 border-emerald-400 text-white'
+                                : 'border-slate-500 group-hover/item:border-emerald-500 group-hover/item:bg-emerald-500/10'
+                            }`}
+                            title="Mark Subject Complete"
+                          >
+                            {isCompleted && <Check className="w-2.5 h-2.5" />}
+                          </button>
+                          <span className={`text-[11px] font-semibold truncate ${isCompleted ? 'line-through text-slate-500 font-medium' : ''}`}>
+                            {sub}
+                          </span>
+                        </div>
+                        {isSelected && (
+                          <span className="text-[8px] bg-tm-primary/20 border border-tm-primary/35 text-tm-primary font-bold px-1.5 py-0.5 rounded uppercase shrink-0">Active</span>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Direct quick add input */}
+                <form 
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    if (newSubjectInput.trim()) {
+                      playClick();
+                      handleAddSubject(newSubjectInput.trim());
+                      setNewSubjectInput('');
+                    }
+                  }}
+                  className="flex items-center gap-1.5 mt-2"
+                >
+                  <input
+                    type="text"
+                    value={newSubjectInput}
+                    onChange={(e) => setNewSubjectInput(e.target.value)}
+                    placeholder="Quick add subject..."
+                    className="flex-grow bg-white/[0.02] border border-white/10 focus:border-tm-primary/50 rounded-xl px-3 py-2 text-xs text-white focus:outline-none placeholder-slate-600 transition-colors"
+                  />
+                  <button
+                    type="submit"
+                    className="h-8 w-8 bg-tm-primary/15 hover:bg-tm-primary/35 border border-tm-primary/20 hover:border-tm-primary/40 rounded-xl flex items-center justify-center text-white cursor-pointer active:scale-95 transition-all"
+                  >
+                    <Plus className="w-4 h-4 text-tm-primary" />
+                  </button>
+                </form>
+              </div>
+
+              {/* SECTION: Direct Mood Tagging */}
+              <div className="border-t border-white/10 pt-3.5 space-y-2.5 relative z-10">
+                <div className="flex items-center justify-between">
+                  <span className="text-[9px] font-extrabold uppercase tracking-widest text-slate-400">Focus Mood Tag</span>
+                  <span className="text-[10px] bg-tm-accent/10 text-tm-accent px-2.5 py-1 rounded-lg border border-tm-accent/25 font-extrabold uppercase tracking-wider">{currentFocusMood}</span>
+                </div>
+
+                {/* Mood Tag Grid of 4 Actions */}
+                <div className="grid grid-cols-4 gap-1.5">
+                  {[
+                    { id: 'Energized', label: 'Energized', icon: '⚡', color: 'hover:border-amber-500/40 hover:bg-amber-500/5' },
+                    { id: 'Calm', label: 'Calm', icon: '🍃', color: 'hover:border-emerald-500/40 hover:bg-emerald-500/5' },
+                    { id: 'Creative', label: 'Creative', icon: '🎨', color: 'hover:border-pink-500/40 hover:bg-pink-500/5' },
+                    { id: 'Deep', label: 'Deep', icon: '🧠', color: 'hover:border-indigo-500/40 hover:bg-indigo-500/5' }
+                  ].map(m => {
+                    const isActive = currentFocusMood === m.id;
+                    return (
+                      <button
+                        key={m.id}
+                        type="button"
+                        onClick={() => { playClick(); setCurrentFocusMood(m.id); }}
+                        className={`flex flex-col items-center justify-center py-2.5 rounded-xl border transition-all cursor-pointer ${
+                          isActive
+                            ? 'bg-tm-accent/15 border-tm-accent/50 text-white shadow-sm scale-[1.03]'
+                            : 'bg-white/[0.01] border-white/5 text-slate-400 ' + m.color
+                        }`}
+                        title={`Tag mental state as ${m.label}`}
+                      >
+                        <span className="text-base mb-0.5">{m.icon}</span>
+                        <span className="text-[8px] font-extrabold tracking-wider uppercase">{m.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+            </div>
+
             <AmbientMixer 
               timerStatus={status}
               timerMode={mode}
@@ -1537,33 +1732,35 @@ export default function App() {
       )}
 
       {/* 🧭 NAVIGATION SYSTEM: LEFT NAVIGATION RAIL & FLOATING ORB DOCK */}
-      <NavigationRail
-        onOpenNotificationCenter={() => { playClick(); setShowNotificationCenter(true); }}
-        onOpenHistoryPanel={() => { playClick(); setShowHistoryPanel(true); }}
-        onOpenFocusDna={() => { playClick(); setShowFocusDna(true); }}
-        onOpenConstellation={() => { playClick(); setShowConstellation(true); }}
-        onOpenMorePanel={() => { playClick(); setShowMorePanel(true); }}
-        onOpenSettings={() => { playClick(); setShowSettings(true); }}
-        onOpenBackup={() => { playClick(); setShowBackup(true); }}
-        onOpenGuide={() => { playClick(); setShowGuideModal(true); }}
-        
-        timerRunning={status === 'running'}
-        onTogglePlay={handleTogglePlay}
-        onReset={handleReset}
-        onSkip={handleSkip}
-        onReturnToWorkspace={() => {
-          playClick();
-          closeAllPanels();
-          window.scrollTo({ top: 0, behavior: 'smooth' });
-        }}
-        unreadCount={unreadNotificationCount}
-        activePanel={
-          showNotificationCenter ? 'logs' :
-          showHistoryPanel ? 'history' :
-          showFocusDna ? 'dna' :
-          showMorePanel ? 'more' : 'none'
-        }
-      />
+      {!isFullscreen && (
+        <NavigationRail
+          onOpenNotificationCenter={() => { playClick(); setShowNotificationCenter(true); }}
+          onOpenHistoryPanel={() => { playClick(); setShowHistoryPanel(true); }}
+          onOpenFocusDna={() => { playClick(); setShowFocusDna(true); }}
+          onOpenConstellation={() => { playClick(); setShowConstellation(true); }}
+          onOpenMorePanel={() => { playClick(); setShowMorePanel(true); }}
+          onOpenSettings={() => { playClick(); setShowSettings(true); }}
+          onOpenBackup={() => { playClick(); setShowBackup(true); }}
+          onOpenGuide={() => { playClick(); setShowGuideModal(true); }}
+          
+          timerRunning={status === 'running'}
+          onTogglePlay={handleTogglePlay}
+          onReset={handleReset}
+          onSkip={handleSkip}
+          onReturnToWorkspace={() => {
+            playClick();
+            closeAllPanels();
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          }}
+          unreadCount={unreadNotificationCount}
+          activePanel={
+            showNotificationCenter ? 'logs' :
+            showHistoryPanel ? 'history' :
+            showFocusDna ? 'dna' :
+            showMorePanel ? 'more' : 'none'
+          }
+        />
+      )}
 
       {/* ☰ MORE PANEL PORTAL OVERLAY */}
       <MorePanel

@@ -20,6 +20,8 @@ export interface TimerSettings {
   tickSound: boolean;            // default false
   theme: ThemeName;              // default "blue"
   subject: string;               // default "Deep Work"
+  autoDim?: boolean;             // default true
+  syncWithSystem?: boolean;      // default false
 }
 
 export interface Session {
