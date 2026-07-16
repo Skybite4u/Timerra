@@ -1065,9 +1065,9 @@ export default function App() {
       
       {/* HEADER NAVBAR */}
       {!isFullscreen && (
-        <header className="px-4 sm:px-6 py-5 flex items-center justify-between border-b border-white/[0.03] max-w-7xl mx-auto animate-fade-in">
+        <header className="sticky top-3 z-30 mt-3 px-4 sm:px-6 py-3.5 flex items-center justify-between border border-white/[0.05] border-t-white/[0.12] rounded-2xl max-w-7xl mx-4 xl:mx-auto animate-fade-in tm-glass-dense backdrop-blur-md shadow-[0_12px_40px_-8px_rgba(0,0,0,0.5)]">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-tm-primary to-tm-accent flex items-center justify-center shadow-[0_0_15px_-2px_var(--tm-glow)]">
+            <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-tm-primary to-tm-accent flex items-center justify-center shadow-[0_0_15px_-2px_var(--tm-glow)] shrink-0">
               <Clock className="w-4 h-4 text-white" />
             </div>
             <div>
@@ -1079,11 +1079,11 @@ export default function App() {
           </div>
 
           {/* Subjects board Selector widget in Navbar */}
-          <div className="flex items-center gap-2.5 sm:gap-3">
+          <div className="flex items-center gap-2 sm:gap-3 overflow-x-auto no-scrollbar max-w-[calc(100%-120px)] sm:max-w-none">
             {/* Vault Milestone button */}
             <button
               onClick={() => { playClick(); setShowMilestoneVault(true); }}
-              className="flex items-center gap-1.5 bg-white/[0.02] hover:bg-white/5 border border-white/5 rounded-2xl px-3 py-1.5 text-xs text-slate-300 hover:text-white transition-all cursor-pointer relative"
+              className="flex items-center gap-1.5 bg-white/[0.03] hover:bg-white/[0.08] border border-white/[0.06] hover:border-white/15 rounded-2xl px-3 py-1.5 text-xs text-slate-200 hover:text-white transition-all cursor-pointer relative shrink-0"
               title="Milestone Vault"
             >
               <Award className="w-3.5 h-3.5 text-amber-400 animate-pulse" />
@@ -1096,7 +1096,7 @@ export default function App() {
             {/* Legacy Cards button */}
             <button
               onClick={() => { playClick(); setShowLegacyCardCenter(true); }}
-              className="flex items-center gap-1.5 bg-white/[0.02] hover:bg-white/5 border border-white/5 rounded-2xl px-3 py-1.5 text-xs text-slate-300 hover:text-white transition-all cursor-pointer"
+              className="flex items-center gap-1.5 bg-white/[0.03] hover:bg-white/[0.08] border border-white/[0.06] hover:border-white/15 rounded-2xl px-3 py-1.5 text-xs text-slate-200 hover:text-white transition-all cursor-pointer shrink-0"
               title="Legacy Cards"
             >
               <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
@@ -1106,7 +1106,7 @@ export default function App() {
             {/* Focus DNA button */}
             <button
               onClick={() => { playClick(); setShowFocusDna(true); }}
-              className="flex items-center gap-1.5 bg-white/[0.02] hover:bg-white/5 border border-white/5 rounded-2xl px-3 py-1.5 text-xs text-slate-300 hover:text-white transition-all cursor-pointer"
+              className="flex items-center gap-1.5 bg-white/[0.03] hover:bg-white/[0.08] border border-white/[0.06] hover:border-white/15 rounded-2xl px-3 py-1.5 text-xs text-slate-200 hover:text-white transition-all cursor-pointer shrink-0"
               title="Focus DNA Profile"
             >
               <Compass className="w-3.5 h-3.5 text-indigo-400 animate-pulse" />
@@ -1116,7 +1116,7 @@ export default function App() {
             {/* Focus Constellation button */}
             <button
               onClick={() => { playClick(); setShowConstellation(true); }}
-              className="flex items-center gap-1.5 bg-white/[0.02] hover:bg-white/5 border border-white/5 rounded-2xl px-3 py-1.5 text-xs text-slate-300 hover:text-white transition-all cursor-pointer"
+              className="flex items-center gap-1.5 bg-white/[0.03] hover:bg-white/[0.08] border border-white/[0.06] hover:border-white/15 rounded-2xl px-3 py-1.5 text-xs text-slate-200 hover:text-white transition-all cursor-pointer shrink-0"
               title="Focus Constellation"
             >
               <Star className="w-3.5 h-3.5 text-amber-400 animate-pulse" />
@@ -1126,10 +1126,10 @@ export default function App() {
             {/* Logs Notification Center Button */}
             <button
               onClick={() => { playClick(); setShowNotificationCenter(true); }}
-              className="flex items-center gap-1.5 bg-white/[0.02] hover:bg-white/5 border border-white/5 rounded-2xl px-3 py-1.5 text-xs text-slate-300 hover:text-white transition-all cursor-pointer relative"
+              className="flex items-center gap-1.5 bg-white/[0.03] hover:bg-white/[0.08] border border-white/[0.06] hover:border-white/15 rounded-2xl px-3 py-1.5 text-xs text-slate-200 hover:text-white transition-all cursor-pointer relative shrink-0"
               title="Workspace Logs"
             >
-              <Bell className="w-3.5 h-3.5 text-slate-400" />
+              <Bell className="w-3.5 h-3.5 text-slate-300" />
               <span className="hidden sm:inline font-bold">Logs</span>
               {unreadNotificationCount > 0 && (
                 <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-rose-500 text-[8px] font-bold text-white flex items-center justify-center border border-[#060814]">
@@ -1138,7 +1138,7 @@ export default function App() {
               )}
             </button>
 
-            <div className="flex items-center gap-1.5 bg-white/[0.02] border border-white/5 rounded-2xl px-3 py-1.5 text-xs text-slate-300">
+            <div className="flex items-center gap-1.5 bg-white/[0.03] border border-white/[0.06] rounded-2xl px-3 py-1.5 text-xs text-slate-200 shrink-0">
               <BookOpen className="w-3.5 h-3.5 text-tm-primary" />
               <span className="font-bold">Subject:</span>
               <select
@@ -1163,16 +1163,43 @@ export default function App() {
 
         {/* Progress Summary at a Glance */}
         {!isFullscreen && (
-          <div className="flex items-center gap-6 mt-6 mb-4 sm:mb-8 bg-white/[0.01] border border-white/5 rounded-3xl px-6 py-3 text-xs leading-none animate-fade-in">
-            <div className="flex items-center gap-2 border-r border-white/5 pr-6">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-              <span className="text-slate-400 font-medium">Daily Goal:</span>
-              <span className="text-white font-bold font-mono">{todaySessions.length}/{settings.cyclesBeforeLongBreak}</span>
+          <div className="flex items-center gap-5 mt-6 mb-4 sm:mb-8 bg-[#030712]/45 backdrop-blur-md border border-white/[0.05] rounded-full px-5 py-2.5 text-xs animate-fade-in shadow-[0_8px_32px_-6px_rgba(0,0,0,0.5)]">
+            <div className="flex items-center gap-3 border-r border-white/5 pr-5">
+              <div className="relative w-5 h-5 flex items-center justify-center shrink-0">
+                {/* SVG circular progress ring */}
+                <svg className="w-full h-full transform -rotate-90">
+                  <circle
+                    cx="10"
+                    cy="10"
+                    r="8.5"
+                    className="stroke-white/10 fill-none"
+                    strokeWidth="2.5"
+                  />
+                  <circle
+                    cx="10"
+                    cy="10"
+                    r="8.5"
+                    className="stroke-emerald-400 fill-none transition-all duration-500"
+                    strokeWidth="2.5"
+                    strokeDasharray={2 * Math.PI * 8.5}
+                    strokeDashoffset={2 * Math.PI * 8.5 * (1 - Math.min(100, Math.max(0, focusGoalPercent)) / 100)}
+                    strokeLinecap="round"
+                  />
+                </svg>
+                {/* Glowing center dot */}
+                <span className={`absolute w-1.5 h-1.5 rounded-full ${focusGoalPercent >= 100 ? 'bg-emerald-400 shadow-[0_0_8px_#34d399]' : 'bg-emerald-500/60 animate-pulse'}`} />
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="text-slate-400 font-medium leading-none">Daily Goal:</span>
+                <span className="text-white font-bold font-mono leading-none">{todaySessions.length}/{settings.cyclesBeforeLongBreak}</span>
+                <span className="text-[10px] text-emerald-400/80 font-mono leading-none">({focusGoalPercent}%)</span>
+              </div>
             </div>
+            
             <div className="flex items-center gap-2">
               <TrendingUp className="w-3.5 h-3.5 text-tm-primary" />
-              <span className="text-slate-400 font-medium">Focused:</span>
-              <span className="text-white font-bold font-mono">{totalMinutesToday} mins</span>
+              <span className="text-slate-400 font-medium leading-none">Focused:</span>
+              <span className="text-white font-bold font-mono leading-none">{totalMinutesToday} mins</span>
             </div>
           </div>
         )}
@@ -1530,6 +1557,12 @@ export default function App() {
           window.scrollTo({ top: 0, behavior: 'smooth' });
         }}
         unreadCount={unreadNotificationCount}
+        activePanel={
+          showNotificationCenter ? 'logs' :
+          showHistoryPanel ? 'history' :
+          showFocusDna ? 'dna' :
+          showMorePanel ? 'more' : 'none'
+        }
       />
 
       {/* ☰ MORE PANEL PORTAL OVERLAY */}

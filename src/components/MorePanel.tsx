@@ -155,7 +155,7 @@ export const MorePanel: React.FC<MorePanelProps> = ({
       <div className="absolute inset-0 cursor-default" onClick={onClose} />
 
       {/* Main Panel Container: Slide-over on desktop, Bottom Sheet on mobile */}
-      <div className="relative w-full md:max-w-md h-full md:h-screen mt-auto md:mt-0 bg-[#070b1a]/70 backdrop-blur-2xl border-t md:border-t-0 md:border-l border-white/10 shadow-[0_0_80px_rgba(0,0,0,0.9)] flex flex-col overflow-hidden max-h-[85vh] md:max-h-screen rounded-t-[2.5rem] md:rounded-t-none md:rounded-l-[2.5rem] animate-slide-in">
+      <div className="relative w-full md:max-w-md h-full md:h-screen mt-auto md:mt-0 bg-[#030712]/70 backdrop-blur-[24px] border-t md:border-t-0 md:border-l border-white/[0.08] shadow-[0_0_80px_rgba(0,0,0,0.95)] flex flex-col overflow-hidden max-h-[85vh] md:max-h-screen rounded-t-[2.5rem] md:rounded-t-none md:rounded-l-[2.5rem] animate-slide-in">
         
         {/* Living background blur lights */}
         <div className="absolute top-0 right-0 w-80 h-80 bg-tm-primary/10 rounded-full blur-[100px] pointer-events-none animate-pulse-slow" />

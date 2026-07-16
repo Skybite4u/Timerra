@@ -197,7 +197,7 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
       <div className="absolute inset-0 cursor-default" onClick={onClose} />
 
       {/* Slide-over container panel: Slide-over on Desktop, Bottom Sheet on Mobile */}
-      <div className="relative w-full md:max-w-md h-full md:h-screen mt-auto md:mt-0 bg-[#070b1a]/95 border-t md:border-t-0 md:border-l border-white/10 shadow-[0_0_50px_rgba(0,0,0,0.8)] flex flex-col overflow-hidden rounded-t-[2.5rem] md:rounded-t-none md:rounded-l-[2.5rem] animate-slide-in">
+      <div className="relative w-full md:max-w-md h-full md:h-screen mt-auto md:mt-0 bg-[#030712]/75 backdrop-blur-[24px] border-t md:border-t-0 md:border-l border-white/[0.08] shadow-[0_0_60px_rgba(0,0,0,0.95)] flex flex-col overflow-hidden rounded-t-[2.5rem] md:rounded-t-none md:rounded-l-[2.5rem] animate-slide-in">
         
         {/* Living background light waves */}
         <div className="absolute top-0 right-0 w-80 h-80 bg-tm-primary/5 rounded-full blur-[100px] pointer-events-none" />

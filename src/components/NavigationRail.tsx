@@ -26,6 +26,7 @@ interface NavigationRailProps {
   onReturnToWorkspace: () => void;
 
   unreadCount: number;
+  activePanel?: 'logs' | 'history' | 'dna' | 'more' | 'none';
 }
 
 export const NavigationRail: React.FC<NavigationRailProps> = ({
@@ -42,7 +43,8 @@ export const NavigationRail: React.FC<NavigationRailProps> = ({
   onReset,
   onSkip,
   onReturnToWorkspace,
-  unreadCount
+  unreadCount,
+  activePanel = 'none'
 }) => {
   const [showOrbMenu, setShowOrbMenu] = useState(false);
   const [isHovered, setIsHovered] = useState<string | null>(null);
@@ -125,21 +127,18 @@ export const NavigationRail: React.FC<NavigationRailProps> = ({
           will-change: transform, opacity;
         }
         .nav-premium-btn:hover {
-          transform: scale(1.1) !important;
-          background-color: rgba(255, 255, 255, 0.08) !important;
-          border-color: rgba(255, 255, 255, 0.15) !important;
+          transform: scale(1.08) !important;
         }
         .nav-premium-btn:active {
-          transform: scale(0.9) !important;
-          background-color: rgba(255, 255, 255, 0.16) !important;
+          transform: scale(0.92) !important;
         }
         .nav-premium-rail {
           transition: transform 220ms cubic-bezier(0.22, 1, 0.36, 1),
                       opacity 220ms cubic-bezier(0.22, 1, 0.36, 1),
                       border-color 220ms cubic-bezier(0.22, 1, 0.36, 1),
                       box-shadow 220ms cubic-bezier(0.22, 1, 0.36, 1) !important;
-          backdrop-filter: blur(20px) !important;
-          -webkit-backdrop-filter: blur(20px) !important;
+          backdrop-filter: blur(24px) !important;
+          -webkit-backdrop-filter: blur(24px) !important;
           will-change: transform, opacity;
         }
       `}</style>
@@ -156,7 +155,7 @@ export const NavigationRail: React.FC<NavigationRailProps> = ({
       {/* ======================================================== */}
       {/* 1. DESKTOP FLOATING LEFT NAVIGATION RAIL */}
       {/* ======================================================== */}
-      <div className="hidden md:flex fixed left-6 top-1/2 -translate-y-1/2 z-40 flex-col items-center gap-5 py-7 px-3.5 bg-[#070b1a]/70 border border-white/10 rounded-full shadow-[0_20px_50px_rgba(0,0,0,0.6)] select-none animate-fade-in group hover:border-white/20 hover:bg-[#070b1a]/85 nav-premium-rail">
+      <div className="hidden md:flex fixed left-6 top-1/2 -translate-y-1/2 z-40 flex-col items-center gap-4 py-6 px-3 bg-[#030712]/35 border border-white/[0.08] rounded-full shadow-[0_30px_60px_-15px_rgba(0,0,0,0.85),inset_0_1px_2px_rgba(255,255,255,0.08)] select-none animate-fade-in group hover:border-white/[0.15] hover:bg-[#030712]/50 nav-premium-rail">
         
         {/* Workspace Brand / Timer Area Return */}
         <button
@@ -164,12 +163,14 @@ export const NavigationRail: React.FC<NavigationRailProps> = ({
           onDoubleClick={handleDesktopOrbDoubleClick}
           onMouseEnter={() => setIsHovered('orb')}
           onMouseLeave={() => setIsHovered(null)}
-          className="relative w-12 h-12 rounded-full bg-gradient-to-tr from-tm-primary/20 to-tm-accent/20 border border-tm-primary/30 flex items-center justify-center hover:scale-110 active:scale-95 transition-all cursor-pointer group/orb"
+          className={`relative w-11 h-11 rounded-full bg-gradient-to-tr from-tm-primary/15 to-tm-accent/15 border flex items-center justify-center hover:scale-110 active:scale-95 transition-all cursor-pointer group/orb ${
+            activePanel === 'none' ? 'border-tm-primary/60 shadow-[0_0_15px_rgba(59,130,246,0.35)]' : 'border-white/10'
+          }`}
           title="Single Tap: Workspace | Double Tap: Toggle Play"
         >
           {/* Pulsing Core */}
-          <span className={`absolute w-3.5 h-3.5 rounded-full ${timerRunning ? 'bg-emerald-500 animate-ping' : 'bg-tm-primary animate-pulse'}`} />
-          <span className={`absolute w-3 h-3 rounded-full ${timerRunning ? 'bg-emerald-400' : 'bg-tm-primary'}`} />
+          <span className={`absolute w-3 h-3 rounded-full ${timerRunning ? 'bg-emerald-500 animate-ping' : 'bg-tm-primary animate-pulse'}`} />
+          <span className={`absolute w-2.5 h-2.5 rounded-full ${timerRunning ? 'bg-emerald-400' : 'bg-tm-primary'}`} />
           
           {/* Tooltip */}
           <AnimatePresence>
@@ -187,18 +188,22 @@ export const NavigationRail: React.FC<NavigationRailProps> = ({
         </button>
 
         {/* Divider */}
-        <div className="w-8 h-px bg-white/10" />
+        <div className="w-8 h-px bg-white/5" />
 
         {/* 🔔 Focus Feed (Logs) */}
         <button
           onClick={onOpenNotificationCenter}
           onMouseEnter={() => setIsHovered('logs')}
           onMouseLeave={() => setIsHovered(null)}
-          className="relative w-12 h-12 rounded-2xl flex items-center justify-center cursor-pointer active:scale-95 nav-premium-btn"
+          className={`relative w-11 h-11 rounded-2xl flex items-center justify-center cursor-pointer active:scale-95 nav-premium-btn ${
+            activePanel === 'logs' 
+              ? 'bg-tm-primary/15 border border-tm-primary/45 shadow-[0_0_15px_rgba(59,130,246,0.25)]' 
+              : 'border border-transparent hover:border-white/10'
+          }`}
         >
-          <BellCapsuleIcon size={32} />
+          <BellCapsuleIcon size={30} />
           {unreadCount > 0 && (
-            <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
+            <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
           )}
 
           <AnimatePresence>
@@ -220,9 +225,13 @@ export const NavigationRail: React.FC<NavigationRailProps> = ({
           onClick={onOpenHistoryPanel}
           onMouseEnter={() => setIsHovered('history')}
           onMouseLeave={() => setIsHovered(null)}
-          className="relative w-12 h-12 rounded-2xl flex items-center justify-center cursor-pointer active:scale-95 nav-premium-btn"
+          className={`relative w-11 h-11 rounded-2xl flex items-center justify-center cursor-pointer active:scale-95 nav-premium-btn ${
+            activePanel === 'history' 
+              ? 'bg-purple-500/15 border border-purple-500/45 shadow-[0_0_15px_rgba(168,85,247,0.25)]' 
+              : 'border border-transparent hover:border-white/10'
+          }`}
         >
-          <HistoryCapsuleIcon size={32} />
+          <HistoryCapsuleIcon size={30} />
 
           <AnimatePresence>
             {isHovered === 'history' && (
@@ -243,9 +252,13 @@ export const NavigationRail: React.FC<NavigationRailProps> = ({
           onClick={onOpenFocusDna}
           onMouseEnter={() => setIsHovered('dna')}
           onMouseLeave={() => setIsHovered(null)}
-          className="relative w-12 h-12 rounded-2xl flex items-center justify-center cursor-pointer active:scale-95 nav-premium-btn"
+          className={`relative w-11 h-11 rounded-2xl flex items-center justify-center cursor-pointer active:scale-95 nav-premium-btn ${
+            activePanel === 'dna' 
+              ? 'bg-indigo-500/15 border border-indigo-500/45 shadow-[0_0_15px_rgba(99,102,241,0.25)]' 
+              : 'border border-transparent hover:border-white/10'
+          }`}
         >
-          <DnaCapsuleIcon size={32} />
+          <DnaCapsuleIcon size={30} />
 
           <AnimatePresence>
             {isHovered === 'dna' && (
@@ -262,16 +275,20 @@ export const NavigationRail: React.FC<NavigationRailProps> = ({
         </button>
 
         {/* Divider */}
-        <div className="w-8 h-px bg-white/10" />
+        <div className="w-8 h-px bg-white/5" />
 
         {/* ☰ More Portal */}
         <button
           onClick={onOpenMorePanel}
           onMouseEnter={() => setIsHovered('more')}
           onMouseLeave={() => setIsHovered(null)}
-          className="relative w-12 h-12 rounded-2xl flex items-center justify-center cursor-pointer active:scale-95 nav-premium-btn"
+          className={`relative w-11 h-11 rounded-2xl flex items-center justify-center cursor-pointer active:scale-95 nav-premium-btn ${
+            activePanel === 'more' 
+              ? 'bg-amber-500/15 border border-amber-500/45 shadow-[0_0_15px_rgba(245,158,11,0.25)]' 
+              : 'border border-transparent hover:border-white/10'
+          }`}
         >
-          <PortalCapsuleIcon size={32} className="animate-pulse-slow" />
+          <PortalCapsuleIcon size={30} className="animate-pulse-slow" />
 
           <AnimatePresence>
             {isHovered === 'more' && (
@@ -291,60 +308,78 @@ export const NavigationRail: React.FC<NavigationRailProps> = ({
       {/* ======================================================== */}
       {/* 2. MOBILE FLOATING ORB DOCK */}
       {/* ======================================================== */}
-      <div className="md:hidden fixed bottom-6 left-1/2 -translate-x-1/2 w-[calc(100%-2.5rem)] max-w-sm z-40 bg-[#070b1a]/70 border border-white/10 rounded-full py-2.5 px-4 flex items-center justify-between shadow-[0_20px_50px_rgba(0,0,0,0.65)] select-none nav-premium-rail pb-[calc(10px+env(safe-area-inset-bottom))]">
+      <div className="md:hidden fixed bottom-5 left-1/2 -translate-x-1/2 w-[calc(100%-2rem)] max-w-sm z-40 bg-[#030712]/50 border border-white/[0.08] rounded-full py-2 px-3 flex items-center justify-between shadow-[0_25px_60px_-10px_rgba(0,0,0,0.85),inset_0_1px_1.5px_rgba(255,255,255,0.12)] select-none nav-premium-rail pb-[calc(8px+env(safe-area-inset-bottom))]">
         
         {/* 🔔 Mobile Focus Feed */}
         <button
           onClick={onOpenNotificationCenter}
-          className="w-12 h-12 rounded-full flex items-center justify-center relative nav-premium-btn"
+          className={`w-11 h-11 rounded-full flex items-center justify-center relative nav-premium-btn ${
+            activePanel === 'logs' 
+              ? 'bg-tm-primary/10 border border-tm-primary/30 shadow-[0_0_10px_rgba(59,130,246,0.15)]' 
+              : 'border border-transparent'
+          }`}
         >
-          <BellCapsuleIcon size={28} />
+          <BellCapsuleIcon size={26} />
           {unreadCount > 0 && (
-            <span className="absolute top-2.5 right-2.5 w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />
+            <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
           )}
         </button>
 
         {/* 📜 Mobile History Hub */}
         <button
           onClick={onOpenHistoryPanel}
-          className="w-12 h-12 rounded-full flex items-center justify-center nav-premium-btn"
+          className={`w-11 h-11 rounded-full flex items-center justify-center nav-premium-btn ${
+            activePanel === 'history' 
+              ? 'bg-purple-500/10 border border-purple-500/30 shadow-[0_0_10px_rgba(168,85,247,0.15)]' 
+              : 'border border-transparent'
+          }`}
         >
-          <HistoryCapsuleIcon size={28} />
+          <HistoryCapsuleIcon size={26} />
         </button>
 
-        {/* 🟢 CENTERED MOBILE ORB (25% Larger, Tap-Action-Driven) */}
+        {/* 🟢 CENTERED MOBILE ORB (Sleek, Core Active Glow) */}
         <div className="relative -mt-4 shrink-0">
           <button
             onTouchStart={handleOrbTouchStart}
             onTouchEnd={handleOrbTouchEnd}
             onClick={onReturnToWorkspace}
-            className="w-14 h-14 rounded-full bg-gradient-to-tr from-tm-primary to-tm-accent flex items-center justify-center shadow-[0_0_25px_var(--tm-glow)] border border-white/20 active:scale-90 transition-all cursor-pointer relative z-40 group"
+            className={`w-13 h-13 rounded-full bg-gradient-to-tr from-tm-primary to-tm-accent flex items-center justify-center shadow-[0_0_20px_var(--tm-glow)] border border-white/20 active:scale-90 transition-all cursor-pointer relative z-40 group ${
+              activePanel === 'none' ? 'ring-2 ring-tm-primary/50 ring-offset-2 ring-offset-black/40' : ''
+            }`}
           >
             {/* Spinning orbital light ring */}
-            <span className="absolute inset-0 rounded-full border border-white/30 animate-spin-slow opacity-60" />
-            <span className={`w-4.5 h-4.5 rounded-full bg-white flex items-center justify-center shadow-lg ${timerRunning ? 'animate-pulse' : ''}`}>
-              <span className={`w-2.5 h-2.5 rounded-full ${timerRunning ? 'bg-emerald-500' : 'bg-tm-primary'}`} />
+            <span className="absolute inset-0 rounded-full border border-white/25 animate-spin-slow opacity-50" />
+            <span className={`w-4 h-4 rounded-full bg-white flex items-center justify-center shadow-lg ${timerRunning ? 'animate-pulse' : ''}`}>
+              <span className={`w-2 h-2 rounded-full ${timerRunning ? 'bg-emerald-500' : 'bg-tm-primary'}`} />
             </span>
           </button>
 
           {/* Glowing Aura Ring behind Orb */}
-          <div className="absolute -inset-1 rounded-full bg-gradient-to-r from-tm-primary to-tm-accent opacity-30 blur-md -z-10 animate-pulse" />
+          <div className="absolute -inset-1 rounded-full bg-gradient-to-r from-tm-primary to-tm-accent opacity-25 blur-md -z-10 animate-pulse" />
         </div>
 
         {/* 📊 Mobile Insights */}
         <button
           onClick={onOpenFocusDna}
-          className="w-12 h-12 rounded-full flex items-center justify-center nav-premium-btn"
+          className={`w-11 h-11 rounded-full flex items-center justify-center nav-premium-btn ${
+            activePanel === 'dna' 
+              ? 'bg-indigo-500/10 border border-indigo-500/30 shadow-[0_0_10px_rgba(99,102,241,0.15)]' 
+              : 'border border-transparent'
+          }`}
         >
-          <DnaCapsuleIcon size={28} />
+          <DnaCapsuleIcon size={26} />
         </button>
 
         {/* ☰ Mobile More Button */}
         <button
           onClick={onOpenMorePanel}
-          className="w-12 h-12 rounded-full flex items-center justify-center nav-premium-btn"
+          className={`w-11 h-11 rounded-full flex items-center justify-center nav-premium-btn ${
+            activePanel === 'more' 
+              ? 'bg-amber-500/10 border border-amber-500/30 shadow-[0_0_10px_rgba(245,158,11,0.15)]' 
+              : 'border border-transparent'
+          }`}
         >
-          <PortalCapsuleIcon size={28} className="animate-pulse-slow" />
+          <PortalCapsuleIcon size={26} className="animate-pulse-slow" />
         </button>
       </div>
 

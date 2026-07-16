@@ -426,7 +426,7 @@ export const GuideModal: React.FC<GuideModalProps> = ({ isOpen, onClose }) => {
       <div className="absolute inset-0 cursor-default" onClick={onClose} />
 
       {/* Main glass card container */}
-      <div className="relative w-full max-w-4xl h-[85vh] max-h-[750px] bg-[#070b1a]/95 border border-white/10 rounded-3xl shadow-[0_0_50px_rgba(0,0,0,0.8)] flex flex-col overflow-hidden animate-scale-up">
+      <div className="relative w-full max-w-4xl h-[85vh] max-h-[750px] bg-[#030712]/75 backdrop-blur-[24px] border border-white/[0.08] rounded-3xl shadow-[0_0_60px_rgba(0,0,0,0.95)] flex flex-col overflow-hidden animate-scale-up">
         
         {/* Subtle decorative glow lights */}
         <div className="absolute top-0 left-1/4 w-96 h-96 bg-tm-primary/5 rounded-full blur-[120px] pointer-events-none" />

@@ -451,7 +451,7 @@ export const HistoryPanel: React.FC<HistoryPanelProps> = ({
       <div className="absolute inset-0 cursor-default" onClick={onClose} />
 
       {/* Main Container Card: Slide-over on Desktop, Bottom Sheet on Mobile */}
-      <div className="relative w-full md:max-w-2xl h-full md:h-screen mt-auto md:mt-0 bg-[#070b1a]/95 border-t md:border-t-0 md:border-l border-white/10 shadow-[0_0_50px_rgba(0,0,0,0.8)] flex flex-col overflow-hidden rounded-t-[2.5rem] md:rounded-t-none md:rounded-l-[2.5rem] animate-slide-in">
+      <div className="relative w-full md:max-w-2xl h-full md:h-screen mt-auto md:mt-0 bg-[#030712]/75 backdrop-blur-[24px] border-t md:border-t-0 md:border-l border-white/[0.08] shadow-[0_0_60px_rgba(0,0,0,0.95)] flex flex-col overflow-hidden rounded-t-[2.5rem] md:rounded-t-none md:rounded-l-[2.5rem] animate-slide-in">
         
         {/* Subtle glowing highlights */}
         <div className="absolute top-0 right-1/4 w-96 h-96 bg-tm-primary/5 rounded-full blur-[120px] pointer-events-none" />
@@ -526,7 +526,7 @@ export const HistoryPanel: React.FC<HistoryPanelProps> = ({
         </div>
 
         {/* CONTROLS (SEARCH, FILTER, SORT, ACTIONS) - STICKY FOR ACCESSIBILITY */}
-        <div className="px-6 py-4 border-b border-white/5 sticky top-0 z-20 flex flex-col md:flex-row gap-4 items-center justify-between shrink-0 bg-[#070b1a]/95 backdrop-blur-md">
+        <div className="px-6 py-4 border-b border-white/5 sticky top-0 z-20 flex flex-col md:flex-row gap-4 items-center justify-between shrink-0 bg-[#030712]/45 backdrop-blur-md">
           
           {/* Left: Search input */}
           <div className="relative w-full md:w-72">
