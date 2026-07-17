@@ -11,6 +11,7 @@ interface SettingsPanelProps {
   onRenameSubject?: (oldName: string, newName: string) => void;
   onDeleteSubject?: (name: string) => void;
   onClose: () => void;
+  onThemePreview?: (themeId: ThemeName, customTheme?: TimerSettings['customTheme']) => void;
 }
 
 export const SettingsPanel: React.FC<SettingsPanelProps> = ({
@@ -21,6 +22,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
   onRenameSubject,
   onDeleteSubject,
   onClose,
+  onThemePreview,
 }) => {
   const [focusVal, setFocusVal] = useState(settings.focusMinutes);
   const [shortVal, setShortVal] = useState(settings.shortBreakMinutes);
@@ -38,6 +40,50 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
   const [customAccent, setCustomAccent] = useState(settings.customTheme?.accent || '#f43f5e');
   const [customBgFrom, setCustomBgFrom] = useState(settings.customTheme?.bgFrom || '#110505');
   const [customBgTo, setCustomBgTo] = useState(settings.customTheme?.bgTo || '#050101');
+
+  const handleCustomPrimaryChange = (val: string) => {
+    setCustomPrimary(val);
+    setSyncWithSystem(false);
+    onThemePreview?.('custom', {
+      primary: val,
+      accent: customAccent,
+      bgFrom: customBgFrom,
+      bgTo: customBgTo,
+    });
+  };
+
+  const handleCustomAccentChange = (val: string) => {
+    setCustomAccent(val);
+    setSyncWithSystem(false);
+    onThemePreview?.('custom', {
+      primary: customPrimary,
+      accent: val,
+      bgFrom: customBgFrom,
+      bgTo: customBgTo,
+    });
+  };
+
+  const handleCustomBgFromChange = (val: string) => {
+    setCustomBgFrom(val);
+    setSyncWithSystem(false);
+    onThemePreview?.('custom', {
+      primary: customPrimary,
+      accent: customAccent,
+      bgFrom: val,
+      bgTo: customBgTo,
+    });
+  };
+
+  const handleCustomBgToChange = (val: string) => {
+    setCustomBgTo(val);
+    setSyncWithSystem(false);
+    onThemePreview?.('custom', {
+      primary: customPrimary,
+      accent: customAccent,
+      bgFrom: customBgFrom,
+      bgTo: val,
+    });
+  };
 
   useEffect(() => {
     const originalStyle = document.body.style.overflow;
@@ -398,6 +444,12 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                     onClick={() => {
                       setActiveTheme(theme.id);
                       setSyncWithSystem(false);
+                      onThemePreview?.(theme.id, theme.id === 'custom' ? {
+                        primary: customPrimary,
+                        accent: customAccent,
+                        bgFrom: customBgFrom,
+                        bgTo: customBgTo,
+                      } : undefined);
                     }}
                     type="button"
                     className={`p-3 rounded-2xl text-left border transition-all active:scale-95 cursor-pointer flex flex-col justify-between h-[80px] tm-3d-bar-shadow ${
@@ -448,13 +500,13 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                       <input 
                         type="color" 
                         value={customPrimary} 
-                        onChange={(e) => { setCustomPrimary(e.target.value); setSyncWithSystem(false); }}
+                        onChange={(e) => handleCustomPrimaryChange(e.target.value)}
                         className="w-5 h-5 rounded cursor-pointer border-0 bg-transparent p-0"
                       />
                       <input 
                         type="text" 
                         value={customPrimary} 
-                        onChange={(e) => { setCustomPrimary(e.target.value); setSyncWithSystem(false); }}
+                        onChange={(e) => handleCustomPrimaryChange(e.target.value)}
                         placeholder="#ef4444"
                         className="w-full bg-transparent border-0 text-xs text-white focus:outline-none uppercase font-mono"
                       />
@@ -467,13 +519,13 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                       <input 
                         type="color" 
                         value={customAccent} 
-                        onChange={(e) => { setCustomAccent(e.target.value); setSyncWithSystem(false); }}
+                        onChange={(e) => handleCustomAccentChange(e.target.value)}
                         className="w-5 h-5 rounded cursor-pointer border-0 bg-transparent p-0"
                       />
                       <input 
                         type="text" 
                         value={customAccent} 
-                        onChange={(e) => { setCustomAccent(e.target.value); setSyncWithSystem(false); }}
+                        onChange={(e) => handleCustomAccentChange(e.target.value)}
                         placeholder="#f43f5e"
                         className="w-full bg-transparent border-0 text-xs text-white focus:outline-none uppercase font-mono"
                       />
@@ -486,13 +538,13 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                       <input 
                         type="color" 
                         value={customBgFrom} 
-                        onChange={(e) => { setCustomBgFrom(e.target.value); setSyncWithSystem(false); }}
+                        onChange={(e) => handleCustomBgFromChange(e.target.value)}
                         className="w-5 h-5 rounded cursor-pointer border-0 bg-transparent p-0"
                       />
                       <input 
                         type="text" 
                         value={customBgFrom} 
-                        onChange={(e) => { setCustomBgFrom(e.target.value); setSyncWithSystem(false); }}
+                        onChange={(e) => handleCustomBgFromChange(e.target.value)}
                         placeholder="#110505"
                         className="w-full bg-transparent border-0 text-xs text-white focus:outline-none uppercase font-mono"
                       />
@@ -505,13 +557,13 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                       <input 
                         type="color" 
                         value={customBgTo} 
-                        onChange={(e) => { setCustomBgTo(e.target.value); setSyncWithSystem(false); }}
+                        onChange={(e) => handleCustomBgToChange(e.target.value)}
                         className="w-5 h-5 rounded cursor-pointer border-0 bg-transparent p-0"
                       />
                       <input 
                         type="text" 
                         value={customBgTo} 
-                        onChange={(e) => { setCustomBgTo(e.target.value); setSyncWithSystem(false); }}
+                        onChange={(e) => handleCustomBgToChange(e.target.value)}
                         placeholder="#050101"
                         className="w-full bg-transparent border-0 text-xs text-white focus:outline-none uppercase font-mono"
                       />

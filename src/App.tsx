@@ -26,7 +26,9 @@ import {
   Compass,
   Target,
   Plus,
-  Check
+  Check,
+  Coffee,
+  SkipForward
 } from 'lucide-react';
 
 // Focus DNA system imports
@@ -44,6 +46,7 @@ import { ArcuateDeck } from './components/ArcuateDeck';
 import { SettingsPanel } from './components/SettingsPanel';
 import { AuthModal } from './components/AuthModal';
 import { WeeklyBarChart } from './components/WeeklyBarChart';
+import { FocusTrendsChart } from './components/FocusTrendsChart';
 import { SubjectPieChart } from './components/SubjectPieChart';
 import { AmbientMixer } from './components/AmbientMixer';
 import { ModeSelector } from './components/ModeSelector';
@@ -132,6 +135,7 @@ export default function App() {
   const [newSubjectInput, setNewSubjectInput] = useState<string>('');
   const [completedSubjects, setCompletedSubjects] = useState<string[]>([]);
   const [currentFocusMood, setCurrentFocusMood] = useState<string>('Calm');
+  const [chartMode, setChartMode] = useState<'weekly' | 'trends'>('trends');
 
   // --- Notification Center States ---
   const [showNotificationCenter, setShowNotificationCenter] = useState<boolean>(false);
@@ -139,6 +143,8 @@ export default function App() {
   const [isFocusSilenceMode, setIsFocusSilenceMode] = useState<boolean>(false);
   const [unseenVaultCount, setUnseenVaultCount] = useState<number>(0);
   const [unreadNotificationCount, setUnreadNotificationCount] = useState<number>(0);
+  
+  const originalSettingsRef = useRef<TimerSettings | null>(null);
 
   // Close all panels to preserve context or return to core workspace
   const closeAllPanels = useCallback(() => {
@@ -744,6 +750,47 @@ export default function App() {
     }
   }, [remainingSec, elapsedSec, status, settings.tickSound, mode]);
 
+  // --- Auto-Pause feature on hidden browser tab (5s delay) ---
+  useEffect(() => {
+    let hideTimeoutId: any = null;
+
+    const handleVisibilityChange = async () => {
+      if (document.visibilityState === 'hidden') {
+        if (status === 'running') {
+          hideTimeoutId = setTimeout(async () => {
+            if (document.visibilityState === 'hidden') {
+              setStatus('paused');
+              vibratePause();
+              await commitUnloggedStudySec(true);
+
+              NotificationManager.addNotification(
+                'Auto-Paused due to Background Tab ⏸️',
+                'Your timer was automatically paused because the browser tab was hidden for more than 5 seconds. This keeps your study tracking highly accurate!',
+                'System',
+                true,
+                isFocusSilenceMode
+              );
+            }
+          }, 5000);
+        }
+      } else {
+        if (hideTimeoutId) {
+          clearTimeout(hideTimeoutId);
+          hideTimeoutId = null;
+        }
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      if (hideTimeoutId) {
+        clearTimeout(hideTimeoutId);
+      }
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [status, isFocusSilenceMode, commitUnloggedStudySec]);
+
   // --- Event Handlers ---
   const handleTogglePlay = useCallback(async () => {
     playClick();
@@ -853,7 +900,23 @@ export default function App() {
 
   const handleOpenSettings = useCallback(() => {
     playClick();
+    originalSettingsRef.current = settings;
     setShowSettings(true);
+  }, [settings]);
+
+  const handleCloseSettings = useCallback(() => {
+    if (originalSettingsRef.current) {
+      setSettings(originalSettingsRef.current);
+    }
+    setShowSettings(false);
+  }, []);
+
+  const handleThemePreview = useCallback((themeId: ThemeName, customTheme?: TimerSettings['customTheme']) => {
+    setSettings(prev => ({
+      ...prev,
+      theme: themeId,
+      customTheme: customTheme || prev.customTheme,
+    }));
   }, []);
 
   const handleOpenBackup = useCallback(() => {
@@ -904,6 +967,7 @@ export default function App() {
   const handleSaveSettings = async (newSettings: TimerSettings) => {
     playClick();
     setSettings(newSettings);
+    originalSettingsRef.current = newSettings;
     
     // Save to DB
     await TimerraDB.saveSettings(newSettings);
@@ -1302,15 +1366,28 @@ export default function App() {
           isFullscreen={isFullscreen}
         />
 
-        {/* Standalone Stop & Break Button under the Orb */}
-        {!isFullscreen && ['focus', 'deepFocus', 'sprint', 'marathon', 'zen', 'infinityFocus'].includes(mode) && (
+        {/* Standalone Premium Action Buttons under the Orb */}
+        {!isFullscreen && (
           <div className="flex justify-center -mt-2 mb-6 animate-fade-in relative z-20">
-            <button
-              onClick={handleReset}
-              className="px-6 py-2.5 bg-rose-500/15 hover:bg-rose-500/25 text-rose-400 hover:text-rose-300 border border-rose-500/35 hover:border-rose-500/55 rounded-full text-xs font-bold uppercase tracking-wider transition-all cursor-pointer flex items-center gap-1.5 active:scale-95 shadow-[0_8px_16px_rgba(244,63,94,0.15)] tm-3d-bar-shadow"
-            >
-              <Pause className="w-3.5 h-3.5 animate-pulse" /> Stop & Start Break
-            </button>
+            {['focus', 'deepFocus', 'sprint', 'marathon', 'zen', 'infinityFocus'].includes(mode) ? (
+              <button
+                onClick={handleReset}
+                className="px-6 py-3 bg-rose-500/10 hover:bg-rose-500/20 text-rose-200 hover:text-white border border-rose-500/30 hover:border-rose-500/60 rounded-full text-xs font-extrabold uppercase tracking-widest transition-all duration-300 cursor-pointer flex items-center gap-2 active:scale-95 shadow-[0_0_20px_rgba(244,63,94,0.15)] hover:shadow-[0_0_30px_rgba(244,63,94,0.3)] backdrop-blur-md relative overflow-hidden group tm-3d-bar-shadow"
+              >
+                <span className="absolute inset-0 bg-gradient-to-r from-rose-500/0 via-rose-500/10 to-rose-500/0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000 ease-out" />
+                <Coffee className="w-4 h-4 text-rose-400 group-hover:rotate-12 transition-transform duration-300" />
+                <span>Stop & Start Break</span>
+              </button>
+            ) : ['shortBreak', 'longBreak'].includes(mode) ? (
+              <button
+                onClick={handleSkip}
+                className="px-6 py-3 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-200 hover:text-white border border-emerald-500/30 hover:border-emerald-500/60 rounded-full text-xs font-extrabold uppercase tracking-widest transition-all duration-300 cursor-pointer flex items-center gap-2 active:scale-95 shadow-[0_0_20px_rgba(16,185,129,0.15)] hover:shadow-[0_0_30px_rgba(16,185,129,0.3)] backdrop-blur-md relative overflow-hidden group tm-3d-bar-shadow"
+              >
+                <span className="absolute inset-0 bg-gradient-to-r from-emerald-500/0 via-emerald-500/10 to-emerald-500/0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000 ease-out" />
+                <SkipForward className="w-4 h-4 text-emerald-400 group-hover:translate-x-0.5 transition-transform duration-300" />
+                <span>Skip Break</span>
+              </button>
+            ) : null}
           </div>
         )}
 
@@ -1582,12 +1659,40 @@ export default function App() {
               {/* Side-by-side Recharts displays */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4">
                 <div className="space-y-3.5">
-                  <h4 className="text-[10px] font-bold uppercase tracking-widest text-slate-400 flex items-center gap-1.5 pl-0.5">
-                    <BarChart2 className="w-3.5 h-3.5 text-tm-primary" />
-                    Weekly Focus Frequency
-                  </h4>
+                  <div className="flex items-center justify-between pl-0.5">
+                    <h4 className="text-[10px] font-bold uppercase tracking-widest text-slate-400 flex items-center gap-1.5">
+                      <BarChart2 className="w-3.5 h-3.5 text-tm-primary" />
+                      {chartMode === 'trends' ? 'Focus Trends (Last 7 Days)' : 'Weekly Focus Frequency'}
+                    </h4>
+                    <div className="flex bg-white/[0.02] border border-white/5 rounded-xl p-0.5 select-none text-[8px] font-black uppercase tracking-wider">
+                      <button
+                        onClick={() => { playClick(); setChartMode('trends'); }}
+                        className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer ${
+                          chartMode === 'trends'
+                            ? 'bg-tm-primary/15 border border-tm-primary/20 text-white shadow-sm'
+                            : 'text-slate-500 hover:text-slate-300'
+                        }`}
+                      >
+                        Trends
+                      </button>
+                      <button
+                        onClick={() => { playClick(); setChartMode('weekly'); }}
+                        className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer ${
+                          chartMode === 'weekly'
+                            ? 'bg-tm-primary/15 border border-tm-primary/20 text-white shadow-sm'
+                            : 'text-slate-500 hover:text-slate-300'
+                        }`}
+                      >
+                        Weekly
+                      </button>
+                    </div>
+                  </div>
                   <div className="p-3 bg-white/[0.01] border border-white/5 rounded-2xl">
-                    <WeeklyBarChart sessions={sessions} />
+                    {chartMode === 'trends' ? (
+                      <FocusTrendsChart sessions={sessions} />
+                    ) : (
+                      <WeeklyBarChart sessions={sessions} />
+                    )}
                   </div>
                 </div>
 
@@ -1667,13 +1772,16 @@ export default function App() {
 
       {/* FOOTER STRAPLINE */}
       {!isFullscreen && (
-        <footer className="w-full text-center py-10 mt-16 border-t border-white/[0.03] select-none text-[10px] text-slate-500 uppercase font-semibold tracking-[0.2em] max-w-7xl mx-auto px-4 sm:px-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 animate-fade-in">
+        <footer className="w-full text-center pt-10 pb-28 sm:pb-10 mt-16 border-t border-white/[0.03] select-none text-[10px] text-slate-500 uppercase font-semibold tracking-[0.2em] max-w-7xl mx-auto px-4 sm:px-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 animate-fade-in">
           <div className="flex flex-col items-center sm:items-start gap-1">
             <span>Timerra — Advanced End-to-End Encrypted Offline Sync</span>
             <span className="text-[9px] text-slate-600">Secure Local Client • PBKDF2 + AES-GCM</span>
           </div>
-          <div className="flex items-center gap-2 bg-white/[0.02] border border-white/5 rounded-full px-4 py-2 shadow-sm font-mono text-[10px] text-tm-primary font-bold">
-            <span className="w-1.5 h-1.5 rounded-full bg-tm-primary animate-ping" />
+          <div className="flex items-center gap-2 px-4 py-2 rounded-full font-mono text-[10px] font-extrabold shadow-lg tm-white-glass-glow select-none">
+            <div className="relative flex h-2 w-2 mr-0.5">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-tm-primary opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-tm-primary"></span>
+            </div>
             <span>On Site: {formatSessionTime(sessionTime)}</span>
           </div>
         </footer>
@@ -1688,7 +1796,8 @@ export default function App() {
           onAddSubject={handleAddSubject}
           onRenameSubject={handleRenameSubject}
           onDeleteSubject={handleDeleteSubject}
-          onClose={() => setShowSettings(false)}
+          onClose={handleCloseSettings}
+          onThemePreview={handleThemePreview}
         />
       )}
 

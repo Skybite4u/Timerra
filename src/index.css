@@ -1,12 +1,54 @@
 @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap');
 @import "tailwindcss";
 
+@property --tm-primary {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: oklch(0.65 0.22 250);
+}
+@property --tm-accent {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: oklch(0.72 0.16 200);
+}
+@property --tm-glow {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: rgba(59, 130, 246, 0.3);
+}
+@property --tm-bg-from {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: oklch(0.12 0.03 240);
+}
+@property --tm-bg-to {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: oklch(0.06 0.01 240);
+}
+@property --tm-ink {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: oklch(0.95 0.01 240);
+}
+@property --tm-ink-dim {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: oklch(0.7 0.02 240);
+}
+
 @layer base {
   body {
     background-color: var(--tm-bg-to, #0b1020);
     color: var(--tm-ink, #ffffff);
     font-family: 'Plus Jakarta Sans', -apple-system, sans-serif;
-    transition: background-color 600ms ease, color 300ms ease;
+    transition: background-color 800ms cubic-bezier(0.4, 0, 0.2, 1), 
+                color 500ms cubic-bezier(0.4, 0, 0.2, 1),
+                --tm-primary 800ms cubic-bezier(0.4, 0, 0.2, 1),
+                --tm-accent 800ms cubic-bezier(0.4, 0, 0.2, 1),
+                --tm-bg-from 800ms cubic-bezier(0.4, 0, 0.2, 1),
+                --tm-bg-to 800ms cubic-bezier(0.4, 0, 0.2, 1),
+                --tm-glow 800ms cubic-bezier(0.4, 0, 0.2, 1);
     min-height: 100vh;
     overflow-x: hidden;
   }
@@ -324,6 +366,29 @@
 }
 
 /* Scrollbar customization */
+@keyframes tm-back-glow {
+  0%, 100% {
+    box-shadow: 0 0 15px -3px var(--tm-primary, #3b82f6), 0 0 30px -10px var(--tm-accent, #06b6d4), inset 0 1px 1px rgba(255, 255, 255, 0.8);
+  }
+  50% {
+    box-shadow: 0 0 25px 2px var(--tm-primary, #3b82f6), 0 0 45px -5px var(--tm-accent, #06b6d4), inset 0 1px 1px rgba(255, 255, 255, 0.9);
+  }
+}
+
+.tm-white-glass-glow {
+  background: rgba(255, 255, 255, 0.92) !important;
+  backdrop-filter: blur(16px) saturate(150%);
+  border: 1px solid rgba(255, 255, 255, 0.6) !important;
+  color: #0f172a !important; /* Slate 900 for dark/readable text on white glass */
+  animation: tm-back-glow 4s ease-in-out infinite;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.tm-white-glass-glow:hover {
+  transform: translateY(-2px);
+  background: rgba(255, 255, 255, 0.98) !important;
+  box-shadow: 0 0 35px 5px var(--tm-primary, #3b82f6), 0 0 55px 0px var(--tm-accent, #06b6d4), inset 0 1px 1px rgba(255, 255, 255, 1) !important;
+}
+
 ::-webkit-scrollbar {
   width: 5px;
   height: 5px;
