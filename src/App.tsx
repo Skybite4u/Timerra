@@ -28,7 +28,9 @@ import {
   Plus,
   Check,
   Coffee,
-  SkipForward
+  SkipForward,
+  Edit2,
+  X
 } from 'lucide-react';
 
 // Focus DNA system imports
@@ -56,6 +58,8 @@ import { HistoryPanel } from './components/HistoryPanel';
 import { GuideModal } from './components/GuideModal';
 import { MorePanel } from './components/MorePanel';
 import { NavigationRail } from './components/NavigationRail';
+import { GuidedBreathing } from './components/GuidedBreathing';
+import { AnimatePresence, motion } from 'motion/react';
 
 // Custom Libs and Hooks
 import { TimerraDB } from './lib/db';
@@ -134,8 +138,28 @@ export default function App() {
   // --- Focus Subject & Mood states ---
   const [newSubjectInput, setNewSubjectInput] = useState<string>('');
   const [completedSubjects, setCompletedSubjects] = useState<string[]>([]);
+  const [expandedSubject, setExpandedSubject] = useState<string | null>(null);
+  const [renameInputVal, setRenameInputVal] = useState<string>('');
+  const [showFullscreenSubjectSelector, setShowFullscreenSubjectSelector] = useState<boolean>(false);
   const [currentFocusMood, setCurrentFocusMood] = useState<string>('Calm');
   const [chartMode, setChartMode] = useState<'weekly' | 'trends'>('trends');
+  const [showBreathingGuide, setShowBreathingGuide] = useState<boolean>(true);
+
+  // Persistence of Completed Subjects
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem('timerra_completed_subjects');
+      if (stored) {
+        setCompletedSubjects(JSON.parse(stored));
+      }
+    } catch (e) {
+      console.warn("Failed to load completed subjects", e);
+    }
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem('timerra_completed_subjects', JSON.stringify(completedSubjects));
+  }, [completedSubjects]);
 
   // --- Notification Center States ---
   const [showNotificationCenter, setShowNotificationCenter] = useState<boolean>(false);
@@ -170,9 +194,9 @@ export default function App() {
 
   const playTick = useCallback(() => {
     if (!isFocusSilenceMode) {
-      basePlayTick();
+      basePlayTick(settings.tickVolume !== undefined ? settings.tickVolume : 0.5);
     }
-  }, [isFocusSilenceMode]);
+  }, [isFocusSilenceMode, settings.tickVolume]);
 
   // Flush queued silent notifications once on initialization
   useEffect(() => {
@@ -566,6 +590,13 @@ export default function App() {
       return () => mediaQuery.removeListener(applySystemTheme);
     }
   }, [isLoaded, settings.syncWithSystem, settings.theme]);
+
+  // Automatically show the breathing guide when entering short breaks
+  useEffect(() => {
+    if (mode === 'shortBreak') {
+      setShowBreathingGuide(true);
+    }
+  }, [mode]);
 
   // Write live running/paused timer state to localStorage continuously (saves work state securely)
   useEffect(() => {
@@ -993,12 +1024,14 @@ export default function App() {
     setSubjects(loadedSubjects);
   };
 
-  const handleCompleteSubject = (sub: string) => {
+  const handleCompleteSubject = async (sub: string) => {
+    let wasCompleted = false;
     setCompletedSubjects(prev => {
       const exists = prev.includes(sub);
       if (exists) {
         return prev.filter(s => s !== sub);
       } else {
+        wasCompleted = true;
         if (navigator.vibrate) navigator.vibrate([40, 30, 40]);
         NotificationManager.addNotification(
           `Subject Goal Achieved! 🌟`,
@@ -1010,6 +1043,16 @@ export default function App() {
         return [...prev, sub];
       }
     });
+
+    if (wasCompleted && settings.subject === sub) {
+      const remainingActive = subjects.filter(s => s !== sub && !completedSubjects.includes(s));
+      if (remainingActive.length > 0) {
+        const nextSub = remainingActive[0];
+        const updatedSettings = { ...settings, subject: nextSub };
+        setSettings(updatedSettings);
+        await TimerraDB.saveSettings(updatedSettings);
+      }
+    }
   };
 
   const handleRenameSubject = async (oldName: string, newName: string) => {
@@ -1270,16 +1313,6 @@ export default function App() {
               <span className="hidden sm:inline font-bold">Focus DNA</span>
             </button>
 
-            {/* Focus Constellation button */}
-            <button
-              onClick={() => { playClick(); setShowConstellation(true); }}
-              className="flex items-center gap-1.5 bg-white/[0.03] hover:bg-white/[0.08] border border-white/[0.06] hover:border-white/15 rounded-2xl px-3 py-1.5 text-xs text-slate-200 hover:text-white transition-all cursor-pointer shrink-0"
-              title="Focus Constellation"
-            >
-              <Star className="w-3.5 h-3.5 text-amber-400 animate-pulse" />
-              <span className="hidden sm:inline font-bold">Constellation</span>
-            </button>
-
             {/* Logs Notification Center Button */}
             <button
               onClick={() => { playClick(); setShowNotificationCenter(true); }}
@@ -1299,15 +1332,15 @@ export default function App() {
       )}
 
       {/* CENTRAL TIMER GRID */}
-      <main className={`max-w-7xl mx-auto px-4 sm:px-6 flex flex-col items-center w-full transition-all duration-500 ${isFullscreen ? 'justify-center min-h-screen py-12' : 'py-6 sm:py-12'}`}>
+      <main className={`max-w-7xl mx-auto px-3 sm:px-6 flex flex-col items-center w-full transition-all duration-500 ${isFullscreen ? 'justify-center min-h-screen py-12' : 'py-3 sm:py-12'}`}>
         
         {/* Dynamic 9-Mode Navigation Dock */}
         <ModeSelector activeMode={mode} onChangeMode={handleModeChange} />
 
         {/* Progress Summary at a Glance */}
         {!isFullscreen && (
-          <div className="flex items-center gap-5 mt-6 mb-4 sm:mb-8 bg-[#030712]/45 backdrop-blur-md border border-white/[0.05] rounded-full px-5 py-2.5 text-xs animate-fade-in shadow-[0_8px_32px_-6px_rgba(0,0,0,0.5)]">
-            <div className="flex items-center gap-3 border-r border-white/5 pr-5">
+          <div className="flex flex-col sm:flex-row items-center gap-3 sm:gap-5 mt-4 sm:mt-6 mb-4 sm:mb-8 bg-[#030712]/45 backdrop-blur-md border border-white/[0.05] rounded-2xl sm:rounded-full px-4 py-2.5 sm:px-5 text-xs animate-fade-in shadow-[0_8px_32px_-6px_rgba(0,0,0,0.5)] text-center sm:text-left w-auto max-w-full">
+            <div className="flex items-center justify-center gap-3 border-b sm:border-b-0 sm:border-r border-white/5 pb-2.5 sm:pb-0 pr-0 sm:pr-5 w-full sm:w-auto">
               <div className="relative w-5 h-5 flex items-center justify-center shrink-0">
                 {/* SVG circular progress ring */}
                 <svg className="w-full h-full transform -rotate-90">
@@ -1339,14 +1372,14 @@ export default function App() {
               </div>
             </div>
             
-            <div className="flex items-center gap-2">
+            <div className="flex items-center justify-center gap-2">
               <TrendingUp className="w-3.5 h-3.5 text-tm-primary" />
               <span className="text-slate-400 font-medium leading-none">Focused:</span>
               <span className="text-white font-bold font-mono leading-none">{totalMinutesToday} mins</span>
             </div>
 
             {isCurrentlyAutoDimmed && (
-              <div className="flex items-center gap-1 bg-indigo-500/10 text-indigo-300 border border-indigo-400/15 rounded-full px-2 py-0.5 text-[10px] font-semibold tracking-wide animate-pulse-slow shrink-0" title="Auto-Dim Active (Night Owl Protection)">
+              <div className="flex items-center justify-center gap-1 bg-indigo-500/10 text-indigo-300 border border-indigo-400/15 rounded-full px-2 py-0.5 text-[10px] font-semibold tracking-wide animate-pulse-slow shrink-0" title="Auto-Dim Active (Night Owl Protection)">
                 <Moon className="w-2.5 h-2.5" />
                 <span>Night Mode Active</span>
               </div>
@@ -1366,16 +1399,27 @@ export default function App() {
           isFullscreen={isFullscreen}
         />
 
+        {/* Guided Breathing Decompression Overlay during Short Breaks */}
+        <AnimatePresence>
+          {mode === 'shortBreak' && showBreathingGuide && (
+            <div className="w-full max-w-md px-3 mt-4 mb-6 z-20">
+              <GuidedBreathing 
+                onClose={() => setShowBreathingGuide(false)} 
+                playClick={playClick}
+              />
+            </div>
+          )}
+        </AnimatePresence>
+
         {/* Standalone Premium Action Buttons under the Orb */}
         {!isFullscreen && (
           <div className="flex justify-center -mt-2 mb-6 animate-fade-in relative z-20">
             {['focus', 'deepFocus', 'sprint', 'marathon', 'zen', 'infinityFocus'].includes(mode) ? (
               <button
                 onClick={handleReset}
-                className="px-6 py-3 bg-rose-500/10 hover:bg-rose-500/20 text-rose-200 hover:text-white border border-rose-500/30 hover:border-rose-500/60 rounded-full text-xs font-extrabold uppercase tracking-widest transition-all duration-300 cursor-pointer flex items-center gap-2 active:scale-95 shadow-[0_0_20px_rgba(244,63,94,0.15)] hover:shadow-[0_0_30px_rgba(244,63,94,0.3)] backdrop-blur-md relative overflow-hidden group tm-3d-bar-shadow"
+                className="px-6 py-3 bg-[#a30000] hover:bg-[#c20000] text-white border-2 border-[#b80000] hover:border-white rounded-full text-xs font-extrabold uppercase tracking-widest transition-all duration-300 cursor-pointer flex items-center gap-2 active:scale-95 shadow-[0_4px_15px_rgba(163,0,0,0.35)] hover:shadow-[0_6px_22px_rgba(163,0,0,0.55)] backdrop-blur-md relative overflow-hidden group z-30"
               >
-                <span className="absolute inset-0 bg-gradient-to-r from-rose-500/0 via-rose-500/10 to-rose-500/0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000 ease-out" />
-                <Coffee className="w-4 h-4 text-rose-400 group-hover:rotate-12 transition-transform duration-300" />
+                <Coffee className="w-4 h-4 text-white animate-cup-sway" />
                 <span>Stop & Start Break</span>
               </button>
             ) : ['shortBreak', 'longBreak'].includes(mode) ? (
@@ -1407,6 +1451,14 @@ export default function App() {
         ) : (
           /* Minimalist Fullscreen Floating Control Panel (highly elegant, glassmorphic, zero distractions) */
           <div className="fixed bottom-8 flex items-center gap-4 bg-black/45 backdrop-blur-md px-6 py-3 rounded-full border border-white/10 shadow-[0_0_30px_rgba(0,0,0,0.5)] z-50 transition-all duration-300 hover:scale-105">
+            <button
+              onClick={() => { playClick(); setShowFullscreenSubjectSelector(true); }}
+              className="px-3 py-1.5 rounded-full bg-white/5 hover:bg-white/10 text-[10px] font-bold text-slate-200 flex items-center gap-1.5 border border-white/5 cursor-pointer max-w-[130px]"
+              title="Focus Subject Panel"
+            >
+              <BookOpen className="w-3.5 h-3.5 text-tm-primary" />
+              <span className="truncate">{settings.subject}</span>
+            </button>
             <button
               onClick={handleTogglePlay}
               className="p-2.5 rounded-full hover:bg-white/10 text-white transition-colors cursor-pointer active:scale-95"
@@ -1465,47 +1517,113 @@ export default function App() {
                 </div>
 
                 {/* Inline list of subjects with Mark Complete */}
-                <div className="space-y-1.5 max-h-[140px] overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-white/10">
-                  {subjects.map(sub => {
+                <div className="space-y-1.5 max-h-[160px] overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-white/10">
+                  {subjects.filter(sub => !completedSubjects.includes(sub)).map(sub => {
                     const isSelected = settings.subject === sub;
-                    const isCompleted = completedSubjects.includes(sub);
+                    const isExpanded = expandedSubject === sub;
                     return (
                       <div 
                         key={sub}
-                        onClick={() => { playClick(); handleSaveSettings({ ...settings, subject: sub }); }}
-                        className={`group/item flex items-center justify-between p-2 rounded-xl border transition-all cursor-pointer ${
+                        className={`p-2 rounded-xl border transition-all ${
                           isSelected 
-                            ? 'bg-tm-primary/15 border-tm-primary/35 text-white shadow-sm' 
-                            : 'bg-white/[0.01] border-white/5 text-slate-400 hover:bg-white/[0.04] hover:text-slate-200'
+                            ? 'bg-tm-primary/10 border-tm-primary/30 text-white shadow-sm' 
+                            : 'bg-white/[0.01] border-white/5 text-slate-400 hover:bg-white/[0.03]'
                         }`}
                       >
-                        <div className="flex items-center gap-2 max-w-[calc(100%-48px)]">
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              playClick();
-                              handleCompleteSubject(sub);
-                            }}
-                            className={`w-4 h-4 rounded-full border flex items-center justify-center transition-all shrink-0 ${
-                              isCompleted
-                                ? 'bg-emerald-500 border-emerald-400 text-white'
-                                : 'border-slate-500 group-hover/item:border-emerald-500 group-hover/item:bg-emerald-500/10'
-                            }`}
-                            title="Mark Subject Complete"
-                          >
-                            {isCompleted && <Check className="w-2.5 h-2.5" />}
-                          </button>
-                          <span className={`text-[11px] font-semibold truncate ${isCompleted ? 'line-through text-slate-500 font-medium' : ''}`}>
-                            {sub}
-                          </span>
+                        {/* Top Row: Info & toggle editor */}
+                        <div
+                          onClick={() => {
+                            playClick();
+                            if (expandedSubject === sub) {
+                              setExpandedSubject(null);
+                            } else {
+                              setExpandedSubject(sub);
+                              setRenameInputVal(sub);
+                            }
+                            if (settings.subject !== sub) {
+                              handleSaveSettings({ ...settings, subject: sub });
+                            }
+                          }}
+                          className="flex items-center justify-between cursor-pointer"
+                        >
+                          <div className="flex items-center gap-2 max-w-[calc(100%-48px)]">
+                            <BookOpen className="w-3.5 h-3.5 text-tm-primary/70 shrink-0" />
+                            <span className="text-[11px] font-semibold truncate text-white">{sub}</span>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            {isSelected && (
+                              <span className="text-[8px] bg-tm-primary/20 border border-tm-primary/35 text-tm-primary font-bold px-1.5 py-0.5 rounded uppercase shrink-0">Active</span>
+                            )}
+                            <Edit2 className="w-3 h-3 text-slate-500 hover:text-white transition-colors" />
+                          </div>
                         </div>
-                        {isSelected && (
-                          <span className="text-[8px] bg-tm-primary/20 border border-tm-primary/35 text-tm-primary font-bold px-1.5 py-0.5 rounded uppercase shrink-0">Active</span>
+
+                        {/* Expanded controls */}
+                        {isExpanded && (
+                          <div className="mt-2 pt-2 border-t border-white/5 flex flex-col gap-2 animate-fade-in">
+                            <div className="flex items-center gap-1.5">
+                              <input
+                                type="text"
+                                value={renameInputVal}
+                                onChange={(e) => setRenameInputVal(e.target.value)}
+                                className="flex-grow bg-black/40 border border-white/10 rounded-lg px-2 py-1 text-[10px] text-white focus:outline-none focus:border-tm-primary/50"
+                                placeholder="Rename subject..."
+                                onClick={(e) => e.stopPropagation()}
+                              />
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  playClick();
+                                  handleRenameSubject(sub, renameInputVal);
+                                  setExpandedSubject(null);
+                                }}
+                                className="p-1 rounded bg-tm-primary/20 hover:bg-tm-primary/35 text-white transition-all cursor-pointer"
+                                title="Save Name"
+                              >
+                                <Check className="w-3 h-3" />
+                              </button>
+                            </div>
+
+                            <div className="flex items-center justify-between mt-1">
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  playClick();
+                                  if (confirm(`Are you sure you want to delete "${sub}"?`)) {
+                                    handleDeleteSubject(sub);
+                                    setExpandedSubject(null);
+                                  }
+                                }}
+                                className="flex items-center gap-1 text-[9px] text-rose-400 hover:text-rose-300 bg-rose-500/10 hover:bg-rose-500/25 px-2 py-1 rounded-lg border border-rose-500/10 cursor-pointer"
+                              >
+                                <Trash2 className="w-2.5 h-2.5" /> Remove
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  playClick();
+                                  handleCompleteSubject(sub);
+                                  setExpandedSubject(null);
+                                }}
+                                className="flex items-center gap-1 text-[9px] text-emerald-400 hover:text-emerald-300 bg-emerald-500/10 hover:bg-emerald-500/25 px-2 py-1 rounded-lg border border-emerald-500/10 cursor-pointer"
+                              >
+                                <Check className="w-2.5 h-2.5" /> Archive
+                              </button>
+                            </div>
+                          </div>
                         )}
                       </div>
                     );
                   })}
+                  {subjects.filter(sub => !completedSubjects.includes(sub)).length === 0 && (
+                    <div className="text-center p-3 text-[10px] text-slate-500 font-medium bg-white/[0.01] border border-dashed border-white/5 rounded-xl">
+                      No active subjects left. Create one below.
+                    </div>
+                  )}
                 </div>
 
                 {/* Direct quick add input */}
@@ -1534,6 +1652,41 @@ export default function App() {
                     <Plus className="w-4 h-4 text-tm-primary" />
                   </button>
                 </form>
+
+                {/* SECTION: Completed Subjects Archive */}
+                {completedSubjects.length > 0 && (
+                  <div className="space-y-2 mt-4 pt-4 border-t border-white/10">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[9px] font-extrabold uppercase tracking-widest text-slate-500">Completed Subjects</span>
+                      <span className="text-[9px] bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 font-bold px-2 py-0.5 rounded-full">
+                        {completedSubjects.length} Completed
+                      </span>
+                    </div>
+                    <div className="space-y-1.5 max-h-[120px] overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-white/10">
+                      {completedSubjects.map(sub => (
+                        <div 
+                          key={sub}
+                          className="flex items-center justify-between p-2 rounded-xl bg-emerald-500/[0.02] border border-emerald-500/10 text-slate-400"
+                        >
+                          <div className="flex items-center gap-2 max-w-[calc(100%-48px)]">
+                            <Check className="w-3 h-3 text-emerald-400 shrink-0" />
+                            <span className="text-[11px] font-medium truncate line-through text-slate-500">{sub}</span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              playClick();
+                              setCompletedSubjects(prev => prev.filter(s => s !== sub));
+                            }}
+                            className="text-[9px] text-tm-primary hover:text-white bg-tm-primary/10 hover:bg-tm-primary/20 px-2.5 py-1 rounded-lg border border-tm-primary/10 transition-all cursor-pointer"
+                          >
+                            Deselect
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* SECTION: Direct Mood Tagging */}
@@ -1946,6 +2099,213 @@ export default function App() {
           }
         }}
       />
+
+      {/* Fullscreen Subject Selection Overlay */}
+      <AnimatePresence>
+        {isFullscreen && showFullscreenSubjectSelector && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[60] flex items-center justify-center bg-black/85 backdrop-blur-md p-4"
+          >
+            {/* Background Backdrop click close */}
+            <div className="absolute inset-0" onClick={() => setShowFullscreenSubjectSelector(false)} />
+            
+            <div className="relative w-full max-w-sm p-6 rounded-3xl bg-[#080d19]/90 border border-white/10 shadow-2xl flex flex-col gap-4 relative z-10 animate-fade-in select-none">
+              <div className="flex items-center justify-between border-b border-white/10 pb-3">
+                <div className="flex items-center gap-2">
+                  <Target className="w-4 h-4 text-tm-primary animate-pulse" />
+                  <span className="text-xs font-extrabold uppercase tracking-widest text-white">Focus Hub (Fullscreen)</span>
+                </div>
+                <button
+                  onClick={() => setShowFullscreenSubjectSelector(false)}
+                  className="p-1 rounded-full hover:bg-white/10 text-slate-400 hover:text-white transition-colors cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* SECTION: Direct Subject Board */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-[9px] font-extrabold uppercase tracking-widest text-slate-400">Target Subject</span>
+                  <span className="text-[10px] bg-tm-primary/10 text-tm-primary px-2.5 py-1 rounded-lg border border-tm-primary/25 font-bold truncate max-w-[150px]">{settings.subject}</span>
+                </div>
+
+                {/* Inline list of active subjects */}
+                <div className="space-y-1.5 max-h-[160px] overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-white/10">
+                  {subjects.filter(sub => !completedSubjects.includes(sub)).map(sub => {
+                    const isSelected = settings.subject === sub;
+                    const isExpanded = expandedSubject === sub;
+                    
+                    return (
+                      <div 
+                        key={sub}
+                        className={`p-2 rounded-xl border transition-all ${
+                          isSelected 
+                            ? 'bg-tm-primary/10 border-tm-primary/30 text-white shadow-sm' 
+                            : 'bg-white/[0.01] border-white/5 text-slate-400 hover:bg-white/[0.03]'
+                        }`}
+                      >
+                        <div 
+                          onClick={() => {
+                            playClick();
+                            if (expandedSubject === sub) {
+                              setExpandedSubject(null);
+                            } else {
+                              setExpandedSubject(sub);
+                              setRenameInputVal(sub);
+                            }
+                            if (settings.subject !== sub) {
+                              handleSaveSettings({ ...settings, subject: sub });
+                            }
+                          }}
+                          className="flex items-center justify-between cursor-pointer"
+                        >
+                          <div className="flex items-center gap-2 max-w-[calc(100%-48px)]">
+                            <BookOpen className="w-3.5 h-3.5 text-tm-primary/70 shrink-0" />
+                            <span className="text-[11px] font-semibold truncate text-white">{sub}</span>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            {isSelected && (
+                              <span className="text-[8px] bg-tm-primary/20 border border-tm-primary/35 text-tm-primary font-bold px-1.5 py-0.5 rounded uppercase shrink-0">Active</span>
+                            )}
+                            <Edit2 className="w-3 h-3 text-slate-500 hover:text-white transition-colors" />
+                          </div>
+                        </div>
+
+                        {isExpanded && (
+                          <div className="mt-2 pt-2 border-t border-white/5 flex flex-col gap-2">
+                            <div className="flex items-center gap-1.5">
+                              <input
+                                type="text"
+                                value={renameInputVal}
+                                onChange={(e) => setRenameInputVal(e.target.value)}
+                                className="flex-grow bg-black/40 border border-white/10 rounded-lg px-2 py-1 text-[10px] text-white focus:outline-none focus:border-tm-primary/50"
+                                placeholder="Rename subject..."
+                              />
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  playClick();
+                                  handleRenameSubject(sub, renameInputVal);
+                                  setExpandedSubject(null);
+                                }}
+                                className="p-1 rounded bg-tm-primary/20 hover:bg-tm-primary/35 text-white transition-all cursor-pointer"
+                              >
+                                <Check className="w-3 h-3" />
+                              </button>
+                            </div>
+
+                            <div className="flex items-center justify-between mt-1">
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  playClick();
+                                  if (confirm(`Are you sure you want to delete "${sub}"?`)) {
+                                    handleDeleteSubject(sub);
+                                    setExpandedSubject(null);
+                                  }
+                                }}
+                                className="flex items-center gap-1 text-[9px] text-rose-400 hover:text-rose-300 bg-rose-500/10 hover:bg-rose-500/25 px-2 py-1 rounded-lg border border-rose-500/10 cursor-pointer"
+                              >
+                                <Trash2 className="w-2.5 h-2.5" /> Remove
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  playClick();
+                                  handleCompleteSubject(sub);
+                                  setExpandedSubject(null);
+                                }}
+                                className="flex items-center gap-1 text-[9px] text-emerald-400 hover:text-emerald-300 bg-emerald-500/10 hover:bg-emerald-500/25 px-2 py-1 rounded-lg border border-emerald-500/10 cursor-pointer"
+                              >
+                                <Check className="w-2.5 h-2.5" /> Archive
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                  {subjects.filter(sub => !completedSubjects.includes(sub)).length === 0 && (
+                    <div className="text-center p-3 text-[10px] text-slate-500 font-medium bg-white/[0.01] border border-dashed border-white/5 rounded-xl">
+                      No active subjects left. Create one below.
+                    </div>
+                  )}
+                </div>
+
+                {/* Direct quick add input */}
+                <form 
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    if (newSubjectInput.trim()) {
+                      playClick();
+                      handleAddSubject(newSubjectInput.trim());
+                      setNewSubjectInput('');
+                    }
+                  }}
+                  className="flex items-center gap-1.5 mt-2"
+                >
+                  <input
+                    type="text"
+                    value={newSubjectInput}
+                    onChange={(e) => setNewSubjectInput(e.target.value)}
+                    placeholder="Quick add subject..."
+                    className="flex-grow bg-white/[0.02] border border-white/10 focus:border-tm-primary/50 rounded-xl px-3 py-2 text-xs text-white focus:outline-none placeholder-slate-600 transition-colors"
+                  />
+                  <button
+                    type="submit"
+                    className="h-8 w-8 bg-tm-primary/15 hover:bg-tm-primary/35 border border-tm-primary/20 hover:border-tm-primary/40 rounded-xl flex items-center justify-center text-white cursor-pointer active:scale-95 transition-all"
+                  >
+                    <Plus className="w-4 h-4 text-tm-primary" />
+                  </button>
+                </form>
+
+                {/* SECTION: Completed Subjects Archive in Fullscreen */}
+                {completedSubjects.length > 0 && (
+                  <div className="space-y-2 mt-4 pt-4 border-t border-white/10">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[9px] font-extrabold uppercase tracking-widest text-slate-500">Completed Subjects</span>
+                      <span className="text-[9px] bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 font-bold px-2 py-0.5 rounded-full">
+                        {completedSubjects.length} Completed
+                      </span>
+                    </div>
+                    <div className="space-y-1.5 max-h-[120px] overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-white/10">
+                      {completedSubjects.map(sub => (
+                        <div 
+                          key={sub}
+                          className="flex items-center justify-between p-2 rounded-xl bg-emerald-500/[0.02] border border-emerald-500/10 text-slate-400"
+                        >
+                          <div className="flex items-center gap-2 max-w-[calc(100%-48px)]">
+                            <Check className="w-3 h-3 text-emerald-400 shrink-0" />
+                            <span className="text-[11px] font-medium truncate line-through text-slate-500">{sub}</span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              playClick();
+                              setCompletedSubjects(prev => prev.filter(s => s !== sub));
+                            }}
+                            className="text-[9px] text-tm-primary hover:text-white bg-tm-primary/10 hover:bg-tm-primary/20 px-2.5 py-1 rounded-lg border border-tm-primary/10 transition-all cursor-pointer"
+                          >
+                            Deselect
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
     </div>
   );

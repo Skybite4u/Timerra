@@ -18,6 +18,7 @@ export interface TimerSettings {
   cyclesBeforeLongBreak: number; // default 4
   autoAdvance: boolean;          // default true
   tickSound: boolean;            // default false
+  tickVolume?: number;           // default 0.5 (Ambient Tick Intensity)
   theme: ThemeName;              // default "blue"
   subject: string;               // default "Deep Work"
   autoDim?: boolean;             // default true

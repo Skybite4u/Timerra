@@ -17,6 +17,11 @@ interface FocusDnaPanelProps {
 export const FocusDnaPanel: React.FC<FocusDnaPanelProps> = ({ isOpen, onClose, sessions }) => {
   const [activeTab, setActiveTab] = useState<'profile' | 'resonance' | 'traits' | 'history'>('profile');
   const [showTooltip, setShowTooltip] = useState<boolean>(false);
+  
+  // Real-life DNA Evolution states
+  const [isEvolving, setIsEvolving] = useState<boolean>(false);
+  const [evolutionIndex, setEvolutionIndex] = useState<number>(0);
+  const [evolutionText, setEvolutionText] = useState<string>('');
 
   React.useEffect(() => {
     if (isOpen) {
@@ -32,69 +37,135 @@ export const FocusDnaPanel: React.FC<FocusDnaPanelProps> = ({ isOpen, onClose, s
   const dnaState = calculateFocusDna(sessions);
   const { stage, score, resonance, traits, history, behaviors, recentProgressMsg, growthTrend } = dnaState;
 
+  const handleTriggerEvolution = () => {
+    setIsEvolving(true);
+    setEvolutionIndex(0);
+    playClick();
+
+    const messages = [
+      "Decompressing dormant focus potential...",
+      "Mapping active study bio-metrics...",
+      "Synthesizing cognitive crystal structures...",
+      "Sustaining flow state homeostasis...",
+      "Activating advanced habit-forming sequences...",
+      "Transcending ordinary cognitive limits!"
+    ];
+
+    setEvolutionText(messages[0]);
+
+    let step = 0;
+    const maxStep = stage.level; // Evolve from level 1 up to their actual level
+    const intervalId = setInterval(() => {
+      step++;
+      if (step < maxStep) {
+        setEvolutionIndex(step);
+        setEvolutionText(messages[Math.min(step, messages.length - 1)]);
+        playClick();
+      } else {
+        clearInterval(intervalId);
+        // Completed evolution ceremony
+        setTimeout(() => {
+          setIsEvolving(false);
+        }, 1800);
+      }
+    }, 1200);
+  };
+
   if (!isOpen) return null;
 
   // Custom visual component for DNA Helix Animation
   const renderDnaHelix = (color: string) => (
-    <div className="relative w-44 h-44 flex items-center justify-center">
-      {/* Central rotating aura core */}
+    <div className="relative w-44 h-48 flex items-center justify-center overflow-visible">
+      {/* Central rotating aura core glow */}
       <motion.div 
         animate={{ rotate: 360 }}
         transition={{ duration: 15, repeat: Infinity, ease: "linear" }}
-        className="absolute w-28 h-28 rounded-full opacity-20 filter blur-xl"
+        className="absolute w-28 h-28 rounded-full opacity-25 filter blur-xl"
         style={{ background: `radial-gradient(circle, ${color} 0%, transparent 70%)` }}
       />
-      {/* SVG Animated double helix representation */}
-      <svg className="w-36 h-36 relative z-10" viewBox="0 0 100 100">
+      {/* 3D rotating double helix structure */}
+      <svg className="w-36 h-44 overflow-visible relative z-10" viewBox="0 0 100 120">
         <defs>
-          <linearGradient id="helixGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor={color} stopOpacity="0.8" />
-            <stop offset="100%" stopColor="#1e1b4b" stopOpacity="0.3" />
-          </linearGradient>
+          <radialGradient id="dnaGlow" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stopColor={color} stopOpacity="0.4" />
+            <stop offset="100%" stopColor="transparent" stopOpacity="0" />
+          </radialGradient>
         </defs>
-        {/* Central Core Circle */}
-        <motion.circle 
-          cx="50" cy="50" r="14" 
-          fill="none" stroke={color} strokeWidth="2" 
-          strokeDasharray="4 2"
-          animate={{ rotate: -360 }}
-          transition={{ duration: 8, repeat: Infinity, ease: "linear" }}
-        />
-        <circle cx="50" cy="50" r="8" fill={color} className="animate-pulse" />
-
-        {/* Floating orbital atoms representing focus threads */}
-        {[...Array(6)].map((_, i) => {
-          const angle = (i * 360) / 6;
-          const rad = (angle * Math.PI) / 180;
-          const cx = 50 + 26 * Math.cos(rad);
-          const cy = 50 + 26 * Math.sin(rad);
+        
+        {/* Ambient Glow */}
+        <circle cx="50" cy="60" r="45" fill="url(#dnaGlow)" />
+        
+        {/* Base Pairs (Rungs) of DNA helix */}
+        {[...Array(12)].map((_, i) => {
+          const y = 10 + i * 9;
+          // Sine wave offset to simulate rotation
+          const delay = i * 0.15;
           return (
-            <motion.circle
-              key={i}
-              cx={cx}
-              cy={cy}
-              r="2.5"
-              fill={color}
-              initial={{ scale: 0.8 }}
-              animate={{ scale: [0.8, 1.4, 0.8], opacity: [0.6, 1, 0.6] }}
-              transition={{ duration: 2.5, repeat: Infinity, delay: i * 0.4 }}
-            />
+            <g key={i}>
+              {/* Connecting rung line */}
+              <motion.line
+                x1="20"
+                y1={y}
+                x2="80"
+                y2={y}
+                stroke="white"
+                strokeWidth="1.5"
+                strokeOpacity="0.1"
+                animate={{
+                  x1: [30, 70, 30],
+                  x2: [70, 30, 70],
+                  strokeOpacity: [0.15, 0.4, 0.15]
+                }}
+                transition={{
+                  duration: 3,
+                  repeat: Infinity,
+                  ease: "easeInOut",
+                  delay: delay
+                }}
+              />
+              
+              {/* Strand A Node */}
+              <motion.circle
+                cx="50"
+                cy={y}
+                r="3.5"
+                fill={color}
+                animate={{
+                  cx: [25, 75, 25],
+                  scale: [0.8, 1.4, 0.8],
+                  opacity: [0.5, 1, 0.5]
+                }}
+                transition={{
+                  duration: 3,
+                  repeat: Infinity,
+                  ease: "easeInOut",
+                  delay: delay
+                }}
+                style={{ filter: `drop-shadow(0 0 4px ${color})` }}
+              />
+
+              {/* Strand B Node */}
+              <motion.circle
+                cx="50"
+                cy={y}
+                r="3.5"
+                fill="#f43f5e" // complementary rose-500 accent for the other strand
+                animate={{
+                  cx: [75, 25, 75],
+                  scale: [1.4, 0.8, 1.4],
+                  opacity: [1, 0.5, 1]
+                }}
+                transition={{
+                  duration: 3,
+                  repeat: Infinity,
+                  ease: "easeInOut",
+                  delay: delay
+                }}
+                style={{ filter: 'drop-shadow(0 0 4px #f43f5e)' }}
+              />
+            </g>
           );
         })}
-
-        {/* Outer orbital boundary */}
-        <motion.circle
-          cx="50"
-          cy="50"
-          r="40"
-          fill="none"
-          stroke={color}
-          strokeWidth="1"
-          strokeOpacity="0.15"
-          strokeDasharray="8 6"
-          animate={{ rotate: 360 }}
-          transition={{ duration: 24, repeat: Infinity, ease: "linear" }}
-        />
       </svg>
     </div>
   );
@@ -263,8 +334,17 @@ export const FocusDnaPanel: React.FC<FocusDnaPanelProps> = ({ isOpen, onClose, s
                   {/* Right Column: Stage info */}
                   <div className="md:col-span-8 space-y-4 text-center md:text-left">
                     <div className="space-y-1">
-                      <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-[9px] font-black uppercase tracking-widest text-slate-400">
-                        DNA Stage {stage.level} / X
+                      <div className="flex flex-wrap items-center justify-center md:justify-start gap-2 mb-1">
+                        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-[9px] font-black uppercase tracking-widest text-slate-400">
+                          DNA Stage {stage.level} / 8
+                        </div>
+                        <button
+                          onClick={handleTriggerEvolution}
+                          className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-tm-primary/15 hover:bg-tm-primary/25 border border-tm-primary/20 hover:border-tm-primary/40 text-[9px] font-black uppercase tracking-widest text-tm-primary transition-all cursor-pointer animate-pulse"
+                        >
+                          <Sparkles className="w-2.5 h-2.5" />
+                          Initiate Evolution
+                        </button>
                       </div>
                       <h3 
                         className="text-2xl sm:text-3xl font-black tracking-tight"
@@ -606,6 +686,75 @@ export const FocusDnaPanel: React.FC<FocusDnaPanelProps> = ({ isOpen, onClose, s
           </button>
         </div>
       </motion.div>
+
+      {/* Real-life DNA Evolution ceremony overlay */}
+      <AnimatePresence>
+        {isEvolving && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] bg-[#020617]/95 backdrop-blur-2xl flex flex-col items-center justify-center p-6 text-center"
+          >
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(99,102,241,0.15),transparent_60%)] pointer-events-none animate-pulse" />
+
+            <div className="space-y-6 max-w-md w-full relative z-10">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-500/10 border border-cyan-500/20 text-[9px] font-black uppercase tracking-widest text-cyan-400 animate-pulse">
+                <Sparkles className="w-3 h-3" />
+                <span>GENETIC SYNTHESIS ACTIVE</span>
+              </div>
+
+              <div className="relative flex justify-center py-4">
+                <motion.div 
+                  animate={{ rotate: -360 }}
+                  transition={{ duration: 4, repeat: Infinity, ease: "linear" }}
+                  className="absolute w-44 h-44 rounded-full border border-dashed border-white/5"
+                />
+                <motion.div 
+                  animate={{ rotate: 360 }}
+                  transition={{ duration: 8, repeat: Infinity, ease: "linear" }}
+                  className="absolute w-52 h-52 rounded-full border border-dashed border-white/10"
+                />
+                
+                {renderDnaHelix(DNA_STAGES[evolutionIndex]?.color || stage.color)}
+              </div>
+
+              <div className="space-y-2">
+                <span className="text-[10px] uppercase tracking-[0.2em] text-slate-500 font-extrabold block">
+                  Evolution Phase {evolutionIndex + 1} of {stage.level}
+                </span>
+                
+                <motion.h3 
+                  key={evolutionIndex}
+                  initial={{ scale: 0.9, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  className="text-2xl font-black uppercase tracking-wider"
+                  style={{ color: DNA_STAGES[evolutionIndex]?.color || stage.color }}
+                >
+                  {DNA_STAGES[evolutionIndex]?.name || stage.name}
+                </motion.h3>
+
+                <p className="text-xs text-slate-300 italic h-12 flex items-center justify-center px-6 leading-relaxed">
+                  "{evolutionText}"
+                </p>
+              </div>
+
+              <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden border border-white/5">
+                <motion.div 
+                  className="h-full bg-gradient-to-r from-tm-primary to-tm-accent rounded-full"
+                  initial={{ width: '0%' }}
+                  animate={{ width: `${((evolutionIndex + 1) / stage.level) * 100}%` }}
+                  transition={{ duration: 1.2 }}
+                />
+              </div>
+
+              <div className="text-[10px] text-slate-500 font-mono tracking-widest">
+                ALIGNING CHROMOSOMES // XP METRICS SYSTEM ACTIVE
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

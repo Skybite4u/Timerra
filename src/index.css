@@ -343,14 +343,28 @@
 
 .animate-ring-1 {
   animation: tm-spin-ring-1 22s linear infinite;
+  will-change: transform;
 }
 
 .animate-ring-2 {
   animation: tm-spin-ring-2 26s linear infinite;
+  will-change: transform;
 }
 
 .animate-ring-3 {
   animation: tm-spin-ring-3 18s linear infinite;
+  will-change: transform;
+}
+
+@keyframes cup-sway {
+  0%, 100% { transform: rotate(0deg) scale(1); }
+  25% { transform: rotate(-8deg) scale(1.08); }
+  75% { transform: rotate(8deg) scale(1.08); }
+}
+
+.animate-cup-sway {
+  animation: cup-sway 2.5s ease-in-out infinite;
+  will-change: transform;
 }
 
 /* Realistic 3D/2.5D shadow for cards, bars, and boxes */

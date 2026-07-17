@@ -30,6 +30,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
   const [cyclesVal, setCyclesVal] = useState(settings.cyclesBeforeLongBreak);
   const [autoAdv, setAutoAdv] = useState(settings.autoAdvance);
   const [tickSnd, setTickSnd] = useState(settings.tickSound);
+  const [tickVol, setTickVol] = useState(settings.tickVolume !== undefined ? settings.tickVolume : 0.5);
   const [activeTheme, setActiveTheme] = useState<ThemeName>(settings.theme);
   const [activeSub, setActiveSub] = useState(settings.subject);
   const [autoDimVal, setAutoDimVal] = useState(settings.autoDim !== false);
@@ -151,6 +152,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
       cyclesBeforeLongBreak: Number(cyclesVal),
       autoAdvance: autoAdv,
       tickSound: tickSnd,
+      tickVolume: Number(tickVol),
       theme: activeTheme,
       subject: activeSub,
       autoDim: autoDimVal,
@@ -632,6 +634,30 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                   className="w-4 h-4 rounded text-tm-primary bg-white/10 border-white/5 focus:ring-tm-primary focus:ring-offset-0"
                 />
               </label>
+
+              {/* Tick Metronome Volume/Intensity Slider */}
+              {tickSnd && (
+                <div className="sm:col-span-2 p-4 rounded-2xl bg-white/[0.01] border border-white/5 space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <div className="flex flex-col">
+                      <span className="text-xs font-semibold text-slate-200">Ambient Tick Intensity</span>
+                      <span className="text-[10px] text-slate-400">Set the volume of the metronome tick sound relative to background music</span>
+                    </div>
+                    <span className="font-mono text-xs font-black text-tm-primary bg-tm-primary/10 px-2 py-0.5 rounded-lg border border-tm-primary/20">
+                      {Math.round(tickVol * 100)}%
+                    </span>
+                  </div>
+                  <input
+                    type="range"
+                    min="0.1"
+                    max="1.0"
+                    step="0.05"
+                    value={tickVol}
+                    onChange={(e) => setTickVol(parseFloat(e.target.value))}
+                    className="w-full h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-tm-primary focus:outline-none"
+                  />
+                </div>
+              )}
 
               {/* Auto-Dim late night toggle */}
               <label className="flex items-center justify-between p-3.5 rounded-2xl bg-white/[0.01] border border-white/5 hover:border-white/10 transition-all cursor-pointer sm:col-span-2">

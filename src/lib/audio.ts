@@ -51,7 +51,7 @@ export function playClick(): void {
   }
 }
 
-export function playTick(): void {
+export function playTick(volume: number = 0.5): void {
   try {
     primeAudio();
     if (!audioCtx) return;
@@ -63,9 +63,10 @@ export function playTick(): void {
     const t0 = audioCtx.currentTime;
     osc.frequency.setValueAtTime(640, t0);
 
-    // gain 0 -> 0.05 -> 0 over 80ms
+    // Map volume 0.0-1.0 to gain up to 0.12 (standard default was 0.05 at 0.5)
+    const targetGain = Math.max(0.0001, 0.12 * volume);
     gainNode.gain.setValueAtTime(0.0001, t0);
-    gainNode.gain.exponentialRampToValueAtTime(0.05, t0 + 0.005);
+    gainNode.gain.exponentialRampToValueAtTime(targetGain, t0 + 0.005);
     gainNode.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.08);
 
     osc.connect(gainNode);

@@ -348,7 +348,7 @@ export const HistoryPanel: React.FC<HistoryPanelProps> = ({
     );
     const totalDaysFocused = uniqueDays.size;
 
-    // Find most productive subject
+    // Find most productive subject overall
     const subjectMins: { [sub: string]: number } = {};
     sessions.forEach(s => {
       subjectMins[s.subject] = (subjectMins[s.subject] || 0) + s.durationSec / 60;
@@ -362,12 +362,33 @@ export const HistoryPanel: React.FC<HistoryPanelProps> = ({
       }
     });
 
+    // Find most productive subject this week (last 7 days)
+    const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+    const weeklySessions = sessions.filter(s => s.completedAt >= sevenDaysAgo);
+    const weeklySubjectMins: { [sub: string]: number } = {};
+    weeklySessions.forEach(s => {
+      weeklySubjectMins[s.subject] = (weeklySubjectMins[s.subject] || 0) + s.durationSec / 60;
+    });
+    let weeklyTopSubject = 'None';
+    let maxWeeklyMins = 0;
+    Object.keys(weeklySubjectMins).forEach(sub => {
+      if (weeklySubjectMins[sub] > maxWeeklyMins) {
+        maxWeeklyMins = weeklySubjectMins[sub];
+        weeklyTopSubject = sub;
+      }
+    });
+    // Fallback to all-time top subject if no weekly session is recorded yet
+    if (weeklyTopSubject === 'None' && topSubject !== 'None') {
+      weeklyTopSubject = topSubject;
+    }
+
     return {
       hours: (totalSec / 3600).toFixed(1),
       sessionsCount: sessions.length,
       completionRate,
       streak: totalDaysFocused,
-      topSubject: topSubject.length > 18 ? topSubject.slice(0, 15) + '...' : topSubject
+      topSubject: topSubject.length > 18 ? topSubject.slice(0, 15) + '...' : topSubject,
+      weeklyTopSubject: weeklyTopSubject.length > 18 ? weeklyTopSubject.slice(0, 15) + '...' : weeklyTopSubject
     };
   }, [sessions]);
 
@@ -517,9 +538,9 @@ export const HistoryPanel: React.FC<HistoryPanelProps> = ({
           </div>
 
           <div className="bg-black/30 border border-white/5 rounded-2xl p-4 flex flex-col gap-1 col-span-2 sm:col-span-1">
-            <span className="text-[9px] uppercase tracking-[0.2em] text-slate-400/80 font-bold select-none">Primary Target</span>
+            <span className="text-[9px] uppercase tracking-[0.2em] text-slate-400/80 font-bold select-none">Weekly Top Subject</span>
             <div className="text-xs font-black text-tm-primary truncate mt-1 select-text">
-              {stats.topSubject}
+              {stats.weeklyTopSubject}
             </div>
           </div>
 

@@ -122,7 +122,20 @@ export const LegacyCardUtils = {
     else if (rankScore >= 150) rarity = 'Epic';
     else if (rankScore >= 80) rarity = 'Rare';
 
-    // 5. Build personalized AI Insight Summary
+    // 5. Build personalized AI Insight Summary with targeted subject and focus time
+    const subjectMins: { [sub: string]: number } = {};
+    focusSessions.forEach(s => {
+      subjectMins[s.subject] = (subjectMins[s.subject] || 0) + s.durationSec / 60;
+    });
+    let topSubject = 'None';
+    let maxMins = 0;
+    Object.keys(subjectMins).forEach(sub => {
+      if (subjectMins[sub] > maxMins) {
+        maxMins = subjectMins[sub];
+        topSubject = sub;
+      }
+    });
+
     let insight = `This season, you built steady focus rhythm. Your sessions averaged ${avgSessionMinutes} minutes of deep work. Keep nurturing your balance between active hours and restorative intervals!`;
     if (title === 'Midnight Scholar') {
       insight = `Your productivity flourishes under the cover of night. You logged significant study segments during late hours. Remember to schedule recovery periods to safeguard your energetic focus flow.`;
@@ -132,6 +145,13 @@ export const LegacyCardUtils = {
       insight = `You possess immense cognitive endurance. Compounding sessions of over ${longestSessionMinutes} minutes means you can enter advanced levels of flow. Supplement this with structured breaks to prevent burnout.`;
     } else if (title === 'Balanced Mind') {
       insight = `Remarkable equilibrium. You have integrated focus intervals and mindful breaks at a pristine golden ratio. This healthy productivity style will sustain your mental fortress forever.`;
+    }
+
+    if (topSubject !== 'None') {
+      const topSubjectHours = parseFloat((maxMins / 60).toFixed(1));
+      insight = `🎯 Targeted Subject Accomplishment: You successfully prioritized the subject "${topSubject}" for ${topSubjectHours} hours of dedicated deep focus this cycle! Average session length was ${avgSessionMinutes} minutes. ${insight}`;
+    } else {
+      insight = `💡 Subject Mastery Advice: You haven't recorded study logs for specific subjects yet. Set a primary subject in your Focus Hub to track targeted objectives. ${insight}`;
     }
 
     // 6. Theme colors mapping

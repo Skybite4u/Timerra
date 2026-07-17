@@ -70,15 +70,15 @@ export const CircularTimer: React.FC<CircularTimerProps> = ({
       <div className="flex items-baseline justify-center font-mono text-white select-text cursor-default tabular-nums">
         {h > 0 && (
           <>
-            <span className={isFullscreen ? "text-5xl sm:text-7xl md:text-8xl lg:text-9xl font-black" : "text-4xl sm:text-5xl md:text-6xl font-black"}>{pad(h)}</span>
-            <span className={isFullscreen ? "text-2xl sm:text-4xl md:text-5xl font-medium mx-1 text-white/50" : "text-xl sm:text-2xl md:text-3xl font-medium mx-0.5 text-white/50"}>:</span>
+            <span className={isFullscreen ? "text-5xl sm:text-7xl md:text-8xl lg:text-9xl font-black" : "text-3xl sm:text-5xl md:text-6xl font-black"}>{pad(h)}</span>
+            <span className={isFullscreen ? "text-2xl sm:text-4xl md:text-5xl font-medium mx-1 text-white/50" : "text-lg sm:text-2xl md:text-3xl font-medium mx-0.5 text-white/50"}>:</span>
           </>
         )}
-        <span className={isFullscreen ? "text-5xl sm:text-7xl md:text-8xl lg:text-9xl font-black" : "text-4xl sm:text-5xl md:text-6xl font-black"}>{pad(m)}</span>
-        <span className={isFullscreen ? "text-2xl sm:text-4xl md:text-5xl font-medium mx-1 text-white/50" : "text-xl sm:text-2xl md:text-3xl font-medium mx-0.5 text-white/50"}>:</span>
-        <span className={isFullscreen ? "text-5xl sm:text-7xl md:text-8xl lg:text-9xl font-black" : "text-4xl sm:text-5xl md:text-6xl font-black"}>{pad(s)}</span>
-        <span className={isFullscreen ? "text-2xl sm:text-4xl md:text-5xl font-medium mx-1 text-tm-primary" : "text-xl sm:text-2xl md:text-3xl font-medium mx-0.5 text-tm-primary"}>.</span>
-        <span className={isFullscreen ? "text-3xl sm:text-5xl md:text-6xl lg:text-7xl font-extrabold text-tm-primary/80" : "text-2xl sm:text-3xl md:text-4xl font-extrabold text-tm-primary/80"}>{pad(ms)}</span>
+        <span className={isFullscreen ? "text-5xl sm:text-7xl md:text-8xl lg:text-9xl font-black" : "text-3xl sm:text-5xl md:text-6xl font-black"}>{pad(m)}</span>
+        <span className={isFullscreen ? "text-2xl sm:text-4xl md:text-5xl font-medium mx-1 text-white/50" : "text-lg sm:text-2xl md:text-3xl font-medium mx-0.5 text-white/50"}>:</span>
+        <span className={isFullscreen ? "text-5xl sm:text-7xl md:text-8xl lg:text-9xl font-black" : "text-3xl sm:text-5xl md:text-6xl font-black"}>{pad(s)}</span>
+        <span className={isFullscreen ? "text-2xl sm:text-4xl md:text-5xl font-medium mx-1 text-tm-primary" : "text-lg sm:text-2xl md:text-3xl font-medium mx-0.5 text-tm-primary"}>.</span>
+        <span className={isFullscreen ? "text-3xl sm:text-5xl md:text-6xl lg:text-7xl font-extrabold text-tm-primary/80" : "text-xl sm:text-3xl md:text-4xl font-extrabold text-tm-primary/80"}>{pad(ms)}</span>
       </div>
     );
   };
@@ -98,7 +98,7 @@ export const CircularTimer: React.FC<CircularTimerProps> = ({
         className={`font-mono font-bold tracking-tight text-white select-text cursor-default tabular-nums ${
           isFullscreen 
             ? 'text-6xl sm:text-8xl md:text-[8rem] lg:text-[10rem] leading-none' 
-            : 'text-5xl sm:text-6xl md:text-7xl'
+            : 'text-4xl sm:text-6xl md:text-7xl'
         }`}
         style={{ textShadow: '0 4px 20px rgba(0, 0, 0, 0.5), 0 0 16px var(--tm-glow)' }}
       >
@@ -189,18 +189,18 @@ export const CircularTimer: React.FC<CircularTimerProps> = ({
           100% { transform: rotate(var(--angle)) translate(var(--dist), var(--dist)); opacity: 0; }
         }
 
-        .animate-sun-spin { animation: sun-spin 18s linear infinite; }
-        .animate-float-gentle { animation: float-gentle 6s ease-in-out infinite; }
-        .animate-float-calm { animation: float-calm 8s ease-in-out infinite; }
-        .animate-crystal-shimmer { animation: crystal-shimmer 12s ease-in-out infinite; }
-        .animate-galaxy { animation: galaxy-swirl-anim 25s linear infinite; }
-        .animate-cloud-slow { animation: cloud-move-slow 8s ease-in-out infinite; }
-        .animate-bird { animation: bird-fly 14s ease-in-out infinite; }
-        .animate-speed-line { animation: speed-line-fall 1.5s linear infinite; }
-        .animate-dust { animation: dust-rise 5s ease-in-out infinite; }
-        .animate-ripple { animation: ripple-wave 4s cubic-bezier(0.1, 0.8, 0.3, 1) infinite; }
-        .animate-cherry { animation: cherry-fall 9s ease-in-out infinite; }
-        .animate-explosion { animation: explosion-burst 1.2s cubic-bezier(0.1, 0.8, 0.3, 1) forwards; }
+        .animate-sun-spin { animation: sun-spin 18s linear infinite; will-change: transform; }
+        .animate-float-gentle { animation: float-gentle 6s ease-in-out infinite; will-change: transform; }
+        .animate-float-calm { animation: float-calm 8s ease-in-out infinite; will-change: transform; }
+        .animate-crystal-shimmer { animation: crystal-shimmer 12s ease-in-out infinite; will-change: filter; }
+        .animate-galaxy { animation: galaxy-swirl-anim 25s linear infinite; will-change: transform; }
+        .animate-cloud-slow { animation: cloud-move-slow 8s ease-in-out infinite; will-change: transform; }
+        .animate-bird { animation: bird-fly 14s ease-in-out infinite; will-change: transform; }
+        .animate-speed-line { animation: speed-line-fall 1.5s linear infinite; will-change: transform; }
+        .animate-dust { animation: dust-rise 5s ease-in-out infinite; will-change: transform; }
+        .animate-ripple { animation: ripple-wave 4s cubic-bezier(0.1, 0.8, 0.3, 1) infinite; will-change: transform, opacity; }
+        .animate-cherry { animation: cherry-fall 9s ease-in-out infinite; will-change: transform, opacity; }
+        .animate-explosion { animation: explosion-burst 1.2s cubic-bezier(0.1, 0.8, 0.3, 1) forwards; will-change: transform, opacity; }
         
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
@@ -211,7 +211,7 @@ export const CircularTimer: React.FC<CircularTimerProps> = ({
         className={`relative flex items-center justify-center transition-all duration-700 ${
           isFullscreen 
             ? 'w-[320px] h-[320px] xs:w-[420px] xs:h-[420px] sm:w-[520px] sm:h-[520px] md:w-[620px] md:h-[620px] lg:w-[680px] lg:h-[680px]' 
-            : 'w-72 h-72 sm:w-80 sm:h-80 md:w-96 md:h-96'
+            : 'w-64 h-64 sm:w-80 sm:h-80 md:w-96 md:h-96'
         }`}
         style={{ perspective: '1200px', transformStyle: 'preserve-3d' }}
       >
