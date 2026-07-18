@@ -13,7 +13,7 @@ interface ChartDataItem {
   isToday: boolean;
 }
 
-export const FocusTrendsChart: React.FC<FocusTrendsChartProps> = ({ sessions }) => {
+export const FocusTrendsChart = React.memo<FocusTrendsChartProps>(({ sessions }) => {
   const now = new Date();
   const todayStr = now.toISOString().split('T')[0];
 
@@ -201,4 +201,6 @@ export const FocusTrendsChart: React.FC<FocusTrendsChartProps> = ({ sessions }) 
       </div>
     </div>
   );
-};
+});
+
+FocusTrendsChart.displayName = 'FocusTrendsChart';

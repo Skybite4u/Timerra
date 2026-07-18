@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Sparkles, BookOpen, Sliders, Volume2, Check, Plus, AlertCircle, Edit2, Trash2 } from 'lucide-react';
+import { X, Sparkles, BookOpen, Sliders, Volume2, Check, Plus, AlertCircle, Edit2, Trash2, Clock } from 'lucide-react';
 import { TimerSettings, ThemeName } from '../types';
 import { THEMES } from '../lib/themes';
 
@@ -36,6 +36,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
   const [autoDimVal, setAutoDimVal] = useState(settings.autoDim !== false);
   const [syncWithSystem, setSyncWithSystem] = useState(settings.syncWithSystem === true);
   const [dailyGoalHoursVal, setDailyGoalHoursVal] = useState(settings.dailyGoalHours || 4);
+  const [focusReminderTime, setFocusReminderTime] = useState(settings.focusReminderTime || '');
 
   const [customPrimary, setCustomPrimary] = useState(settings.customTheme?.primary || '#ef4444');
   const [customAccent, setCustomAccent] = useState(settings.customTheme?.accent || '#f43f5e');
@@ -158,6 +159,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
       autoDim: autoDimVal,
       syncWithSystem: syncWithSystem,
       dailyGoalHours: Number(dailyGoalHoursVal),
+      focusReminderTime: focusReminderTime || undefined,
       customTheme: {
         primary: customPrimary,
         accent: customAccent,
@@ -596,6 +598,44 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                   className="w-4 h-4 rounded text-tm-primary bg-white/10 border-white/5 focus:ring-tm-primary focus:ring-offset-0"
                 />
               </label>
+            </div>
+          </div>
+
+          {/* Consistent Focus Habits */}
+          <div className="space-y-3 pt-2">
+            <h3 className="text-xs font-bold uppercase tracking-widest text-slate-400 flex items-center gap-1.5">
+              <Clock className="w-3.5 h-3.5 text-tm-primary" />
+              Consistent Focus Habits
+            </h3>
+            <div className="p-4 rounded-2xl bg-white/[0.01] border border-white/5 space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex flex-col">
+                  <span className="text-xs font-semibold text-slate-200">Daily Focus Reminder Alert</span>
+                  <span className="text-[10px] text-slate-400 mt-0.5">Triggers a notification if you haven't started any focus sessions by this time of day</span>
+                </div>
+                <select
+                  value={focusReminderTime}
+                  onChange={(e) => setFocusReminderTime(e.target.value)}
+                  className="bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-tm-primary/50 cursor-pointer min-w-[140px]"
+                >
+                  <option value="">Disabled</option>
+                  <option value="08:00">08:00 AM</option>
+                  <option value="09:00">09:00 AM</option>
+                  <option value="10:00">10:00 AM</option>
+                  <option value="11:00">11:00 AM</option>
+                  <option value="12:00">12:00 PM</option>
+                  <option value="13:00">01:00 PM</option>
+                  <option value="14:00">02:00 PM</option>
+                  <option value="15:00">03:00 PM</option>
+                  <option value="16:00">04:00 PM</option>
+                  <option value="17:00">05:00 PM</option>
+                  <option value="18:00">06:00 PM</option>
+                  <option value="19:00">07:00 PM</option>
+                  <option value="20:00">08:00 PM</option>
+                  <option value="21:00">09:00 PM</option>
+                  <option value="22:00">10:00 PM</option>
+                </select>
+              </div>
             </div>
           </div>
 

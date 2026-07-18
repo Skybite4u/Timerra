@@ -1,8 +1,8 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { 
   X, Bell, BellOff, Search, Trash2, Check, CheckCheck, 
   Award, Database, Sparkles, BarChart2, Flame, Sliders, Info, Clock,
-  Eye, ShieldAlert, CheckCircle, Smartphone
+  Eye, ShieldAlert, CheckCircle, Smartphone, Archive
 } from 'lucide-react';
 import { NotificationManager, TimerraNotification, NotificationCategory } from '../lib/notificationManager';
 import { playClick } from '../lib/audio';
@@ -12,13 +12,15 @@ interface NotificationCenterProps {
   onClose: () => void;
   isSilenceModeActive: boolean;
   onToggleSilenceMode?: () => void;
+  onOpenCompletedSubjects?: () => void;
 }
 
 export const NotificationCenter: React.FC<NotificationCenterProps> = ({
   isOpen,
   onClose,
   isSilenceModeActive,
-  onToggleSilenceMode
+  onToggleSilenceMode,
+  onOpenCompletedSubjects
 }) => {
   const [notifications, setNotifications] = useState<TimerraNotification[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -26,11 +28,29 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
   const [statusFilter, setStatusFilter] = useState<'all' | 'unread' | 'read'>('all');
   const [browserPermission, setBrowserPermission] = useState<NotificationPermission>('default');
 
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const prevNotificationsCountRef = useRef<number>(0);
+
   // Load and subscribe to notification changes
   const reloadNotifications = () => {
-    setNotifications(NotificationManager.loadNotifications());
+    const loaded = NotificationManager.loadNotifications();
+    setNotifications(loaded);
     setBrowserPermission(NotificationManager.getBrowserPermissionState());
   };
+
+  // Keep the latest log entry in view automatically when new notifications arrive
+  useEffect(() => {
+    if (isOpen && scrollContainerRef.current) {
+      if (notifications.length > prevNotificationsCountRef.current) {
+        // Smoothly scroll to top where the latest log entry is rendered
+        scrollContainerRef.current.scrollTo({
+          top: 0,
+          behavior: 'smooth'
+        });
+      }
+      prevNotificationsCountRef.current = notifications.length;
+    }
+  }, [notifications.length, isOpen]);
 
   useEffect(() => {
     if (isOpen) {
@@ -203,7 +223,7 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
         <div className="absolute top-0 right-0 w-80 h-80 bg-tm-primary/5 rounded-full blur-[100px] pointer-events-none" />
         <div className="absolute bottom-0 left-0 w-80 h-80 bg-tm-accent/5 rounded-full blur-[100px] pointer-events-none" />
 
-        {/* HEADER PANEL */}
+         {/* HEADER PANEL */}
         <div className="p-6 border-b border-white/5 flex items-center justify-between relative z-10 shrink-0">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-2xl bg-white/[0.02] border border-white/5 flex items-center justify-center relative">
@@ -223,6 +243,16 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
           </div>
 
           <div className="flex items-center gap-2">
+            {/* Completed Subjects Button (No Notification Badge as requested) */}
+            <button
+              onClick={() => { playClick(); onOpenCompletedSubjects?.(); }}
+              className="flex items-center gap-1.5 bg-emerald-500/10 hover:bg-emerald-500/15 border border-emerald-500/15 hover:border-emerald-500/30 rounded-xl px-2.5 py-1.5 text-xs text-emerald-300 hover:text-white transition-all cursor-pointer relative shrink-0"
+              title="Completed Subjects Archive"
+            >
+              <Archive className="w-3.5 h-3.5 text-emerald-400" />
+              <span className="font-bold text-[10px] uppercase tracking-wider">Completed</span>
+            </button>
+
             {/* Exit button */}
             <button
               onClick={onClose}
@@ -268,10 +298,17 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
               </button>
             )}
           </div>
+        </div>
 
-          {/* Browser Notification API Prompt */}
+        {/* NOTIFICATIONS CONTAINER */}
+        <div 
+          ref={scrollContainerRef}
+          className="flex-1 overflow-y-auto overscroll-contain p-6 space-y-4 relative z-10 scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent"
+        >
+          
+          {/* Browser Notification API Prompt (Now scrolls with notifications) */}
           {browserPermission !== 'granted' && (
-            <div className="flex items-center justify-between bg-tm-primary/5 border border-tm-primary/20 rounded-2xl p-3.5">
+            <div className="flex items-center justify-between bg-tm-primary/5 border border-tm-primary/20 rounded-2xl p-3.5 mb-2">
               <div className="flex items-center gap-3">
                 <div className="p-2 rounded-xl bg-tm-primary/10 text-tm-primary border border-tm-primary/20 flex items-center justify-center">
                   <Smartphone className="w-4 h-4" />
@@ -290,72 +327,67 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
               </button>
             </div>
           )}
-        </div>
 
-        {/* SEARCH, SORTING AND CATEGORY PILLS */}
-        <div className="px-6 py-4 border-b border-white/5 space-y-4 relative z-10 shrink-0">
-          
-          {/* Quick Search & Actions Row */}
-          <div className="flex gap-2">
-            {/* Search Input */}
-            <div className="flex-1 relative">
-              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search history logs..."
-                className="w-full bg-white/[0.02] border border-white/5 rounded-2xl pl-10 pr-4 py-2.5 text-xs text-white focus:outline-none focus:border-tm-primary placeholder-slate-500"
-              />
+          {/* SEARCH, SORTING AND CATEGORY PILLS (Now scrolls with notifications) */}
+          <div className="space-y-4 pb-4 border-b border-white/5">
+            {/* Quick Search & Actions Row */}
+            <div className="flex gap-2">
+              {/* Search Input */}
+              <div className="flex-1 relative">
+                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search history logs..."
+                  className="w-full bg-white/[0.02] border border-white/5 rounded-2xl pl-10 pr-4 py-2.5 text-xs text-white focus:outline-none focus:border-tm-primary placeholder-slate-500"
+                />
+              </div>
+
+              {/* Read status filter select */}
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value as any)}
+                className="bg-white/[0.02] border border-white/5 rounded-2xl px-3 py-2.5 text-xs text-white focus:outline-none cursor-pointer"
+              >
+                <option value="all" className="bg-[#0b1020]">All</option>
+                <option value="unread" className="bg-[#0b1020]">Unread</option>
+                <option value="read" className="bg-[#0b1020]">Read</option>
+              </select>
             </div>
 
-            {/* Read status filter select */}
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value as any)}
-              className="bg-white/[0.02] border border-white/5 rounded-2xl px-3 py-2.5 text-xs text-white focus:outline-none cursor-pointer"
-            >
-              <option value="all" className="bg-[#0b1020]">All</option>
-              <option value="unread" className="bg-[#0b1020]">Unread</option>
-              <option value="read" className="bg-[#0b1020]">Read</option>
-            </select>
+            {/* Category Pill Horizontal Scroller */}
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+              <button
+                onClick={() => { playClick(); setSelectedCategory('all'); }}
+                className={`px-3 py-1.5 rounded-xl text-[10px] font-extrabold uppercase tracking-wider transition-all cursor-pointer shrink-0 border ${
+                  selectedCategory === 'all'
+                    ? 'bg-white/10 border-white/20 text-white shadow-inner'
+                    : 'bg-transparent border-transparent text-slate-400 hover:text-white hover:bg-white/[0.02]'
+                }`}
+              >
+                All Logs
+              </button>
+              {Object.keys(categoryMetaData).map((catName) => {
+                const meta = categoryMetaData[catName as NotificationCategory];
+                const isSelected = selectedCategory === catName;
+                return (
+                  <button
+                    key={catName}
+                    onClick={() => { playClick(); setSelectedCategory(catName); }}
+                    className={`px-3 py-1.5 rounded-xl text-[10px] font-extrabold uppercase tracking-wider transition-all cursor-pointer shrink-0 border flex items-center gap-1.5 ${
+                      isSelected
+                        ? 'bg-white/10 border-white/20 text-white shadow-inner'
+                        : 'bg-transparent border-transparent text-slate-400 hover:text-white hover:bg-white/[0.02]'
+                    }`}
+                  >
+                    <span className={`w-1.5 h-1.5 rounded-full ${meta.text}`} />
+                    {meta.label}
+                  </button>
+                );
+              })}
+            </div>
           </div>
-
-          {/* Category Pill Horizontal Scroller */}
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
-            <button
-              onClick={() => { playClick(); setSelectedCategory('all'); }}
-              className={`px-3 py-1.5 rounded-xl text-[10px] font-extrabold uppercase tracking-wider transition-all cursor-pointer shrink-0 border ${
-                selectedCategory === 'all'
-                  ? 'bg-white/10 border-white/20 text-white shadow-inner'
-                  : 'bg-transparent border-transparent text-slate-400 hover:text-white hover:bg-white/[0.02]'
-              }`}
-            >
-              All Logs
-            </button>
-            {Object.keys(categoryMetaData).map((catName) => {
-              const meta = categoryMetaData[catName as NotificationCategory];
-              const isSelected = selectedCategory === catName;
-              return (
-                <button
-                  key={catName}
-                  onClick={() => { playClick(); setSelectedCategory(catName); }}
-                  className={`px-3 py-1.5 rounded-xl text-[10px] font-extrabold uppercase tracking-wider transition-all cursor-pointer shrink-0 border flex items-center gap-1.5 ${
-                    isSelected
-                      ? 'bg-white/10 border-white/20 text-white shadow-inner'
-                      : 'bg-transparent border-transparent text-slate-400 hover:text-white hover:bg-white/[0.02]'
-                  }`}
-                >
-                  <span className={`w-1.5 h-1.5 rounded-full ${meta.text}`} />
-                  {meta.label}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* NOTIFICATIONS CONTAINER */}
-        <div className="flex-1 overflow-y-auto overscroll-contain p-6 space-y-4 relative z-10 scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
           
           {filteredNotifications.length === 0 ? (
             <div className="h-full flex flex-col items-center justify-center text-center p-8 space-y-3">

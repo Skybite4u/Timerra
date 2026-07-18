@@ -250,8 +250,8 @@
 }
 
 @keyframes tm-breathe {
-  0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.025); }
+  0%, 100% { opacity: 0.95; }
+  50% { opacity: 1; }
 }
 
 @keyframes tm-wave-a {

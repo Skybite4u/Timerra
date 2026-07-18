@@ -30,7 +30,9 @@ import {
   Coffee,
   SkipForward,
   Edit2,
-  X
+  X,
+  FileText,
+  Archive
 } from 'lucide-react';
 
 // Focus DNA system imports
@@ -55,6 +57,7 @@ import { ModeSelector } from './components/ModeSelector';
 import { BrandedDefs } from './components/BrandedIcons';
 import { NotificationCenter } from './components/NotificationCenter';
 import { HistoryPanel } from './components/HistoryPanel';
+import { CompletedSubjectsPanel } from './components/CompletedSubjectsPanel';
 import { GuideModal } from './components/GuideModal';
 import { MorePanel } from './components/MorePanel';
 import { NavigationRail } from './components/NavigationRail';
@@ -138,12 +141,31 @@ export default function App() {
   // --- Focus Subject & Mood states ---
   const [newSubjectInput, setNewSubjectInput] = useState<string>('');
   const [completedSubjects, setCompletedSubjects] = useState<string[]>([]);
+  const [subjectTargets, setSubjectTargets] = useState<Record<string, number>>(() => {
+    try {
+      const stored = localStorage.getItem('timerra_subject_targets');
+      return stored ? JSON.parse(stored) : {};
+    } catch {
+      return {};
+    }
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('timerra_subject_targets', JSON.stringify(subjectTargets));
+    } catch (e) {
+      console.error(e);
+    }
+  }, [subjectTargets]);
+
   const [expandedSubject, setExpandedSubject] = useState<string | null>(null);
   const [renameInputVal, setRenameInputVal] = useState<string>('');
   const [showFullscreenSubjectSelector, setShowFullscreenSubjectSelector] = useState<boolean>(false);
+  const [showCompletedSubjectsPanel, setShowCompletedSubjectsPanel] = useState<boolean>(false);
   const [currentFocusMood, setCurrentFocusMood] = useState<string>('Calm');
   const [chartMode, setChartMode] = useState<'weekly' | 'trends'>('trends');
   const [showBreathingGuide, setShowBreathingGuide] = useState<boolean>(true);
+  const [subjectNotes, setSubjectNotes] = useState<{[subject: string]: string}>({});
 
   // Persistence of Completed Subjects
   useEffect(() => {
@@ -161,12 +183,92 @@ export default function App() {
     localStorage.setItem('timerra_completed_subjects', JSON.stringify(completedSubjects));
   }, [completedSubjects]);
 
+  // Persistence of Subject Notes
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem('timerra_subject_notes');
+      if (stored) {
+        setSubjectNotes(JSON.parse(stored));
+      }
+    } catch (e) {
+      console.warn("Failed to load subject notes", e);
+    }
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem('timerra_subject_notes', JSON.stringify(subjectNotes));
+  }, [subjectNotes]);
+
+  // --- Subject Target Helpers ---
+  const getSubjectTotalFocusTime = (subName: string) => {
+    return sessions
+      .filter(s => s.subject === subName && s.mode === 'focus')
+      .reduce((sum, s) => sum + s.durationSec, 0);
+  };
+
+  const getSubjectTargetMinutes = (subName: string) => {
+    return subjectTargets[subName] || 60; // default 60 minutes
+  };
+
+  const hasMetGoal = (subName: string) => {
+    const spentSec = getSubjectTotalFocusTime(subName);
+    const targetSec = getSubjectTargetMinutes(subName) * 60;
+    return spentSec >= targetSec && targetSec > 0;
+  };
+
   // --- Notification Center States ---
   const [showNotificationCenter, setShowNotificationCenter] = useState<boolean>(false);
   const [showMorePanel, setShowMorePanel] = useState<boolean>(false);
   const [isFocusSilenceMode, setIsFocusSilenceMode] = useState<boolean>(false);
   const [unseenVaultCount, setUnseenVaultCount] = useState<number>(0);
   const [unreadNotificationCount, setUnreadNotificationCount] = useState<number>(0);
+
+  // Focus Reminder Notification Checker
+  useEffect(() => {
+    if (!settings.focusReminderTime) return;
+
+    const checkReminder = () => {
+      const now = new Date();
+      const [remHour, remMin] = settings.focusReminderTime!.split(':').map(Number);
+      const targetTime = new Date();
+      targetTime.setHours(remHour, remMin, 0, 0);
+
+      // If we are past the reminder time today
+      if (now >= targetTime) {
+        const todayStr = now.toISOString().split('T')[0];
+        const lastReminded = localStorage.getItem('timerra_last_focus_reminder_date');
+
+        // Check if we already reminded today
+        if (lastReminded !== todayStr) {
+          // Check if user has completed or is in any sessions today
+          const todaySessionsCount = sessions.filter(s => {
+            if (!s.completedAt) return false;
+            const sDate = new Date(s.completedAt).toISOString().split('T')[0];
+            return sDate === todayStr;
+          }).length;
+
+          if (todaySessionsCount === 0 && status === 'stopped') {
+            // Trigger focus reminder notification!
+            localStorage.setItem('timerra_last_focus_reminder_date', todayStr);
+            NotificationManager.addNotification(
+              'Habit Reminder: Start Your Focus Session! ⏰',
+              `It's past your chosen reminder time (${settings.focusReminderTime}). Maintain your streak and kick off your focus session today!`,
+              'Focus Goals',
+              true, // critical!
+              isFocusSilenceMode
+            );
+          }
+        }
+      }
+    };
+
+    // Run on mount
+    checkReminder();
+
+    // Check every minute
+    const interval = setInterval(checkReminder, 60000);
+    return () => clearInterval(interval);
+  }, [settings.focusReminderTime, sessions, status, isFocusSilenceMode]);
   
   const originalSettingsRef = useRef<TimerSettings | null>(null);
 
@@ -227,8 +329,70 @@ export default function App() {
     };
   }, [refreshNotificationMetrics]);
 
-  // --- Fullscreen Handling ---
+  // --- Fullscreen Handling & Controls Auto-Hide ---
   const { isFullscreen, toggleFullscreen } = useFullscreen();
+  const [controlsVisible, setControlsVisible] = useState(true);
+  const controlsTimeoutRef = useRef<number | null>(null);
+
+  const stateRef = useRef({
+    isFullscreen,
+    showFullscreenSubjectSelector,
+  });
+
+  useEffect(() => {
+    stateRef.current = {
+      isFullscreen,
+      showFullscreenSubjectSelector,
+    };
+  }, [isFullscreen, showFullscreenSubjectSelector]);
+
+  const handleActivity = useCallback(() => {
+    setControlsVisible(true);
+    if (controlsTimeoutRef.current) {
+      window.clearTimeout(controlsTimeoutRef.current);
+    }
+
+    const { isFullscreen: currentIsFullscreen, showFullscreenSubjectSelector: currentShowSelector } = stateRef.current;
+    if (!currentIsFullscreen || currentShowSelector) {
+      // Do not auto-hide controls if not in fullscreen or if configuring/active overlays are open
+      return;
+    }
+
+    controlsTimeoutRef.current = window.setTimeout(() => {
+      setControlsVisible(false);
+    }, 3000);
+  }, []);
+
+  useEffect(() => {
+    handleActivity();
+  }, [isFullscreen, showFullscreenSubjectSelector, handleActivity]);
+
+  useEffect(() => {
+    if (!isFullscreen) {
+      setControlsVisible(true);
+      if (controlsTimeoutRef.current) {
+        window.clearTimeout(controlsTimeoutRef.current);
+      }
+      return;
+    }
+
+    // Bind event listeners for activity tracking when in fullscreen
+    const events = ['mousemove', 'pointermove', 'touchstart', 'click', 'keydown', 'wheel'];
+    const onEvent = () => handleActivity();
+
+    events.forEach(event => {
+      window.addEventListener(event, onEvent, { passive: true });
+    });
+
+    return () => {
+      events.forEach(event => {
+        window.removeEventListener(event, onEvent);
+      });
+      if (controlsTimeoutRef.current) {
+        window.clearTimeout(controlsTimeoutRef.current);
+      }
+    };
+  }, [isFullscreen, handleActivity]);
 
   // --- Unlogged Study Duration Tracking Ref ---
   const sessionStartTimeRef = useRef<number | null>(null);
@@ -284,7 +448,7 @@ export default function App() {
         stopped,
         cancelled,
         goal: settings.focusGoal || '',
-        notes: '',
+        notes: subjectNotes[settings.subject] || '',
         mood: currentFocusMood,
         orbTheme: settings.orbColorPalette || 'Sunset Flare',
         device: 'Browser App',
@@ -293,6 +457,11 @@ export default function App() {
         month: monthStr
       };
       await TimerraDB.addSession(newSession);
+      setSubjectNotes(prev => {
+        const updated = { ...prev };
+        delete updated[settings.subject];
+        return updated;
+      });
       const updatedSessions = await TimerraDB.allSessions();
       setSessions(updatedSessions);
       
@@ -619,6 +788,18 @@ export default function App() {
   const requestRef = useRef<number | null>(null);
   const lastTimeRef = useRef<number | null>(null);
 
+  const precisionRemainingSecRef = useRef<number>(25 * 60);
+  const precisionElapsedSecRef = useRef<number>(0);
+
+  // Sync high-precision refs with React state when it updates from outside the timer loop
+  useEffect(() => {
+    precisionRemainingSecRef.current = remainingSec;
+  }, [remainingSec]);
+
+  useEffect(() => {
+    precisionElapsedSecRef.current = elapsedSec;
+  }, [elapsedSec]);
+
   // Advance to next cycle phase
   const advancePhase = useCallback(async (isNaturalComplete = true) => {
     playComplete();
@@ -715,28 +896,42 @@ export default function App() {
       const isStudyMode = mode === 'focus' || mode === 'deepFocus' || mode === 'sprint' || mode === 'marathon' || mode === 'zen' || mode === 'infinityFocus';
 
       if (mode === 'stopwatch' || mode === 'infinityFocus') {
-        setElapsedSec((prev) => {
-          const next = prev + dt;
-          if (mode === 'infinityFocus') {
-            unloggedStudySecRef.current += dt;
-          }
-          return next;
-        });
+        precisionElapsedSecRef.current += dt;
+        if (mode === 'infinityFocus') {
+          unloggedStudySecRef.current += dt;
+        }
+
+        if (mode === 'stopwatch') {
+          // In stopwatch mode, update state on every tick to support sub-second/millisecond visuals
+          setElapsedSec(precisionElapsedSecRef.current);
+        } else {
+          // In non-stopwatch count-up mode, only update React state when the integer second changes
+          const nextInt = Math.floor(precisionElapsedSecRef.current);
+          setElapsedSec((prev) => {
+            if (Math.floor(prev) === nextInt) return prev;
+            return precisionElapsedSecRef.current;
+          });
+        }
       } else {
-        setRemainingSec((prev) => {
-          const next = prev - dt;
-          if (isStudyMode) {
-            unloggedStudySecRef.current += dt;
-          }
-          if (next <= 0) {
-            // Completed focus timer session
-            setTimeout(() => {
-              advancePhase();
-            }, 0);
-            return 0;
-          }
-          return next;
-        });
+        precisionRemainingSecRef.current -= dt;
+        if (isStudyMode) {
+          unloggedStudySecRef.current += dt;
+        }
+
+        if (precisionRemainingSecRef.current <= 0) {
+          precisionRemainingSecRef.current = 0;
+          setRemainingSec(0);
+          setTimeout(() => {
+            advancePhase();
+          }, 0);
+        } else {
+          // In countdown modes, only update React state when the integer second ceiling changes
+          const nextInt = Math.ceil(precisionRemainingSecRef.current);
+          setRemainingSec((prev) => {
+            if (Math.ceil(prev) === nextInt) return prev;
+            return precisionRemainingSecRef.current;
+          });
+        }
       }
     };
 
@@ -1055,6 +1250,38 @@ export default function App() {
     }
   };
 
+  const handleRestoreCompletedSubject = async (sub: string) => {
+    if (!subjects.includes(sub)) {
+      await TimerraDB.addSubject(sub);
+      const loaded = await TimerraDB.allSubjects();
+      setSubjects(loaded);
+    }
+    setCompletedSubjects(prev => prev.filter(s => s !== sub));
+    NotificationManager.addNotification(
+      'Subject Restored! 🔄',
+      `"${sub}" has been restored to your active focus subjects.`,
+      'System',
+      false,
+      isFocusSilenceMode
+    );
+  };
+
+  const handleDeleteCompletedSubject = async (sub: string) => {
+    if (confirm(`Are you sure you want to permanently delete "${sub}" from your archive? This cannot be undone.`)) {
+      setCompletedSubjects(prev => prev.filter(s => s !== sub));
+      await TimerraDB.deleteSubject(sub);
+      const loaded = await TimerraDB.allSubjects();
+      setSubjects(loaded);
+      NotificationManager.addNotification(
+        'Subject Deleted 🗑️',
+        `"${sub}" has been permanently deleted from your workspace.`,
+        'System',
+        false,
+        isFocusSilenceMode
+      );
+    }
+  };
+
   const handleRenameSubject = async (oldName: string, newName: string) => {
     if (oldName === newName || !newName.trim()) return;
     await TimerraDB.renameSubject(oldName, newName.trim());
@@ -1256,7 +1483,7 @@ export default function App() {
 
   return (
     <div 
-      className={`min-h-screen theme-${settings.theme} ${isCurrentlyAutoDimmed ? 'auto-dimmed' : ''} bg-gradient-to-b from-tm-bg-from to-tm-bg-to text-white font-sans transition-all duration-700 ease-in-out`}
+      className={`min-h-screen theme-${settings.theme} ${isCurrentlyAutoDimmed ? 'auto-dimmed' : ''} bg-gradient-to-b from-tm-bg-from to-tm-bg-to text-white font-sans transition-all duration-700 ease-in-out ${isFullscreen && !controlsVisible ? 'cursor-none' : ''}`}
       style={customThemeStyles}
     >
       
@@ -1335,7 +1562,9 @@ export default function App() {
       <main className={`max-w-7xl mx-auto px-3 sm:px-6 flex flex-col items-center w-full transition-all duration-500 ${isFullscreen ? 'justify-center min-h-screen py-12' : 'py-3 sm:py-12'}`}>
         
         {/* Dynamic 9-Mode Navigation Dock */}
-        <ModeSelector activeMode={mode} onChangeMode={handleModeChange} />
+        <div className={`transition-all duration-500 ease-in-out w-full flex justify-center ${isFullscreen ? (controlsVisible ? 'opacity-100 translate-y-0 scale-100 pointer-events-auto' : 'opacity-0 -translate-y-4 scale-95 pointer-events-none') : 'opacity-100 scale-100'}`}>
+          <ModeSelector activeMode={mode} onChangeMode={handleModeChange} />
+        </div>
 
         {/* Progress Summary at a Glance */}
         {!isFullscreen && (
@@ -1450,7 +1679,7 @@ export default function App() {
           />
         ) : (
           /* Minimalist Fullscreen Floating Control Panel (highly elegant, glassmorphic, zero distractions) */
-          <div className="fixed bottom-8 flex items-center gap-4 bg-black/45 backdrop-blur-md px-6 py-3 rounded-full border border-white/10 shadow-[0_0_30px_rgba(0,0,0,0.5)] z-50 transition-all duration-300 hover:scale-105">
+          <div className={`fixed bottom-8 flex items-center gap-4 bg-black/45 backdrop-blur-md px-6 py-3 rounded-full border border-white/10 shadow-[0_0_30px_rgba(0,0,0,0.5)] z-50 transition-all duration-500 hover:scale-105 ${controlsVisible ? 'opacity-100 translate-y-0 pointer-events-auto' : 'opacity-0 translate-y-4 pointer-events-none'}`}>
             <button
               onClick={() => { playClick(); setShowFullscreenSubjectSelector(true); }}
               className="px-3 py-1.5 rounded-full bg-white/5 hover:bg-white/10 text-[10px] font-bold text-slate-200 flex items-center gap-1.5 border border-white/5 cursor-pointer max-w-[130px]"
@@ -1516,6 +1745,21 @@ export default function App() {
                   <span className="text-[10px] bg-tm-primary/10 text-tm-primary px-2.5 py-1 rounded-lg border border-tm-primary/25 font-bold max-w-[140px] truncate">{settings.subject}</span>
                 </div>
 
+                {/* satisfying confirm completed subject action */}
+                {settings.subject && !completedSubjects.includes(settings.subject) && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      playClick();
+                      handleCompleteSubject(settings.subject);
+                    }}
+                    className="w-full py-2 px-3 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/15 border border-emerald-500/20 hover:border-emerald-500/40 text-emerald-300 hover:text-white font-bold text-[11px] flex items-center justify-center gap-1.5 transition-all active:scale-[0.98] cursor-pointer"
+                  >
+                    <CheckCircle className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>Confirm "{settings.subject}" is Finished</span>
+                  </button>
+                )}
+
                 {/* Inline list of subjects with Mark Complete */}
                 <div className="space-y-1.5 max-h-[160px] overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-white/10">
                   {subjects.filter(sub => !completedSubjects.includes(sub)).map(sub => {
@@ -1546,9 +1790,15 @@ export default function App() {
                           }}
                           className="flex items-center justify-between cursor-pointer"
                         >
-                          <div className="flex items-center gap-2 max-w-[calc(100%-48px)]">
+                          <div className="flex items-center gap-1.5 max-w-[calc(100%-36px)]">
                             <BookOpen className="w-3.5 h-3.5 text-tm-primary/70 shrink-0" />
                             <span className="text-[11px] font-semibold truncate text-white">{sub}</span>
+                            {hasMetGoal(sub) && (
+                              <span className="flex items-center gap-0.5 bg-amber-500/10 border border-amber-500/30 text-amber-400 text-[8px] font-extrabold px-1.5 py-0.5 rounded-full shadow-[0_0_8px_rgba(245,158,11,0.2)] whitespace-nowrap shrink-0">
+                                <Award className="w-2.5 h-2.5 text-amber-400 animate-pulse" />
+                                Goal Met
+                              </span>
+                            )}
                           </div>
                           <div className="flex items-center gap-1.5">
                             {isSelected && (
@@ -1584,6 +1834,46 @@ export default function App() {
                                 <Check className="w-3 h-3" />
                               </button>
                             </div>
+
+                            {/* Subject progress bar and target customization */}
+                            {(() => {
+                              const spentMinutes = Math.floor(getSubjectTotalFocusTime(sub) / 60);
+                              const targetMinutes = getSubjectTargetMinutes(sub);
+                              const progressPercent = Math.min(100, Math.round((spentMinutes / targetMinutes) * 100));
+                              return (
+                                <div className="flex flex-col gap-1.5 bg-white/[0.02] border border-white/[0.04] p-2 rounded-xl">
+                                  <div className="flex items-center justify-between text-[9px] text-slate-400">
+                                    <span>Study Progress</span>
+                                    <span className="font-mono text-slate-300 font-bold">{spentMinutes}m / {targetMinutes}m ({progressPercent}%)</span>
+                                  </div>
+                                  <div className="w-full h-1 bg-white/5 rounded-full overflow-hidden">
+                                    <div 
+                                      className={`h-full rounded-full transition-all duration-500 ${hasMetGoal(sub) ? 'bg-gradient-to-r from-amber-400 to-amber-500' : 'bg-tm-primary'}`}
+                                      style={{ width: `${progressPercent}%` }}
+                                    />
+                                  </div>
+                                  
+                                  {/* Target duration configuration */}
+                                  <div className="flex items-center justify-between gap-2 mt-0.5">
+                                    <span className="text-[9px] text-slate-400">Target Goal:</span>
+                                    <div className="flex items-center gap-1.5">
+                                      <input
+                                        type="number"
+                                        value={targetMinutes}
+                                        onChange={(e) => {
+                                          const val = Math.max(1, parseInt(e.target.value) || 0);
+                                          setSubjectTargets(prev => ({ ...prev, [sub]: val }));
+                                        }}
+                                        onClick={(e) => e.stopPropagation()}
+                                        className="w-12 bg-black/40 border border-white/10 rounded px-1.5 py-0.5 text-center text-[10px] text-white focus:outline-none focus:border-tm-primary/50 font-semibold font-mono"
+                                        min="1"
+                                      />
+                                      <span className="text-[9px] text-slate-400 font-mono">mins</span>
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            })()}
 
                             <div className="flex items-center justify-between mt-1">
                               <button
@@ -1652,41 +1942,30 @@ export default function App() {
                     <Plus className="w-4 h-4 text-tm-primary" />
                   </button>
                 </form>
-
-                {/* SECTION: Completed Subjects Archive */}
-                {completedSubjects.length > 0 && (
-                  <div className="space-y-2 mt-4 pt-4 border-t border-white/10">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[9px] font-extrabold uppercase tracking-widest text-slate-500">Completed Subjects</span>
-                      <span className="text-[9px] bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 font-bold px-2 py-0.5 rounded-full">
-                        {completedSubjects.length} Completed
-                      </span>
-                    </div>
-                    <div className="space-y-1.5 max-h-[120px] overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-white/10">
-                      {completedSubjects.map(sub => (
-                        <div 
-                          key={sub}
-                          className="flex items-center justify-between p-2 rounded-xl bg-emerald-500/[0.02] border border-emerald-500/10 text-slate-400"
-                        >
-                          <div className="flex items-center gap-2 max-w-[calc(100%-48px)]">
-                            <Check className="w-3 h-3 text-emerald-400 shrink-0" />
-                            <span className="text-[11px] font-medium truncate line-through text-slate-500">{sub}</span>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              playClick();
-                              setCompletedSubjects(prev => prev.filter(s => s !== sub));
-                            }}
-                            className="text-[9px] text-tm-primary hover:text-white bg-tm-primary/10 hover:bg-tm-primary/20 px-2.5 py-1 rounded-lg border border-tm-primary/10 transition-all cursor-pointer"
-                          >
-                            Deselect
-                          </button>
-                        </div>
-                      ))}
-                    </div>
+              </div>
+              
+              {/* SECTION: Optional Focus Notes */}
+              <div className="border-t border-white/10 pt-3.5 space-y-2 relative z-10">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5">
+                    <FileText className="w-3.5 h-3.5 text-tm-primary animate-pulse" />
+                    <span className="text-[9px] font-extrabold uppercase tracking-widest text-slate-400">Focus Notes (Optional)</span>
                   </div>
-                )}
+                  <span className="text-[8px] font-mono text-slate-500 font-semibold truncate max-w-[120px]">
+                    {settings.subject}
+                  </span>
+                </div>
+                <textarea
+                  value={subjectNotes[settings.subject] || ''}
+                  onChange={(e) => {
+                    setSubjectNotes(prev => ({
+                      ...prev,
+                      [settings.subject]: e.target.value
+                    }));
+                  }}
+                  placeholder="Document insights, blockers, or ideas..."
+                  className="w-full h-20 bg-white/[0.02] hover:bg-white/[0.04] focus:bg-black/30 border border-white/10 focus:border-tm-primary/50 rounded-2xl p-2.5 text-xs text-white placeholder-slate-600 focus:outline-none transition-all resize-none scrollbar-thin scrollbar-thumb-white/10"
+                />
               </div>
 
               {/* SECTION: Direct Mood Tagging */}
@@ -1997,6 +2276,7 @@ export default function App() {
         onClose={() => setShowNotificationCenter(false)}
         isSilenceModeActive={isFocusSilenceMode}
         onToggleSilenceMode={() => setIsFocusSilenceMode(p => !p)}
+        onOpenCompletedSubjects={() => setShowCompletedSubjectsPanel(true)}
       />
 
       {/* COMPREHENSIVE INTERACTIVE STUDY HISTORY PANEL */}
@@ -2005,6 +2285,15 @@ export default function App() {
         onClose={() => setShowHistoryPanel(false)}
         sessions={sessions}
         onSessionsUpdated={setSessions}
+      />
+
+      {/* COMPLETED SUBJECTS ARCHIVE PANEL */}
+      <CompletedSubjectsPanel
+        isOpen={showCompletedSubjectsPanel}
+        onClose={() => setShowCompletedSubjectsPanel(false)}
+        completedSubjects={completedSubjects}
+        onRestoreSubject={handleRestoreCompletedSubject}
+        onDeleteSubject={handleDeleteCompletedSubject}
       />
 
       {/* COMPREHENSIVE HELPFUL TIPS & GUIDE */}
@@ -2163,9 +2452,15 @@ export default function App() {
                           }}
                           className="flex items-center justify-between cursor-pointer"
                         >
-                          <div className="flex items-center gap-2 max-w-[calc(100%-48px)]">
+                          <div className="flex items-center gap-1.5 max-w-[calc(100%-36px)]">
                             <BookOpen className="w-3.5 h-3.5 text-tm-primary/70 shrink-0" />
                             <span className="text-[11px] font-semibold truncate text-white">{sub}</span>
+                            {hasMetGoal(sub) && (
+                              <span className="flex items-center gap-0.5 bg-amber-500/10 border border-amber-500/30 text-amber-400 text-[8px] font-extrabold px-1.5 py-0.5 rounded-full shadow-[0_0_8px_rgba(245,158,11,0.2)] whitespace-nowrap shrink-0">
+                                <Award className="w-2.5 h-2.5 text-amber-400 animate-pulse" />
+                                Goal Met
+                              </span>
+                            )}
                           </div>
                           <div className="flex items-center gap-1.5">
                             {isSelected && (
@@ -2198,6 +2493,46 @@ export default function App() {
                                 <Check className="w-3 h-3" />
                               </button>
                             </div>
+
+                            {/* Subject progress bar and target customization */}
+                            {(() => {
+                              const spentMinutes = Math.floor(getSubjectTotalFocusTime(sub) / 60);
+                              const targetMinutes = getSubjectTargetMinutes(sub);
+                              const progressPercent = Math.min(100, Math.round((spentMinutes / targetMinutes) * 100));
+                              return (
+                                <div className="flex flex-col gap-1.5 bg-white/[0.02] border border-white/[0.04] p-2 rounded-xl">
+                                  <div className="flex items-center justify-between text-[9px] text-slate-400">
+                                    <span>Study Progress</span>
+                                    <span className="font-mono text-slate-300 font-bold">{spentMinutes}m / {targetMinutes}m ({progressPercent}%)</span>
+                                  </div>
+                                  <div className="w-full h-1 bg-white/5 rounded-full overflow-hidden">
+                                    <div 
+                                      className={`h-full rounded-full transition-all duration-500 ${hasMetGoal(sub) ? 'bg-gradient-to-r from-amber-400 to-amber-500' : 'bg-tm-primary'}`}
+                                      style={{ width: `${progressPercent}%` }}
+                                    />
+                                  </div>
+                                  
+                                  {/* Target duration configuration */}
+                                  <div className="flex items-center justify-between gap-2 mt-0.5">
+                                    <span className="text-[9px] text-slate-400">Target Goal:</span>
+                                    <div className="flex items-center gap-1.5">
+                                      <input
+                                        type="number"
+                                        value={targetMinutes}
+                                        onChange={(e) => {
+                                          const val = Math.max(1, parseInt(e.target.value) || 0);
+                                          setSubjectTargets(prev => ({ ...prev, [sub]: val }));
+                                        }}
+                                        onClick={(e) => e.stopPropagation()}
+                                        className="w-12 bg-black/40 border border-white/10 rounded px-1.5 py-0.5 text-center text-[10px] text-white focus:outline-none focus:border-tm-primary/50 font-semibold font-mono"
+                                        min="1"
+                                      />
+                                      <span className="text-[9px] text-slate-400 font-mono">mins</span>
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            })()}
 
                             <div className="flex items-center justify-between mt-1">
                               <button
@@ -2267,40 +2602,29 @@ export default function App() {
                   </button>
                 </form>
 
-                {/* SECTION: Completed Subjects Archive in Fullscreen */}
-                {completedSubjects.length > 0 && (
-                  <div className="space-y-2 mt-4 pt-4 border-t border-white/10">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[9px] font-extrabold uppercase tracking-widest text-slate-500">Completed Subjects</span>
-                      <span className="text-[9px] bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 font-bold px-2 py-0.5 rounded-full">
-                        {completedSubjects.length} Completed
-                      </span>
+                {/* SECTION: Optional Focus Notes in Fullscreen */}
+                <div className="space-y-2 mt-4 pt-4 border-t border-white/10">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5">
+                      <FileText className="w-3.5 h-3.5 text-tm-primary animate-pulse" />
+                      <span className="text-[9px] font-extrabold uppercase tracking-widest text-slate-400">Focus Notes (Optional)</span>
                     </div>
-                    <div className="space-y-1.5 max-h-[120px] overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-white/10">
-                      {completedSubjects.map(sub => (
-                        <div 
-                          key={sub}
-                          className="flex items-center justify-between p-2 rounded-xl bg-emerald-500/[0.02] border border-emerald-500/10 text-slate-400"
-                        >
-                          <div className="flex items-center gap-2 max-w-[calc(100%-48px)]">
-                            <Check className="w-3 h-3 text-emerald-400 shrink-0" />
-                            <span className="text-[11px] font-medium truncate line-through text-slate-500">{sub}</span>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              playClick();
-                              setCompletedSubjects(prev => prev.filter(s => s !== sub));
-                            }}
-                            className="text-[9px] text-tm-primary hover:text-white bg-tm-primary/10 hover:bg-tm-primary/20 px-2.5 py-1 rounded-lg border border-tm-primary/10 transition-all cursor-pointer"
-                          >
-                            Deselect
-                          </button>
-                        </div>
-                      ))}
-                    </div>
+                    <span className="text-[8px] font-mono text-slate-500 font-semibold truncate max-w-[120px]">
+                      {settings.subject}
+                    </span>
                   </div>
-                )}
+                  <textarea
+                    value={subjectNotes[settings.subject] || ''}
+                    onChange={(e) => {
+                      setSubjectNotes(prev => ({
+                        ...prev,
+                        [settings.subject]: e.target.value
+                      }));
+                    }}
+                    placeholder="Document insights, blockers, or ideas..."
+                    className="w-full h-20 bg-white/[0.02] hover:bg-white/[0.04] focus:bg-black/30 border border-white/10 focus:border-tm-primary/50 rounded-2xl p-2.5 text-xs text-white placeholder-slate-600 focus:outline-none transition-all resize-none scrollbar-thin scrollbar-thumb-white/10"
+                  />
+                </div>
               </div>
             </div>
           </motion.div>

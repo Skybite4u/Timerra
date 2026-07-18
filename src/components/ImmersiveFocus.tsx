@@ -226,6 +226,7 @@ export const ImmersiveFocus: React.FC<ImmersiveFocusProps> = ({
   const [newSubjectName, setNewSubjectName] = useState('');
   const [isRenamingSubject, setIsRenamingSubject] = useState(false);
   const [renameSubjectName, setRenameSubjectName] = useState('');
+  const [showShortcuts, setShowShortcuts] = useState(false);
 
   useEffect(() => {
     localStorage.setItem('timerra_orb_config', JSON.stringify(orbConfig));
@@ -238,6 +239,76 @@ export const ImmersiveFocus: React.FC<ImmersiveFocusProps> = ({
   // --- Cursor and Controls Visibility ---
   const [controlsVisible, setControlsVisible] = useState(true);
   const controlsTimeoutRef = useRef<number | null>(null);
+
+  const stateRef = useRef({
+    showConfig,
+    showShortcuts,
+    isAddingSubject,
+    isRenamingSubject,
+  });
+
+  useEffect(() => {
+    stateRef.current = {
+      showConfig,
+      showShortcuts,
+      isAddingSubject,
+      isRenamingSubject,
+    };
+  }, [showConfig, showShortcuts, isAddingSubject, isRenamingSubject]);
+
+  // Handle activity detection (Mouse movement, pointer move, click, touch, key, and scroll)
+  const handleActivity = () => {
+    setControlsVisible(true);
+    if (controlsTimeoutRef.current) {
+      window.clearTimeout(controlsTimeoutRef.current);
+    }
+
+    const { showConfig: currentShowConfig, showShortcuts: currentShowShortcuts, isAddingSubject: currentIsAddingSubject, isRenamingSubject: currentIsRenamingSubject } = stateRef.current;
+    
+    // Check if any input element is active/focused
+    const isInputFocused = document.activeElement && (
+      document.activeElement.tagName === 'INPUT' || 
+      document.activeElement.tagName === 'TEXTAREA' || 
+      document.activeElement.tagName === 'SELECT'
+    );
+
+    if (currentShowConfig || currentShowShortcuts || isInputFocused || currentIsAddingSubject || currentIsRenamingSubject) {
+      // Do not auto-hide controls while configuring or typing
+      return;
+    }
+
+    controlsTimeoutRef.current = window.setTimeout(() => {
+      setControlsVisible(false);
+    }, 3000);
+  };
+
+  useEffect(() => {
+    handleActivity();
+  }, [showConfig, showShortcuts, isAddingSubject, isRenamingSubject]);
+
+  useEffect(() => {
+    // Initial activity trigger
+    handleActivity();
+
+    const events = ['mousemove', 'pointermove', 'touchstart', 'click', 'keydown', 'wheel'];
+    events.forEach(event => {
+      window.addEventListener(event, handleActivity, { passive: true });
+    });
+
+    window.addEventListener('focus', handleActivity, true);
+    window.addEventListener('blur', handleActivity, true);
+
+    return () => {
+      events.forEach(event => {
+        window.removeEventListener(event, handleActivity);
+      });
+      window.removeEventListener('focus', handleActivity, true);
+      window.removeEventListener('blur', handleActivity, true);
+      if (controlsTimeoutRef.current) {
+        window.clearTimeout(controlsTimeoutRef.current);
+      }
+    };
+  }, []);
 
   // --- Mobile detection & landscape helpers ---
   const [isMobile, setIsMobile] = useState(false);
@@ -256,8 +327,8 @@ export const ImmersiveFocus: React.FC<ImmersiveFocusProps> = ({
   });
   const [currentTime, setCurrentTime] = useState('');
 
-  // --- Dynamic Particles ---
-  const [particles, setParticles] = useState<Particle[]>([]);
+  // --- Dynamic Particles (HTML5 Canvas Ref for high-performance 60fps) ---
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
   // --- Golden completion glow state ---
   const [goldenBlast, setGoldenBlast] = useState(false);
@@ -277,8 +348,7 @@ export const ImmersiveFocus: React.FC<ImmersiveFocusProps> = ({
     handleActivity();
   }, [isFullscreen]);
 
-  // --- Keyboard Shortcuts Help ---
-  const [showShortcuts, setShowShortcuts] = useState(false);
+
 
   // Update Clock continuously
   useEffect(() => {
@@ -296,8 +366,26 @@ export const ImmersiveFocus: React.FC<ImmersiveFocusProps> = ({
     localStorage.setItem('timerra_immersive_clock', String(showClock));
   }, [showClock]);
 
-  // Generate background cinematic floating particles
+  // Generate background cinematic floating particles directly on canvas (bypasses React state updates for 60 FPS performance)
   useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    let animFrame: number;
+    let width = canvas.width = canvas.clientWidth;
+    let height = canvas.height = canvas.clientHeight;
+
+    const handleResize = () => {
+      if (canvas) {
+        width = canvas.width = canvas.clientWidth;
+        height = canvas.height = canvas.clientHeight;
+      }
+    };
+    window.addEventListener('resize', handleResize);
+
     let pCount = 30;
     if (bgConfig.disableParticles || bgConfig.particleDensity === 'off') {
       pCount = 0;
@@ -308,44 +396,63 @@ export const ImmersiveFocus: React.FC<ImmersiveFocusProps> = ({
     }
 
     if (pCount === 0) {
-      setParticles([]);
-      return;
+      ctx.clearRect(0, 0, width, height);
+      return () => {
+        window.removeEventListener('resize', handleResize);
+      };
     }
 
-    const initialParticles: Particle[] = Array.from({ length: pCount }).map((_, idx) => ({
-      id: idx,
-      x: Math.random() * 100,
-      y: Math.random() * 100 + 100, // Start below screen or at bottom
+    const particlesList = Array.from({ length: pCount }).map((_, idx) => ({
+      x: Math.random() * width,
+      y: Math.random() * height + height, // Start below or randomly within the height
       size: Math.random() * 3 + 1,
       opacity: Math.random() * 0.5 + 0.1,
       speedY: (Math.random() * 0.8 + 0.2) * (bgConfig.reduceMotion ? 0.2 : 1),
       speedX: ((Math.random() - 0.5) * 0.3) * (bgConfig.reduceMotion ? 0.2 : 1),
-      color: idx % 3 === 0 ? 'rgba(251, 191, 36, 0.4)' : idx % 3 === 1 ? 'rgba(34, 211, 238, 0.4)' : 'rgba(255, 255, 255, 0.3)', // Gold, Cyan, or White
+      color: idx % 3 === 0 ? 'rgba(251, 191, 36, ' : idx % 3 === 1 ? 'rgba(34, 211, 238, ' : 'rgba(255, 255, 255, ', // Prefix for dynamic alpha
     }));
-    setParticles(initialParticles);
 
-    // Particle animator loop
-    let animFrame: number;
-    const updateParticles = () => {
-      setParticles(prev => 
-        prev.map(p => {
-          let nextY = p.y - p.speedY;
-          let nextX = p.x + p.speedX;
-          // Wrap around screen boundaries
-          if (nextY < -10) {
-            nextY = 110;
-            nextX = Math.random() * 100;
-          }
-          if (nextX < -5 || nextX > 105) {
-            nextX = Math.random() * 100;
-          }
-          return { ...p, y: nextY, x: nextX };
-        })
-      );
-      animFrame = requestAnimationFrame(updateParticles);
+    const updateAndDraw = () => {
+      ctx.clearRect(0, 0, width, height);
+
+      particlesList.forEach(p => {
+        // Move particle
+        p.y -= p.speedY;
+        p.x += p.speedX;
+
+        // Wrap around boundaries
+        if (p.y < -10) {
+          p.y = height + 10;
+          p.x = Math.random() * width;
+        }
+        if (p.x < -10 || p.x > width + 10) {
+          p.x = Math.random() * width;
+        }
+
+        // Draw particle
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size / 2, 0, Math.PI * 2);
+        ctx.fillStyle = p.color + p.opacity + ')';
+        ctx.fill();
+
+        // Optional shadow/glow effect for larger particles
+        if (p.size > 2) {
+          ctx.shadowBlur = 10;
+          ctx.shadowColor = p.color + '0.5)';
+        } else {
+          ctx.shadowBlur = 0;
+        }
+      });
+
+      animFrame = requestAnimationFrame(updateAndDraw);
     };
-    animFrame = requestAnimationFrame(updateParticles);
-    return () => cancelAnimationFrame(animFrame);
+
+    animFrame = requestAnimationFrame(updateAndDraw);
+
+    return () => {
+      cancelAnimationFrame(animFrame);
+      window.removeEventListener('resize', handleResize);
+    };
   }, [bgConfig.disableParticles, bgConfig.particleDensity, bgConfig.reduceMotion]);
 
   // Monitor session completion trigger for Golden Energy Burst
@@ -360,36 +467,7 @@ export const ImmersiveFocus: React.FC<ImmersiveFocusProps> = ({
     prevRemainingSecRef.current = remainingSec;
   }, [remainingSec, mode]);
 
-  // Handle activity detection (Mouse movement and touch)
-  const handleActivity = () => {
-    setControlsVisible(true);
-    if (controlsTimeoutRef.current) {
-      window.clearTimeout(controlsTimeoutRef.current);
-    }
-    controlsTimeoutRef.current = window.setTimeout(() => {
-      setControlsVisible(false);
-    }, 3000);
-  };
 
-  useEffect(() => {
-    // Initial activity trigger
-    handleActivity();
-
-    window.addEventListener('mousemove', handleActivity);
-    window.addEventListener('touchstart', handleActivity);
-    window.addEventListener('click', handleActivity);
-    window.addEventListener('keydown', handleActivity);
-
-    return () => {
-      window.removeEventListener('mousemove', handleActivity);
-      window.removeEventListener('touchstart', handleActivity);
-      window.removeEventListener('click', handleActivity);
-      window.removeEventListener('keydown', handleActivity);
-      if (controlsTimeoutRef.current) {
-        window.clearTimeout(controlsTimeoutRef.current);
-      }
-    };
-  }, [status]);
 
   // Screen orientation helper for mobile
   const handleToggleOrientation = () => {
@@ -819,24 +897,10 @@ export const ImmersiveFocus: React.FC<ImmersiveFocusProps> = ({
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.015)_0%,transparent_100%)] animate-pulse pointer-events-none" style={{ animationDuration: '8s' }} />
 
       {/* 2. SOFT DRIFTING PARTICLES CANVAS */}
-      <div className="absolute inset-0 pointer-events-none z-0 overflow-hidden">
-        {particles.map(p => (
-          <div
-            key={p.id}
-            className="absolute rounded-full transition-transform duration-100 ease-out"
-            style={{
-              left: `${p.x}%`,
-              top: `${p.y}%`,
-              width: `${p.size}px`,
-              height: `${p.size}px`,
-              backgroundColor: p.color,
-              opacity: p.opacity,
-              filter: p.size > 2 ? 'blur(0.5px)' : 'none',
-              boxShadow: p.size > 2 ? `0 0 10px ${p.color}` : 'none',
-            }}
-          />
-        ))}
-      </div>
+      <canvas
+        ref={canvasRef}
+        className="absolute inset-0 pointer-events-none z-0 w-full h-full overflow-hidden"
+      />
 
       {/* 3. TOP META PANEL (Clock, Subject, Goal, Back, toggles) */}
       <div 
@@ -2084,8 +2148,8 @@ export const ImmersiveFocus: React.FC<ImmersiveFocusProps> = ({
       {/* Dynamic Keyframes injected safely */}
       <style>{`
         @keyframes breathe-gentle {
-          0%, 100% { transform: scale(1); }
-          50% { transform: scale(1.025); }
+          0%, 100% { opacity: 0.95; }
+          50% { opacity: 1; }
         }
         .animate-breathe {
           animation: breathe-gentle 7s ease-in-out infinite;

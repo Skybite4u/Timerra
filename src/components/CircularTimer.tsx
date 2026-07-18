@@ -13,7 +13,167 @@ interface CircularTimerProps {
   isFullscreen?: boolean;
 }
 
-export const CircularTimer: React.FC<CircularTimerProps> = ({
+// 100% Static background components wrapped in React.memo to completely bypass virtual DOM diffing and re-renders
+const DoubleOrbitalRings = React.memo(() => (
+  <>
+    {/* Ring 1 - Standard rotation with state color accents */}
+    <div 
+      className="absolute rounded-full border border-dashed border-tm-primary/25 animate-ring-1 transition-all duration-[1000ms]"
+      style={{
+        width: '112%',
+        height: '112%',
+        transformStyle: 'preserve-3d',
+        transform: 'rotateX(72deg)',
+      }}
+    >
+      <span className="absolute w-3 h-3 rounded-full bg-tm-primary shadow-[0_0_15px_var(--tm-primary)] top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 transition-colors duration-[1000ms]" />
+    </div>
+
+    {/* Ring 2 - Alternate reversed angle */}
+    <div 
+      className="absolute rounded-full border-2 border-dotted border-tm-accent/20 animate-ring-2 transition-all duration-[1000ms]"
+      style={{
+        width: '122%',
+        height: '122%',
+        transformStyle: 'preserve-3d',
+        transform: 'rotateX(64deg) rotateY(18deg)',
+      }}
+    >
+      <span className="absolute w-2.5 h-2.5 rounded-full bg-tm-accent shadow-[0_0_12px_var(--tm-accent)] bottom-0 left-1/2 -translate-x-1/2 translate-y-1/2 transition-colors duration-[1000ms]" />
+    </div>
+  </>
+));
+DoubleOrbitalRings.displayName = 'DoubleOrbitalRings';
+
+const SolarParticleOrbits = React.memo(() => (
+  <div className="absolute inset-0 pointer-events-none z-0">
+    <div className="absolute w-full h-full animate-sun-spin">
+      <span className="absolute w-2 h-2 rounded-full bg-amber-400 blur-[1px] top-4 left-1/3 shadow-[0_0_8px_#F59E0B]" />
+      <span className="absolute w-1.5 h-1.5 rounded-full bg-yellow-300 blur-[1px] bottom-10 right-1/4 shadow-[0_0_6px_#FFE066]" />
+      <span className="absolute w-2 h-2 rounded-full bg-orange-400 blur-[1px] top-1/2 right-4 shadow-[0_0_8px_#EA580C]" />
+    </div>
+  </div>
+));
+SolarParticleOrbits.displayName = 'SolarParticleOrbits';
+
+const ShortBreakBirds = React.memo(() => (
+  <div className="absolute inset-0 pointer-events-none z-0 overflow-hidden rounded-full">
+    <svg className="absolute w-5 h-5 text-sky-400 animate-bird" style={{ animationDelay: '0s' }} viewBox="0 0 24 24" fill="currentColor">
+      <path d="M12 21c-1.1 0-2-.9-2-2v-4.5c0-.8-.7-1.5-1.5-1.5H4c-1.1 0-2-.9-2-2s.9-2 2-2h4.5c.8 0 1.5-.7 1.5-1.5V4c0-1.1.9-2 2-2s2 .9 2 2v4.5c0 .8.7 1.5 1.5 1.5H20c1.1 0 2 .9 2 2s-.9 2-2 2h-4.5c-.8 0-1.5.7-1.5 1.5V19c0 1.1-.9 2-2 2z" className="scale-[0.5] origin-center" />
+    </svg>
+    <svg className="absolute w-4 h-4 text-sky-300 animate-bird" style={{ animationDelay: '6s' }} viewBox="0 0 24 24" fill="currentColor">
+      <path d="M12 21c-1.1 0-2-.9-2-2v-4.5c0-.8-.7-1.5-1.5-1.5H4c-1.1 0-2-.9-2-2s.9-2 2-2h4.5c.8 0 1.5-.7 1.5-1.5V4c0-1.1.9-2 2-2s2 .9 2 2v4.5c0 .8.7 1.5 1.5 1.5H20c1.1 0 2 .9 2 2s-.9 2-2 2h-4.5c-.8 0-1.5.7-1.5 1.5V19c0 1.1-.9 2-2 2z" className="scale-[0.5] origin-center" />
+    </svg>
+  </div>
+));
+ShortBreakBirds.displayName = 'ShortBreakBirds';
+
+const TwinklingStars = React.memo(() => (
+  <div className="absolute inset-0 pointer-events-none z-0">
+    <div className="absolute top-1/4 left-1/4 w-1 h-1 rounded-full bg-white animate-pulse" style={{ animationDuration: '2s' }} />
+    <div className="absolute top-1/3 right-1/4 w-1.5 h-1.5 rounded-full bg-white animate-pulse" style={{ animationDuration: '3.5s' }} />
+    <div className="absolute bottom-1/4 left-1/3 w-1 h-1 rounded-full bg-slate-300 animate-pulse" style={{ animationDuration: '2.8s' }} />
+    <div className="absolute bottom-1/3 right-1/3 w-1 h-1 rounded-full bg-slate-200 animate-pulse" style={{ animationDuration: '4s' }} />
+  </div>
+));
+TwinklingStars.displayName = 'TwinklingStars';
+
+const SprintSpeedLines = React.memo(() => (
+  <div className="absolute inset-0 pointer-events-none z-0 overflow-hidden rounded-full">
+    <div className="absolute w-[1.5px] h-10 bg-orange-400/40 left-12 animate-speed-line" style={{ animationDelay: '0s', animationDuration: '1.2s' }} />
+    <div className="absolute w-[1.5px] h-14 bg-red-400/40 right-14 animate-speed-line" style={{ animationDelay: '0.4s', animationDuration: '0.9s' }} />
+    <div className="absolute w-[2px] h-8 bg-yellow-400/30 left-1/2 animate-speed-line" style={{ animationDelay: '0.8s', animationDuration: '1.5s' }} />
+  </div>
+));
+SprintSpeedLines.displayName = 'SprintSpeedLines';
+
+const LibraryDust = React.memo(() => (
+  <div className="absolute inset-0 pointer-events-none z-0 overflow-hidden rounded-full">
+    <span className="absolute w-1.5 h-1.5 rounded-full bg-amber-400/60 left-16 animate-dust" style={{ animationDelay: '0s', animationDuration: '6s' }} />
+    <span className="absolute w-2 h-2 rounded-full bg-yellow-300/60 right-20 animate-dust" style={{ animationDelay: '2s', animationDuration: '4.5s' }} />
+    <span className="absolute w-1 h-1 rounded-full bg-amber-300/50 left-1/2 animate-dust" style={{ animationDelay: '3.5s', animationDuration: '5.2s' }} />
+  </div>
+));
+LibraryDust.displayName = 'LibraryDust';
+
+const CherryBlossoms = React.memo(() => (
+  <div className="absolute inset-0 pointer-events-none z-0 overflow-hidden rounded-full">
+    <span className="absolute w-2 h-3 bg-pink-300/70 rounded-full left-24 animate-cherry" style={{ animationDelay: '0s', animationDuration: '10s' }} />
+    <span className="absolute w-2.5 h-3.5 bg-pink-400/60 rounded-full right-24 animate-cherry" style={{ animationDelay: '3s', animationDuration: '8s' }} />
+  </div>
+));
+CherryBlossoms.displayName = 'CherryBlossoms';
+
+const CrystalCoreDecorator = React.memo<{ isFullscreen: boolean }>(({ isFullscreen }) => (
+  <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0 scale-90 sm:scale-105">
+    <svg className={`${isFullscreen ? 'w-80 h-80 sm:w-96 sm:h-96' : 'w-48 h-48'} opacity-80 transition-all duration-500`} viewBox="0 0 100 100" fill="none">
+      <polygon points="50,12 72,40 50,60 28,40" fill="url(#crysTopGrad)" opacity="0.85" />
+      <polygon points="28,40 50,60 50,92 14,54" fill="url(#crysSideLGrad)" opacity="0.75" />
+      <polygon points="72,40 50,60 50,92 86,54" fill="url(#crysSideRGrad)" opacity="0.85" />
+      <defs>
+        <linearGradient id="crysTopGrad" x1="50" y1="12" x2="50" y2="60" gradientUnits="userSpaceOnUse">
+          <stop offset="0%" stopColor="#E9D5FF" />
+          <stop offset="100%" stopColor="#A855F7" />
+        </linearGradient>
+        <linearGradient id="crysSideLGrad" x1="28" y1="40" x2="50" y2="92" gradientUnits="userSpaceOnUse">
+          <stop offset="0%" stopColor="#818CF8" />
+          <stop offset="100%" stopColor="#4F46E5" />
+        </linearGradient>
+        <linearGradient id="crysSideRGrad" x1="72" y1="40" x2="50" y2="92" gradientUnits="userSpaceOnUse">
+          <stop offset="0%" stopColor="#D946EF" />
+          <stop offset="100%" stopColor="#701A75" />
+        </linearGradient>
+      </defs>
+    </svg>
+  </div>
+));
+CrystalCoreDecorator.displayName = 'CrystalCoreDecorator';
+
+const MoonCoreDecorator = React.memo<{ isFullscreen: boolean }>(({ isFullscreen }) => (
+  <div className="absolute inset-0 pointer-events-none z-0">
+    {/* Aurora background - animated 100% via CSS for hardware acceleration */}
+    <div 
+      className="absolute inset-x-0 top-0 h-40 bg-gradient-to-r from-teal-500/20 via-emerald-500/25 to-indigo-500/20 blur-2xl transition-all animate-aurora"
+    />
+    {/* Silver Moon */}
+    <div className={`absolute top-10 right-10 rounded-full bg-gradient-to-br from-slate-100 to-slate-400 opacity-30 shadow-[0_0_25px_rgba(255,255,255,0.2)] flex items-center justify-center transition-all duration-500 ${isFullscreen ? 'w-36 h-36 sm:w-44 sm:h-44' : 'w-24 h-24'}`}>
+      <span className="absolute w-4 h-4 rounded-full bg-black/5 top-3 left-6" />
+      <span className="absolute w-3 h-3 rounded-full bg-black/5 bottom-4 left-4" />
+      <span className="absolute w-5 h-5 rounded-full bg-black/5 bottom-6 right-6" />
+    </div>
+  </div>
+));
+MoonCoreDecorator.displayName = 'MoonCoreDecorator';
+
+const FlickeringFlames = React.memo(() => (
+  <div className="absolute inset-x-0 bottom-0 h-32 flex items-end justify-center pointer-events-none z-0">
+    <svg className="w-40 h-28 opacity-85" viewBox="0 0 100 100" preserveAspectRatio="none">
+      <polygon points="50,10 70,80 62,95 38,95 30,80" fill="#EF4444" opacity="0.3" />
+      <polygon points="50,30 65,85 58,95 42,95 35,85" fill="#F97316" opacity="0.5" />
+      <polygon points="50,50 58,90 54,95 46,95 42,90" fill="#FBBF24" opacity="0.8" />
+    </svg>
+  </div>
+));
+FlickeringFlames.displayName = 'FlickeringFlames';
+
+const WaterRipples = React.memo(() => (
+  <div className="absolute inset-0 pointer-events-none z-0 overflow-hidden flex flex-col justify-between">
+    {/* Water ripples */}
+    <div className="absolute inset-0 flex items-center justify-center">
+      <div className="absolute w-48 h-48 rounded-full border border-teal-400/20 animate-ripple" style={{ animationDelay: '0s' }} />
+      <div className="absolute w-48 h-48 rounded-full border border-teal-400/20 animate-ripple" style={{ animationDelay: '2s' }} />
+    </div>
+    {/* Stones at the bottom */}
+    <div className="flex justify-center gap-1.5 pb-3 z-10 mt-auto">
+      <span className="w-10 h-5 bg-slate-800/80 rounded-full blur-[1px] border border-slate-700/20" />
+      <span className="w-8 h-4.5 bg-slate-700/80 rounded-full blur-[1px] border border-slate-600/20" />
+      <span className="w-12 h-6.5 bg-slate-800/90 rounded-full blur-[1px] border border-slate-700/20" />
+    </div>
+  </div>
+));
+WaterRipples.displayName = 'WaterRipples';
+
+export const CircularTimer = React.memo<CircularTimerProps>(({
   mode,
   status,
   remainingSec,
@@ -142,9 +302,9 @@ export const CircularTimer: React.FC<CircularTimerProps> = ({
           50% { filter: hue-rotate(25deg) brightness(1.2); }
         }
         @keyframes galaxy-swirl-anim {
-          0% { transform: rotate(360deg) scale(0.98); }
-          50% { transform: rotate(180deg) scale(1.02); }
-          100% { transform: rotate(0deg) scale(0.98); }
+          0% { transform: rotate(360deg); }
+          50% { transform: rotate(180deg); }
+          100% { transform: rotate(0deg); }
         }
         @keyframes cloud-move-slow {
           0%, 100% { transform: translateX(-5px) translateY(0); }
@@ -217,93 +377,15 @@ export const CircularTimer: React.FC<CircularTimerProps> = ({
       >
         
         {/* --- DYNAMIC DOUBLE ORBITAL RINGS --- */}
-        {/* Ring 1 - Standard rotation with state color accents */}
-        <div 
-          className="absolute rounded-full border border-dashed border-tm-primary/25 animate-ring-1 transition-all duration-[1000ms]"
-          style={{
-            width: '112%',
-            height: '112%',
-            transformStyle: 'preserve-3d',
-            transform: 'rotateX(72deg)',
-          }}
-        >
-          {/* Glowing particle on ring */}
-          <span className="absolute w-3 h-3 rounded-full bg-tm-primary shadow-[0_0_15px_var(--tm-primary)] top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 transition-colors duration-[1000ms]" />
-        </div>
-
-        {/* Ring 2 - Alternate reversed angle */}
-        <div 
-          className="absolute rounded-full border-2 border-dotted border-tm-accent/20 animate-ring-2 transition-all duration-[1000ms]"
-          style={{
-            width: '122%',
-            height: '122%',
-            transformStyle: 'preserve-3d',
-            transform: 'rotateX(64deg) rotateY(18deg)',
-          }}
-        >
-          {/* Glowing particle on ring */}
-          <span className="absolute w-2.5 h-2.5 rounded-full bg-tm-accent shadow-[0_0_12px_var(--tm-accent)] bottom-0 left-1/2 -translate-x-1/2 translate-y-1/2 transition-colors duration-[1000ms]" />
-        </div>
+        <DoubleOrbitalRings />
 
         {/* --- DYNAMIC AMBIENT SHIFTING PARTICLES --- */}
-        {mode === 'focus' && (
-          <div className="absolute inset-0 pointer-events-none z-0">
-            {/* Solar particle orbits */}
-            <div className="absolute w-full h-full animate-sun-spin">
-              <span className="absolute w-2 h-2 rounded-full bg-amber-400 blur-[1px] top-4 left-1/3 shadow-[0_0_8px_#F59E0B]" />
-              <span className="absolute w-1.5 h-1.5 rounded-full bg-yellow-300 blur-[1px] bottom-10 right-1/4 shadow-[0_0_6px_#FFE066]" />
-              <span className="absolute w-2 h-2 rounded-full bg-orange-400 blur-[1px] top-1/2 right-4 shadow-[0_0_8px_#EA580C]" />
-            </div>
-          </div>
-        )}
-
-        {mode === 'shortBreak' && (
-          <div className="absolute inset-0 pointer-events-none z-0 overflow-hidden rounded-full">
-            {/* Birds flitting past */}
-            <svg className="absolute w-5 h-5 text-sky-400 animate-bird" style={{ animationDelay: '0s' }} viewBox="0 0 24 24" fill="currentColor">
-              <path d="M12 21c-1.1 0-2-.9-2-2v-4.5c0-.8-.7-1.5-1.5-1.5H4c-1.1 0-2-.9-2-2s.9-2 2-2h4.5c.8 0 1.5-.7 1.5-1.5V4c0-1.1.9-2 2-2s2 .9 2 2v4.5c0 .8.7 1.5 1.5 1.5H20c1.1 0 2 .9 2 2s-.9 2-2 2h-4.5c-.8 0-1.5.7-1.5 1.5V19c0 1.1-.9 2-2 2z" className="scale-[0.5] origin-center" />
-            </svg>
-            <svg className="absolute w-4 h-4 text-sky-300 animate-bird" style={{ animationDelay: '6s' }} viewBox="0 0 24 24" fill="currentColor">
-              <path d="M12 21c-1.1 0-2-.9-2-2v-4.5c0-.8-.7-1.5-1.5-1.5H4c-1.1 0-2-.9-2-2s.9-2 2-2h4.5c.8 0 1.5-.7 1.5-1.5V4c0-1.1.9-2 2-2s2 .9 2 2v4.5c0 .8.7 1.5 1.5 1.5H20c1.1 0 2 .9 2 2s-.9 2-2 2h-4.5c-.8 0-1.5.7-1.5 1.5V19c0 1.1-.9 2-2 2z" className="scale-[0.5] origin-center" />
-            </svg>
-          </div>
-        )}
-
-        {mode === 'longBreak' && (
-          <div className="absolute inset-0 pointer-events-none z-0">
-            {/* Twinkling stars */}
-            <div className="absolute top-1/4 left-1/4 w-1 h-1 rounded-full bg-white animate-pulse" style={{ animationDuration: '2s' }} />
-            <div className="absolute top-1/3 right-1/4 w-1.5 h-1.5 rounded-full bg-white animate-pulse" style={{ animationDuration: '3.5s' }} />
-            <div className="absolute bottom-1/4 left-1/3 w-1 h-1 rounded-full bg-slate-300 animate-pulse" style={{ animationDuration: '2.8s' }} />
-            <div className="absolute bottom-1/3 right-1/3 w-1 h-1 rounded-full bg-slate-200 animate-pulse" style={{ animationDuration: '4s' }} />
-          </div>
-        )}
-
-        {mode === 'sprint' && (
-          <div className="absolute inset-0 pointer-events-none z-0 overflow-hidden rounded-full">
-            {/* Fast rocket speed lines */}
-            <div className="absolute w-[1.5px] h-10 bg-orange-400/40 left-12 animate-speed-line" style={{ animationDelay: '0s', animationDuration: '1.2s' }} />
-            <div className="absolute w-[1.5px] h-14 bg-red-400/40 right-14 animate-speed-line" style={{ animationDelay: '0.4s', animationDuration: '0.9s' }} />
-            <div className="absolute w-[2px] h-8 bg-yellow-400/30 left-1/2 animate-speed-line" style={{ animationDelay: '0.8s', animationDuration: '1.5s' }} />
-          </div>
-        )}
-
-        {mode === 'marathon' && (
-          <div className="absolute inset-0 pointer-events-none z-0 overflow-hidden rounded-full">
-            {/* Rising warm library dust sparkles */}
-            <span className="absolute w-1.5 h-1.5 rounded-full bg-amber-400/60 left-16 animate-dust" style={{ animationDelay: '0s', animationDuration: '6s' }} />
-            <span className="absolute w-2 h-2 rounded-full bg-yellow-300/60 right-20 animate-dust" style={{ animationDelay: '2s', animationDuration: '4.5s' }} />
-            <span className="absolute w-1 h-1 rounded-full bg-amber-300/50 left-1/2 animate-dust" style={{ animationDelay: '3.5s', animationDuration: '5.2s' }} />
-          </div>
-        )}
-
-        {mode === 'zen' && (
-          <div className="absolute inset-0 pointer-events-none z-0 overflow-hidden rounded-full">
-            {/* Soft cherry blossoms drifting down */}
-            <span className="absolute w-2 h-3 bg-pink-300/70 rounded-full left-24 animate-cherry" style={{ animationDelay: '0s', animationDuration: '10s' }} />
-            <span className="absolute w-2.5 h-3.5 bg-pink-400/60 rounded-full right-24 animate-cherry" style={{ animationDelay: '3s', animationDuration: '8s' }} />
-          </div>
-        )}
+        {mode === 'focus' && <SolarParticleOrbits />}
+        {mode === 'shortBreak' && <ShortBreakBirds />}
+        {mode === 'longBreak' && <TwinklingStars />}
+        {mode === 'sprint' && <SprintSpeedLines />}
+        {mode === 'marathon' && <LibraryDust />}
+        {mode === 'zen' && <CherryBlossoms />}
 
         {/* --- THE SIGNATURE MORPHING ORB --- */}
         <div 
@@ -388,29 +470,7 @@ export const CircularTimer: React.FC<CircularTimerProps> = ({
           )}
 
           {/* 3. Floating 3D Crystal Core (Crystal Core Theme) */}
-          {mode === 'deepFocus' && (
-            <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0 scale-90 sm:scale-105">
-              <svg className={`${isFullscreen ? 'w-80 h-80 sm:w-96 sm:h-96' : 'w-48 h-48'} opacity-80 transition-all duration-500`} viewBox="0 0 100 100" fill="none">
-                <polygon points="50,12 72,40 50,60 28,40" fill="url(#crysTopGrad)" opacity="0.85" />
-                <polygon points="28,40 50,60 50,92 14,54" fill="url(#crysSideLGrad)" opacity="0.75" />
-                <polygon points="72,40 50,60 50,92 86,54" fill="url(#crysSideRGrad)" opacity="0.85" />
-                <defs>
-                  <linearGradient id="crysTopGrad" x1="50" y1="12" x2="50" y2="60" gradientUnits="userSpaceOnUse">
-                    <stop offset="0%" stopColor="#E9D5FF" />
-                    <stop offset="100%" stopColor="#A855F7" />
-                  </linearGradient>
-                  <linearGradient id="crysSideLGrad" x1="28" y1="40" x2="50" y2="92" gradientUnits="userSpaceOnUse">
-                    <stop offset="0%" stopColor="#818CF8" />
-                    <stop offset="100%" stopColor="#4F46E5" />
-                  </linearGradient>
-                  <linearGradient id="crysSideRGrad" x1="72" y1="40" x2="50" y2="92" gradientUnits="userSpaceOnUse">
-                    <stop offset="0%" stopColor="#D946EF" />
-                    <stop offset="100%" stopColor="#701A75" />
-                  </linearGradient>
-                </defs>
-              </svg>
-            </div>
-          )}
+          {mode === 'deepFocus' && <CrystalCoreDecorator isFullscreen={isFullscreen} />}
 
           {/* 4. Nebula Clouds and Galaxy Swirl (Galaxy Core Theme) */}
           {mode === 'infinityFocus' && (
@@ -446,50 +506,13 @@ export const CircularTimer: React.FC<CircularTimerProps> = ({
           )}
 
           {/* 5. Glowing Moon & Aurora (Moon Core Theme) */}
-          {mode === 'longBreak' && (
-            <div className="absolute inset-0 pointer-events-none z-0">
-              {/* Aurora background */}
-              <div 
-                className="absolute inset-x-0 top-0 h-40 bg-gradient-to-r from-teal-500/20 via-emerald-500/25 to-indigo-500/20 blur-2xl transition-all"
-                style={{ transform: `translateY(${Math.sin(Date.now() / 3000) * 10}px)` }}
-              />
-              {/* Silver Moon */}
-              <div className={`absolute top-10 right-10 rounded-full bg-gradient-to-br from-slate-100 to-slate-400 opacity-30 shadow-[0_0_25px_rgba(255,255,255,0.2)] flex items-center justify-center transition-all duration-500 ${isFullscreen ? 'w-36 h-36 sm:w-44 sm:h-44' : 'w-24 h-24'}`}>
-                {/* Subtle moon craters */}
-                <span className="absolute w-4 h-4 rounded-full bg-black/5 top-3 left-6" />
-                <span className="absolute w-3 h-3 rounded-full bg-black/5 bottom-4 left-4" />
-                <span className="absolute w-5 h-5 rounded-full bg-black/5 bottom-6 right-6" />
-              </div>
-            </div>
-          )}
+          {mode === 'longBreak' && <MoonCoreDecorator isFullscreen={isFullscreen} />}
 
           {/* 6. Flickering Flames (Rocket Engine Theme) */}
-          {mode === 'sprint' && (
-            <div className="absolute inset-x-0 bottom-0 h-32 flex items-end justify-center pointer-events-none z-0">
-              <svg className="w-40 h-28 opacity-85" viewBox="0 0 100 100" preserveAspectRatio="none">
-                <polygon points="50,10 70,80 62,95 38,95 30,80" fill="#EF4444" opacity="0.3" />
-                <polygon points="50,30 65,85 58,95 42,95 35,85" fill="#F97316" opacity="0.5" />
-                <polygon points="50,50 58,90 54,95 46,95 42,90" fill="#FBBF24" opacity="0.8" />
-              </svg>
-            </div>
-          )}
+          {mode === 'sprint' && <FlickeringFlames />}
 
           {/* 7. Shimmering glass Water ripples & Stones (Zen Garden Theme) */}
-          {mode === 'zen' && (
-            <div className="absolute inset-0 pointer-events-none z-0 overflow-hidden flex flex-col justify-between">
-              {/* Water ripples */}
-              <div className="absolute inset-0 flex items-center justify-center">
-                <div className="absolute w-48 h-48 rounded-full border border-teal-400/20 animate-ripple" style={{ animationDelay: '0s' }} />
-                <div className="absolute w-48 h-48 rounded-full border border-teal-400/20 animate-ripple" style={{ animationDelay: '2s' }} />
-              </div>
-              {/* Stones at the bottom */}
-              <div className="flex justify-center gap-1.5 pb-3 z-10 mt-auto">
-                <span className="w-10 h-5 bg-slate-800/80 rounded-full blur-[1px] border border-slate-700/20" />
-                <span className="w-8 h-4.5 bg-slate-700/80 rounded-full blur-[1px] border border-slate-600/20" />
-                <span className="w-12 h-6.5 bg-slate-800/90 rounded-full blur-[1px] border border-slate-700/20" />
-              </div>
-            </div>
-          )}
+          {mode === 'zen' && <WaterRipples />}
 
           {/* Specular glass reflection top highlight (VisionOS feel) */}
           <div 
@@ -591,4 +614,6 @@ export const CircularTimer: React.FC<CircularTimerProps> = ({
       </div>
     </div>
   );
-};
+});
+
+CircularTimer.displayName = 'CircularTimer';

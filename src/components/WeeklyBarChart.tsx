@@ -13,7 +13,7 @@ interface ChartDataItem {
   isToday: boolean;
 }
 
-export const WeeklyBarChart: React.FC<WeeklyBarChartProps> = ({ sessions }) => {
+export const WeeklyBarChart = React.memo<WeeklyBarChartProps>(({ sessions }) => {
   const now = new Date();
   const todayStr = now.toISOString().split('T')[0];
 
@@ -210,4 +210,6 @@ export const WeeklyBarChart: React.FC<WeeklyBarChartProps> = ({ sessions }) => {
       </div>
     </div>
   );
-};
+});
+
+WeeklyBarChart.displayName = 'WeeklyBarChart';

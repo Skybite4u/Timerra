@@ -24,6 +24,7 @@ export interface TimerSettings {
   autoDim?: boolean;             // default true
   syncWithSystem?: boolean;      // default false
   dailyGoalHours?: number;       // default 4
+  focusReminderTime?: string;    // default undefined / None
   customTheme?: {
     primary: string;
     accent: string;

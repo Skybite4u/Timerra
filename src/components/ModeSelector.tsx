@@ -81,7 +81,7 @@ export const MODES: ModeItem[] = [
   }
 ];
 
-export const ModeSelector: React.FC<ModeSelectorProps> = ({ activeMode, onChangeMode }) => {
+export const ModeSelector = React.memo<ModeSelectorProps>(({ activeMode, onChangeMode }) => {
   return (
     <div className="w-full max-w-5xl mx-auto px-4 mb-4 sm:mb-8 select-none">
       {/* Scrollable Container with Hidden Scrollbar */}
@@ -146,4 +146,6 @@ export const ModeSelector: React.FC<ModeSelectorProps> = ({ activeMode, onChange
       </div>
     </div>
   );
-};
+});
+
+ModeSelector.displayName = 'ModeSelector';

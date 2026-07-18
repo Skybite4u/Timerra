@@ -23,7 +23,7 @@ const COLORS = [
   '#ec4899', // pink
 ];
 
-export const SubjectPieChart: React.FC<SubjectPieChartProps> = ({ sessions }) => {
+export const SubjectPieChart = React.memo<SubjectPieChartProps>(({ sessions }) => {
   // Extract and sum minutes by subject (for focus sessions)
   const subjectMap = sessions
     .filter(s => s.mode === 'focus')
@@ -140,4 +140,6 @@ export const SubjectPieChart: React.FC<SubjectPieChartProps> = ({ sessions }) =>
       </div>
     </div>
   );
-};
+});
+
+SubjectPieChart.displayName = 'SubjectPieChart';
