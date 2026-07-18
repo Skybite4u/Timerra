@@ -80,10 +80,7 @@ export const NavigationRail: React.FC<NavigationRailProps> = ({
     // Start Long Press timer (500ms)
     touchTimeoutRef.current = setTimeout(() => {
       setShowOrbMenu(true);
-      // Play a tiny vibration if supported
-      if (navigator.vibrate) {
-        navigator.vibrate(35);
-      }
+      // navigator.vibrate disabled to prevent mobile layout/buzzing glitches
       touchTimeoutRef.current = null;
     }, 550);
   };

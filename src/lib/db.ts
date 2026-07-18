@@ -7,7 +7,7 @@ const DB_VERSION = 2;
 const inMemoryStore = {
   settings: null as TimerSettings | null,
   sessions: [] as Session[],
-  subjects: ['Deep Work', 'Coding', 'Research', 'Design', 'Reading', 'Writing'] as string[],
+  subjects: ['Deep Work'] as string[],
 };
 
 function openDB(): Promise<IDBDatabase> {
@@ -261,7 +261,7 @@ export const TimerraDB = {
   async clearAll(): Promise<void> {
     inMemoryStore.settings = null;
     inMemoryStore.sessions = [];
-    inMemoryStore.subjects = ['Deep Work', 'Coding', 'Research', 'Design', 'Reading', 'Writing'];
+    inMemoryStore.subjects = ['Deep Work'];
     try {
       const db = await openDB();
       await new Promise<void>((resolve, reject) => {

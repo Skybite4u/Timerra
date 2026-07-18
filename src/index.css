@@ -249,11 +249,6 @@
   50% { transform: translateY(-12px); }
 }
 
-@keyframes tm-breathe {
-  0%, 100% { opacity: 0.95; }
-  50% { opacity: 1; }
-}
-
 @keyframes tm-wave-a {
   0% { transform: translateX(0%); }
   100% { transform: translateX(-50%); }
@@ -277,11 +272,6 @@
 @keyframes tm-spin-ring-3 {
   0% { transform: rotateX(80deg) rotateZ(30deg) rotateZ(0deg); }
   100% { transform: rotateX(80deg) rotateZ(30deg) rotateZ(360deg); }
-}
-
-@keyframes tm-pulse-glow {
-  0%, 100% { opacity: 0.8; filter: drop-shadow(0 0 5px var(--tm-primary)); }
-  50% { opacity: 1; filter: drop-shadow(0 0 15px var(--tm-primary)); }
 }
 
 /* --- UTILITIES & GLASSMORPHISM CLASSES via Tailwind v4 @utility --- */
@@ -330,7 +320,8 @@
 }
 
 .animate-breathe {
-  animation: tm-breathe 5s ease-in-out infinite;
+  /* Static layout to improve performance and stability */
+  opacity: 1;
 }
 
 .animate-wave-a {
@@ -380,21 +371,12 @@
 }
 
 /* Scrollbar customization */
-@keyframes tm-back-glow {
-  0%, 100% {
-    box-shadow: 0 0 15px -3px var(--tm-primary, #3b82f6), 0 0 30px -10px var(--tm-accent, #06b6d4), inset 0 1px 1px rgba(255, 255, 255, 0.8);
-  }
-  50% {
-    box-shadow: 0 0 25px 2px var(--tm-primary, #3b82f6), 0 0 45px -5px var(--tm-accent, #06b6d4), inset 0 1px 1px rgba(255, 255, 255, 0.9);
-  }
-}
-
 .tm-white-glass-glow {
   background: rgba(255, 255, 255, 0.92) !important;
   backdrop-filter: blur(16px) saturate(150%);
   border: 1px solid rgba(255, 255, 255, 0.6) !important;
   color: #0f172a !important; /* Slate 900 for dark/readable text on white glass */
-  animation: tm-back-glow 4s ease-in-out infinite;
+  box-shadow: 0 0 15px -3px var(--tm-primary, #3b82f6), 0 0 30px -10px var(--tm-accent, #06b6d4), inset 0 1px 1px rgba(255, 255, 255, 0.8);
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 .tm-white-glass-glow:hover {
@@ -420,3 +402,51 @@
 ::-webkit-scrollbar-thumb:hover {
   background: var(--tm-primary, rgba(255, 255, 255, 0.2));
 }
+
+@keyframes tm-slide-out-right {
+  0% {
+    transform: translateX(0) scale(1);
+    opacity: 1;
+    max-height: 120px;
+    margin-bottom: 0.375rem;
+    padding-top: 0.5rem;
+    padding-bottom: 0.5rem;
+  }
+  100% {
+    transform: translateX(120%) scale(0.9);
+    opacity: 0;
+    max-height: 0;
+    margin-bottom: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+    border-width: 0;
+    overflow: hidden;
+  }
+}
+
+.animate-slide-out-right {
+  animation: tm-slide-out-right 0.5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  pointer-events: none;
+}
+
+/* --- DISABLE PERFORMANCE-HEAVY PULSING ANIMATIONS (HEARTBEAT/PULSE OVERRIDES) --- */
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 1; }
+}
+
+.animate-pulse,
+.animate-pulse-slow,
+.animate-pulse-border,
+[class*="animate-pulse"] {
+  animation: none !important;
+  opacity: 1 !important;
+}
+
+/* Ensure any pulsing border style stays static and crisp */
+.animate-pulse-border {
+  border-color: rgba(255, 255, 255, 0.2) !important;
+  box-shadow: 0 0 12px rgba(255, 255, 255, 0.05) !important;
+}
+
+

@@ -10,14 +10,7 @@ export function primeAudio(): void {
 }
 
 export function vibrateClick(): void {
-  try {
-    if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
-      // Subtle, extremely fast tap for button clicks to offer haptic confirmation
-      navigator.vibrate(15);
-    }
-  } catch (err) {
-    console.warn('Click vibration failed to execute:', err);
-  }
+  // Disabled to prevent phone haptic/vibration corruption issues
 }
 
 export function playClick(): void {
@@ -80,36 +73,15 @@ export function playTick(volume: number = 0.5): void {
 }
 
 export function vibrateStart(): void {
-  try {
-    if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
-      // Subtle, crisp double-tap for starting/resuming the timer
-      navigator.vibrate([30, 40, 30]);
-    }
-  } catch (err) {
-    console.warn('Vibration failed to execute:', err);
-  }
+  // Disabled to prevent phone haptic/vibration corruption issues
 }
 
 export function vibratePause(): void {
-  try {
-    if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
-      // A clean single, slightly shorter tap for pausing the timer
-      navigator.vibrate(25);
-    }
-  } catch (err) {
-    console.warn('Vibration failed to execute:', err);
-  }
+  // Disabled to prevent phone haptic/vibration corruption issues
 }
 
 export function vibrateComplete(): void {
-  try {
-    if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
-      // Prominent, festive haptic sequence matching the completion tone
-      navigator.vibrate([80, 50, 80, 50, 150]);
-    }
-  } catch (err) {
-    console.warn('Vibration failed to execute:', err);
-  }
+  // Disabled to prevent phone haptic/vibration corruption issues
 }
 
 export function playComplete(): void {

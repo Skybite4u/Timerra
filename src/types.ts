@@ -66,6 +66,10 @@ export interface BackupPayload {
   settings: TimerSettings;
   sessions: Session[];
   subjects: string[];
+  completedSubjects?: string[];
+  subjectTargets?: Record<string, number>;
+  subjectNotes?: Record<string, string>;
+  completedDates?: Record<string, number>;
 }
 
 export interface EncryptedBackupFile {

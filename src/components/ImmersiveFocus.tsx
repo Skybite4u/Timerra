@@ -177,7 +177,7 @@ export const ImmersiveFocus: React.FC<ImmersiveFocusProps> = ({
   onExit,
   onAdjustTime,
   isSilenceModeActive = false,
-  subjects = ['Deep Work', 'Coding', 'Research', 'Design', 'Reading', 'Writing'],
+  subjects = ['Deep Work'],
   onAddSubject,
   onRenameSubject,
   onDeleteSubject,
@@ -820,11 +820,12 @@ export const ImmersiveFocus: React.FC<ImmersiveFocusProps> = ({
           scrollbar-width: none;
         }
         @keyframes pulse-border-slow {
-          0%, 100% { border-color: rgba(255, 255, 255, 0.12); box-shadow: 0 0 10px rgba(255, 255, 255, 0.02); }
-          50% { border-color: ${glowColor}; box-shadow: 0 0 25px rgba(${hexToRgb(glowColor)}, 0.25); }
+          0%, 100% { border-color: rgba(255, 255, 255, 0.15); box-shadow: 0 0 10px rgba(255, 255, 255, 0.02); }
+          50% { border-color: rgba(255, 255, 255, 0.15); box-shadow: 0 0 10px rgba(255, 255, 255, 0.02); }
         }
         .animate-pulse-border {
-          animation: pulse-border-slow 4s ease-in-out infinite;
+          border-color: rgba(255, 255, 255, 0.15);
+          box-shadow: 0 0 10px rgba(255, 255, 255, 0.02);
         }
         @keyframes fire-ember-up {
           0% { transform: translateY(0) scale(1); opacity: 0.7; }
@@ -2147,12 +2148,8 @@ export const ImmersiveFocus: React.FC<ImmersiveFocusProps> = ({
 
       {/* Dynamic Keyframes injected safely */}
       <style>{`
-        @keyframes breathe-gentle {
-          0%, 100% { opacity: 0.95; }
-          50% { opacity: 1; }
-        }
         .animate-breathe {
-          animation: breathe-gentle 7s ease-in-out infinite;
+          opacity: 1;
         }
         @keyframes slide-in-right {
           from { transform: translateX(100%); }

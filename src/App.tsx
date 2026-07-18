@@ -141,6 +141,7 @@ export default function App() {
   // --- Focus Subject & Mood states ---
   const [newSubjectInput, setNewSubjectInput] = useState<string>('');
   const [completedSubjects, setCompletedSubjects] = useState<string[]>([]);
+  const [completingSubject, setCompletingSubject] = useState<string | null>(null);
   const [subjectTargets, setSubjectTargets] = useState<Record<string, number>>(() => {
     try {
       const stored = localStorage.getItem('timerra_subject_targets');
@@ -182,6 +183,20 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem('timerra_completed_subjects', JSON.stringify(completedSubjects));
   }, [completedSubjects]);
+
+  // Persistence of completed dates
+  const [completedDates, setCompletedDates] = useState<Record<string, number>>(() => {
+    try {
+      const stored = localStorage.getItem('timerra_completed_dates');
+      return stored ? JSON.parse(stored) : {};
+    } catch {
+      return {};
+    }
+  });
+
+  useEffect(() => {
+    localStorage.setItem('timerra_completed_dates', JSON.stringify(completedDates));
+  }, [completedDates]);
 
   // Persistence of Subject Notes
   useEffect(() => {
@@ -1220,34 +1235,55 @@ export default function App() {
   };
 
   const handleCompleteSubject = async (sub: string) => {
-    let wasCompleted = false;
-    setCompletedSubjects(prev => {
-      const exists = prev.includes(sub);
-      if (exists) {
-        return prev.filter(s => s !== sub);
-      } else {
-        wasCompleted = true;
-        if (navigator.vibrate) navigator.vibrate([40, 30, 40]);
-        NotificationManager.addNotification(
-          `Subject Goal Achieved! 🌟`,
-          `Congratulations on completing all objectives for the subject: "${sub}". Deep work logged.`,
-          'Focus Goals',
-          false,
-          isFocusSilenceMode
-        );
-        return [...prev, sub];
-      }
-    });
-
-    if (wasCompleted && settings.subject === sub) {
-      const remainingActive = subjects.filter(s => s !== sub && !completedSubjects.includes(s));
-      if (remainingActive.length > 0) {
-        const nextSub = remainingActive[0];
-        const updatedSettings = { ...settings, subject: nextSub };
-        setSettings(updatedSettings);
-        await TimerraDB.saveSettings(updatedSettings);
-      }
+    // If already completed, restoring is instantaneous (no slide-out needed)
+    const isCompleted = completedSubjects.includes(sub);
+    if (isCompleted) {
+      setCompletedSubjects(prev => prev.filter(s => s !== sub));
+      setCompletedDates(prev => {
+        const copy = { ...prev };
+        delete copy[sub];
+        return copy;
+      });
+      return;
     }
+
+    // Active subject: set animating/completing state, wait 500ms for slide-out, then update main database state
+    setCompletingSubject(sub);
+
+    setTimeout(async () => {
+      let wasCompleted = false;
+      setCompletedSubjects(prev => {
+        const exists = prev.includes(sub);
+        if (exists) {
+          return prev.filter(s => s !== sub);
+        } else {
+          wasCompleted = true;
+          // navigator.vibrate disabled to prevent mobile layout/buzzing glitches
+          NotificationManager.addNotification(
+            `Subject Goal Achieved! 🌟`,
+            `Congratulations on completing all objectives for the subject: "${sub}". Deep work logged.`,
+            'Focus Goals',
+            false,
+            isFocusSilenceMode
+          );
+          return [...prev, sub];
+        }
+      });
+
+      setCompletedDates(prev => ({ ...prev, [sub]: Date.now() }));
+
+      if (settings.subject === sub) {
+        const remainingActive = subjects.filter(s => s !== sub && !completedSubjects.includes(s));
+        if (remainingActive.length > 0) {
+          const nextSub = remainingActive[0];
+          const updatedSettings = { ...settings, subject: nextSub };
+          setSettings(updatedSettings);
+          await TimerraDB.saveSettings(updatedSettings);
+        }
+      }
+
+      setCompletingSubject(null);
+    }, 500);
   };
 
   const handleRestoreCompletedSubject = async (sub: string) => {
@@ -1257,6 +1293,11 @@ export default function App() {
       setSubjects(loaded);
     }
     setCompletedSubjects(prev => prev.filter(s => s !== sub));
+    setCompletedDates(prev => {
+      const copy = { ...prev };
+      delete copy[sub];
+      return copy;
+    });
     NotificationManager.addNotification(
       'Subject Restored! 🔄',
       `"${sub}" has been restored to your active focus subjects.`,
@@ -1269,6 +1310,11 @@ export default function App() {
   const handleDeleteCompletedSubject = async (sub: string) => {
     if (confirm(`Are you sure you want to permanently delete "${sub}" from your archive? This cannot be undone.`)) {
       setCompletedSubjects(prev => prev.filter(s => s !== sub));
+      setCompletedDates(prev => {
+        const copy = { ...prev };
+        delete copy[sub];
+        return copy;
+      });
       await TimerraDB.deleteSubject(sub);
       const loaded = await TimerraDB.allSubjects();
       setSubjects(loaded);
@@ -1316,7 +1362,7 @@ export default function App() {
       playClick();
       await TimerraDB.clearAll();
       setSettings(defaultSettings);
-      setSubjects(['Deep Work', 'Coding', 'Research', 'Design', 'Reading', 'Writing']);
+      setSubjects(['Deep Work']);
       setSessions([]);
       setRemainingSec(defaultSettings.focusMinutes * 60);
       setTotalDurationSec(defaultSettings.focusMinutes * 60);
@@ -1362,6 +1408,10 @@ export default function App() {
       settings,
       sessions,
       subjects,
+      completedSubjects,
+      subjectTargets,
+      subjectNotes,
+      completedDates,
     };
   };
 
@@ -1370,12 +1420,49 @@ export default function App() {
     setSettings(payload.settings);
     await TimerraDB.saveSettings(payload.settings);
 
-    // Save subjects list
+    // Clear old active subjects if required (to replace cleanly)
+    // Or just make sure all imported subjects are saved in database
     for (const sub of payload.subjects) {
       await TimerraDB.addSubject(sub);
     }
     const finalSubjects = await TimerraDB.allSubjects();
     setSubjects(finalSubjects);
+
+    // Restore completed subjects if present
+    if (payload.completedSubjects) {
+      setCompletedSubjects(payload.completedSubjects);
+      localStorage.setItem('timerra_completed_subjects', JSON.stringify(payload.completedSubjects));
+    } else {
+      setCompletedSubjects([]);
+      localStorage.removeItem('timerra_completed_subjects');
+    }
+
+    // Restore completed dates if present
+    if (payload.completedDates) {
+      setCompletedDates(payload.completedDates);
+      localStorage.setItem('timerra_completed_dates', JSON.stringify(payload.completedDates));
+    } else {
+      setCompletedDates({});
+      localStorage.removeItem('timerra_completed_dates');
+    }
+
+    // Restore subject targets if present
+    if (payload.subjectTargets) {
+      setSubjectTargets(payload.subjectTargets);
+      localStorage.setItem('timerra_subject_targets', JSON.stringify(payload.subjectTargets));
+    } else {
+      setSubjectTargets({});
+      localStorage.removeItem('timerra_subject_targets');
+    }
+
+    // Restore subject notes if present
+    if (payload.subjectNotes) {
+      setSubjectNotes(payload.subjectNotes);
+      localStorage.setItem('timerra_subject_notes', JSON.stringify(payload.subjectNotes));
+    } else {
+      setSubjectNotes({});
+      localStorage.removeItem('timerra_subject_notes');
+    }
 
     // Additive merging of sessions list
     const currentList = await TimerraDB.allSessions();
@@ -1762,13 +1849,14 @@ export default function App() {
 
                 {/* Inline list of subjects with Mark Complete */}
                 <div className="space-y-1.5 max-h-[160px] overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-white/10">
-                  {subjects.filter(sub => !completedSubjects.includes(sub)).map(sub => {
+                  {subjects.filter(sub => !completedSubjects.includes(sub) || sub === completingSubject).map(sub => {
                     const isSelected = settings.subject === sub;
                     const isExpanded = expandedSubject === sub;
+                    const isCompleting = sub === completingSubject;
                     return (
                       <div 
                         key={sub}
-                        className={`p-2 rounded-xl border transition-all ${
+                        className={`p-2 rounded-xl border transition-all ${isCompleting ? 'animate-slide-out-right' : ''} ${
                           isSelected 
                             ? 'bg-tm-primary/10 border-tm-primary/30 text-white shadow-sm' 
                             : 'bg-white/[0.01] border-white/5 text-slate-400 hover:bg-white/[0.03]'
@@ -1909,7 +1997,7 @@ export default function App() {
                       </div>
                     );
                   })}
-                  {subjects.filter(sub => !completedSubjects.includes(sub)).length === 0 && (
+                  {subjects.filter(sub => !completedSubjects.includes(sub) || sub === completingSubject).length === 0 && (
                     <div className="text-center p-3 text-[10px] text-slate-500 font-medium bg-white/[0.01] border border-dashed border-white/5 rounded-xl">
                       No active subjects left. Create one below.
                     </div>
@@ -2292,6 +2380,8 @@ export default function App() {
         isOpen={showCompletedSubjectsPanel}
         onClose={() => setShowCompletedSubjectsPanel(false)}
         completedSubjects={completedSubjects}
+        completedDates={completedDates}
+        sessions={sessions}
         onRestoreSubject={handleRestoreCompletedSubject}
         onDeleteSubject={handleDeleteCompletedSubject}
       />
@@ -2424,14 +2514,15 @@ export default function App() {
 
                 {/* Inline list of active subjects */}
                 <div className="space-y-1.5 max-h-[160px] overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-white/10">
-                  {subjects.filter(sub => !completedSubjects.includes(sub)).map(sub => {
+                  {subjects.filter(sub => !completedSubjects.includes(sub) || sub === completingSubject).map(sub => {
                     const isSelected = settings.subject === sub;
                     const isExpanded = expandedSubject === sub;
+                    const isCompleting = sub === completingSubject;
                     
                     return (
                       <div 
                         key={sub}
-                        className={`p-2 rounded-xl border transition-all ${
+                        className={`p-2 rounded-xl border transition-all ${isCompleting ? 'animate-slide-out-right' : ''} ${
                           isSelected 
                             ? 'bg-tm-primary/10 border-tm-primary/30 text-white shadow-sm' 
                             : 'bg-white/[0.01] border-white/5 text-slate-400 hover:bg-white/[0.03]'
@@ -2568,7 +2659,7 @@ export default function App() {
                       </div>
                     );
                   })}
-                  {subjects.filter(sub => !completedSubjects.includes(sub)).length === 0 && (
+                  {subjects.filter(sub => !completedSubjects.includes(sub) || sub === completingSubject).length === 0 && (
                     <div className="text-center p-3 text-[10px] text-slate-500 font-medium bg-white/[0.01] border border-dashed border-white/5 rounded-xl">
                       No active subjects left. Create one below.
                     </div>
