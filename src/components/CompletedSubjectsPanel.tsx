@@ -7,6 +7,7 @@ import {
   Trash2, 
   Award, 
   ArrowUpRight, 
+  ArrowDownRight,
   Clock, 
   Calendar, 
   TrendingUp, 
@@ -105,6 +106,12 @@ export const CompletedSubjectsPanel: React.FC<CompletedSubjectsPanelProps> = ({
           (() => {
             const stats = getSubjectStats(selectedSubject);
             const rank = getRankBadge(stats.totalDuration);
+            
+            // Calculate global average focus duration across all focus sessions
+            const globalFocusSessions = (sessions || []).filter(s => s.mode === 'focus');
+            const globalTotalDuration = globalFocusSessions.reduce((sum, s) => sum + s.durationSec, 0);
+            const globalAvgDuration = globalFocusSessions.length > 0 ? Math.round(globalTotalDuration / globalFocusSessions.length) : 0;
+
             return (
               <>
                 {/* Detail Header */}
@@ -172,14 +179,56 @@ export const CompletedSubjectsPanel: React.FC<CompletedSubjectsPanelProps> = ({
                     </div>
 
                     {/* Stat 3: Avg Session Duration */}
-                    <div className="bg-white/[0.02] border border-white/5 rounded-2xl p-4 flex flex-col space-y-1">
-                      <div className="flex items-center gap-1.5 text-slate-400">
-                        <Timer className="w-3.5 h-3.5 text-indigo-400" />
-                        <span className="text-[10px] font-extrabold tracking-wider uppercase text-slate-400">Avg Duration</span>
+                    <div className="bg-white/[0.02] border border-white/5 rounded-2xl p-4 flex flex-col space-y-1 relative overflow-hidden group/stat">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-1.5 text-slate-400">
+                          <Timer className="w-3.5 h-3.5 text-indigo-400" />
+                          <span className="text-[10px] font-extrabold tracking-wider uppercase text-slate-400">Avg Duration</span>
+                        </div>
+                        {/* Dynamic Trend Indicator Arrow and Percentage */}
+                        {globalAvgDuration > 0 && stats.avgDuration > 0 && (() => {
+                          const diffSec = stats.avgDuration - globalAvgDuration;
+                          const diffPercent = Math.round((diffSec / globalAvgDuration) * 100);
+                          const isAbove = diffSec > 0;
+                          const isSame = diffSec === 0;
+
+                          if (isSame) {
+                            return (
+                              <span className="text-[9px] font-bold text-slate-400 bg-slate-400/10 px-1.5 py-0.5 rounded" title="Exactly same as global average">
+                                Same
+                              </span>
+                            );
+                          }
+
+                          return (
+                            <span 
+                              className={`inline-flex items-center gap-0.5 text-[9px] font-black px-1.5 py-0.5 rounded-full border ${
+                                isAbove 
+                                  ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20' 
+                                  : 'text-rose-400 bg-rose-500/10 border-rose-500/20'
+                              }`}
+                              title={`Global average is ${formatDuration(globalAvgDuration)}`}
+                            >
+                              {isAbove ? (
+                                <ArrowUpRight className="w-2.5 h-2.5 text-emerald-400" />
+                              ) : (
+                                <ArrowDownRight className="w-2.5 h-2.5 text-rose-400" />
+                              )}
+                              <span>{isAbove ? '+' : ''}{diffPercent}%</span>
+                            </span>
+                          );
+                        })()}
                       </div>
-                      <span className="text-sm font-black text-white pt-1">
-                        {formatDuration(stats.avgDuration)}
-                      </span>
+                      <div className="pt-1 flex flex-col">
+                        <span className="text-sm font-black text-white">
+                          {formatDuration(stats.avgDuration)}
+                        </span>
+                        {globalAvgDuration > 0 && (
+                          <span className="text-[9px] text-slate-500 mt-1">
+                            Global Avg: {formatDuration(globalAvgDuration)}
+                          </span>
+                        )}
+                      </div>
                     </div>
 
                     {/* Stat 4: Completion Date */}

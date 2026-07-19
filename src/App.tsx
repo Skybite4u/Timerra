@@ -222,6 +222,7 @@ export default function App() {
   const [showFullscreenSubjectSelector, setShowFullscreenSubjectSelector] = useState<boolean>(false);
   const [showCompletedSubjectsPanel, setShowCompletedSubjectsPanel] = useState<boolean>(false);
   const [currentFocusMood, setCurrentFocusMood] = useState<string>('Calm');
+  const [subjectSortOrder, setSubjectSortOrder] = useState<'alphabetical' | 'timeSpent'>('alphabetical');
   const [chartMode, setChartMode] = useState<'weekly' | 'trends'>('trends');
   const [showBreathingGuide, setShowBreathingGuide] = useState<boolean>(true);
   const [subjectNotes, setSubjectNotes] = useState<{[subject: string]: string}>({});
@@ -287,6 +288,19 @@ export default function App() {
     const spentSec = getSubjectTotalFocusTime(subName);
     const targetSec = getSubjectTargetMinutes(subName) * 60;
     return spentSec >= targetSec && targetSec > 0;
+  };
+
+  const getSortedActiveSubjects = () => {
+    const active = subjects.filter(sub => !completedSubjects.includes(sub) || sub === completingSubject);
+    if (subjectSortOrder === 'alphabetical') {
+      return [...active].sort((a, b) => a.localeCompare(b));
+    } else {
+      return [...active].sort((a, b) => {
+        const timeA = getSubjectTotalFocusTime(a);
+        const timeB = getSubjectTotalFocusTime(b);
+        return timeB - timeA;
+      });
+    }
   };
 
   // --- Notification Center States ---
@@ -1253,6 +1267,16 @@ export default function App() {
     }
   }, [mode, settings]);
 
+  const handleToggleAutoDim = useCallback(async () => {
+    playClick();
+    const newSettings = {
+      ...settings,
+      autoDim: settings.autoDim === false ? true : false,
+    };
+    setSettings(newSettings);
+    await TimerraDB.saveSettings(newSettings);
+  }, [settings, playClick]);
+
   // Bind keydown hotkeys
   useHotkeys({
     onTogglePlay: handleTogglePlay,
@@ -1752,10 +1776,17 @@ export default function App() {
               <span className="text-white font-bold font-mono leading-none">{totalMinutesToday} mins</span>
             </div>
 
-            {isCurrentlyAutoDimmed && (
-              <div className="flex items-center justify-center gap-1 bg-indigo-500/10 text-indigo-300 border border-indigo-400/15 rounded-full px-2 py-0.5 text-[10px] font-semibold tracking-wide animate-pulse-slow shrink-0" title="Auto-Dim Active (Night Owl Protection)">
-                <Moon className="w-2.5 h-2.5" />
+             {isCurrentlyAutoDimmed && (
+              <div className="flex items-center justify-center gap-1.5 bg-indigo-500/10 text-indigo-300 border border-indigo-400/15 rounded-full pl-2.5 pr-1.5 py-0.5 text-[10px] font-semibold tracking-wide shrink-0" title="Auto-Dim Active (Night Owl Protection)">
+                <Moon className="w-2.5 h-2.5 text-indigo-400" />
                 <span>Night Mode Active</span>
+                <button
+                  onClick={handleToggleAutoDim}
+                  className="ml-1 px-1.5 py-0.5 rounded-md bg-indigo-500/20 hover:bg-indigo-500/30 text-[9px] text-indigo-200 border border-indigo-400/20 cursor-pointer transition-colors"
+                  title="Turn off automatic late night dimming"
+                >
+                  Turn Off
+                </button>
               </div>
             )}
           </div>
@@ -1906,8 +1937,23 @@ export default function App() {
                 )}
 
                 {/* Inline list of subjects with Mark Complete */}
+                <div className="flex items-center justify-between text-[9px] border-t border-white/5 pt-2 pb-1 relative z-10">
+                  <span className="font-extrabold uppercase tracking-widest text-slate-400">Order By</span>
+                  <select
+                    value={subjectSortOrder}
+                    onChange={(e) => {
+                      playClick();
+                      setSubjectSortOrder(e.target.value as 'alphabetical' | 'timeSpent');
+                    }}
+                    className="bg-white/5 hover:bg-white/10 text-[10px] text-slate-300 font-bold border border-white/10 rounded-lg px-2 py-0.5 focus:outline-none focus:border-tm-primary/50 cursor-pointer transition-colors"
+                  >
+                    <option value="alphabetical" className="bg-slate-900 text-slate-300">Alphabetical</option>
+                    <option value="timeSpent" className="bg-slate-900 text-slate-300">Total Time Spent</option>
+                  </select>
+                </div>
+
                 <div className="space-y-1.5 max-h-[160px] overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-white/10">
-                  {subjects.filter(sub => !completedSubjects.includes(sub) || sub === completingSubject).map(sub => {
+                  {getSortedActiveSubjects().map(sub => {
                     const isSelected = settings.subject === sub;
                     const isExpanded = expandedSubject === sub;
                     const isCompleting = sub === completingSubject;
@@ -2055,7 +2101,7 @@ export default function App() {
                       </div>
                     );
                   })}
-                  {subjects.filter(sub => !completedSubjects.includes(sub) || sub === completingSubject).length === 0 && (
+                  {getSortedActiveSubjects().length === 0 && (
                     <div className="text-center p-3 text-[10px] text-slate-500 font-medium bg-white/[0.01] border border-dashed border-white/5 rounded-xl">
                       No active subjects left. Create one below.
                     </div>
@@ -2580,8 +2626,23 @@ export default function App() {
                 </div>
 
                 {/* Inline list of active subjects */}
+                <div className="flex items-center justify-between text-[9px] border-t border-white/5 pt-2 pb-1 relative z-10">
+                  <span className="font-extrabold uppercase tracking-widest text-slate-400">Order By</span>
+                  <select
+                    value={subjectSortOrder}
+                    onChange={(e) => {
+                      playClick();
+                      setSubjectSortOrder(e.target.value as 'alphabetical' | 'timeSpent');
+                    }}
+                    className="bg-white/5 hover:bg-white/10 text-[10px] text-slate-300 font-bold border border-white/10 rounded-lg px-2 py-0.5 focus:outline-none focus:border-tm-primary/50 cursor-pointer transition-colors"
+                  >
+                    <option value="alphabetical" className="bg-slate-900 text-slate-300">Alphabetical</option>
+                    <option value="timeSpent" className="bg-slate-900 text-slate-300">Total Time Spent</option>
+                  </select>
+                </div>
+
                 <div className="space-y-1.5 max-h-[160px] overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-white/10">
-                  {subjects.filter(sub => !completedSubjects.includes(sub) || sub === completingSubject).map(sub => {
+                  {getSortedActiveSubjects().map(sub => {
                     const isSelected = settings.subject === sub;
                     const isExpanded = expandedSubject === sub;
                     const isCompleting = sub === completingSubject;
@@ -2726,7 +2787,7 @@ export default function App() {
                       </div>
                     );
                   })}
-                  {subjects.filter(sub => !completedSubjects.includes(sub) || sub === completingSubject).length === 0 && (
+                  {getSortedActiveSubjects().length === 0 && (
                     <div className="text-center p-3 text-[10px] text-slate-500 font-medium bg-white/[0.01] border border-dashed border-white/5 rounded-xl">
                       No active subjects left. Create one below.
                     </div>

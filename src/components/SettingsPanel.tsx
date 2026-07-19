@@ -700,16 +700,19 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
               )}
 
               {/* Auto-Dim late night toggle */}
-              <label className="flex items-center justify-between p-3.5 rounded-2xl bg-white/[0.01] border border-white/5 hover:border-white/10 transition-all cursor-pointer sm:col-span-2">
+              <label id="settings-auto-dim-toggle" className="flex items-center justify-between p-3.5 rounded-2xl bg-white/[0.01] border border-white/5 hover:border-white/10 transition-all cursor-pointer sm:col-span-2">
                 <div className="flex flex-col pr-4">
-                  <span className="text-xs font-semibold">Auto-Dim (Night Mode)</span>
-                  <span className="text-[10px] text-slate-400 mt-0.5">Automatically softens colors, brightness, and contrast after 10 PM to protect your eyes</span>
+                  <span className="text-xs font-semibold flex items-center gap-1.5">
+                    <span>Auto-Dim (Night Mode)</span>
+                    <span className="text-[10px] text-slate-500 font-normal">(রাত ১০টার পর নাইট মোড)</span>
+                  </span>
+                  <span className="text-[10px] text-slate-400 mt-0.5">Automatically softens colors, brightness, and contrast after 10 PM to protect your eyes. Uncheck to turn off. (বন্ধ করতে টিক চিহ্ন উঠিয়ে দিন)</span>
                 </div>
                 <input
                   type="checkbox"
                   checked={autoDimVal}
                   onChange={(e) => setAutoDimVal(e.target.checked)}
-                  className="w-4 h-4 rounded text-tm-primary bg-white/10 border-white/5 focus:ring-tm-primary focus:ring-offset-0"
+                  className="w-4 h-4 rounded text-tm-primary bg-white/10 border-white/5 focus:ring-tm-primary focus:ring-offset-0 cursor-pointer"
                 />
               </label>
             </div>
