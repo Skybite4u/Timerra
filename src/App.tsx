@@ -32,7 +32,13 @@ import {
   Edit2,
   X,
   FileText,
-  Archive
+  Archive,
+  Code,
+  Palette,
+  Brain,
+  Cpu,
+  Music,
+  GraduationCap
 } from 'lucide-react';
 
 // Focus DNA system imports
@@ -88,6 +94,58 @@ const defaultSettings: TimerSettings = {
   subject: 'Deep Work',
   autoDim: true,
   syncWithSystem: false,
+};
+
+const getSubjectVisuals = (subjectName: string) => {
+  const name = (subjectName || 'Deep Work').trim();
+  const lower = name.toLowerCase();
+
+  // Determine Icon based on keywords
+  let IconComponent = BookOpen;
+  if (/code|program|dev|software|tech|script|html|css|js|ts|python|rust/i.test(lower)) {
+    IconComponent = Code;
+  } else if (/design|art|draw|paint|sketch|ui|ux|creative|illustration/i.test(lower)) {
+    IconComponent = Palette;
+  } else if (/write|essay|blog|draft|paper|not|journal|novel/i.test(lower)) {
+    IconComponent = FileText;
+  } else if (/read|book|literature|poetry/i.test(lower)) {
+    IconComponent = BookOpen;
+  } else if (/research|study|learn|exam|class|school|university|history|geography/i.test(lower)) {
+    IconComponent = GraduationCap;
+  } else if (/math|calc|stat|phys|chem|sci|science|formula|algebra|geometry/i.test(lower)) {
+    IconComponent = Cpu;
+  } else if (/think|brain|idea|mind|meditat|psych|philosophy|zen/i.test(lower)) {
+    IconComponent = Brain;
+  } else if (/music|song|tune|audio|sound|play|instrument|guitar|piano/i.test(lower)) {
+    IconComponent = Music;
+  } else if (/gym|fit|health|sport|run|exercise|flame|workout/i.test(lower)) {
+    IconComponent = Flame;
+  } else if (/work|job|task|project|office|meeting|admin|email/i.test(lower)) {
+    IconComponent = Sliders;
+  }
+
+  // Generate a deterministic color palette based on name hash
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) {
+    hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  hash = Math.abs(hash);
+
+  const colors = [
+    { text: 'text-cyan-400', bg: 'bg-cyan-500/10', border: 'border-cyan-500/20' },
+    { text: 'text-emerald-400', bg: 'bg-emerald-500/10', border: 'border-emerald-500/20' },
+    { text: 'text-indigo-400', bg: 'bg-indigo-500/10', border: 'border-indigo-500/20' },
+    { text: 'text-amber-400', bg: 'bg-amber-500/10', border: 'border-amber-500/20' },
+    { text: 'text-fuchsia-400', bg: 'bg-fuchsia-500/10', border: 'border-fuchsia-500/20' },
+    { text: 'text-rose-400', bg: 'bg-rose-500/10', border: 'border-rose-500/20' },
+    { text: 'text-teal-400', bg: 'bg-teal-500/10', border: 'border-teal-500/20' },
+    { text: 'text-purple-400', bg: 'bg-purple-500/10', border: 'border-purple-500/20' },
+  ];
+
+  return {
+    Icon: IconComponent,
+    color: colors[hash % colors.length]
+  };
 };
 
 export default function App() {
@@ -2248,36 +2306,45 @@ export default function App() {
                   </div>
                 ) : (
                   <div className="space-y-2 max-h-[220px] overflow-y-auto pr-1">
-                    {sessions.slice().reverse().slice(0, 10).map((s) => (
-                      <div 
-                        key={s.id || s.completedAt}
-                        className="flex items-center justify-between p-3.5 rounded-xl bg-white/[0.01] border border-white/5 hover:border-white/10 transition-all text-xs"
-                      >
-                        <div className="flex items-center gap-3">
-                          <span className="w-1.5 h-1.5 rounded-full bg-tm-primary" />
-                          <div className="flex flex-col">
-                            <span className="font-bold text-slate-200">{s.subject}</span>
-                            <span className="text-[10px] text-slate-500 mt-0.5">
-                              {new Date(s.completedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} at{' '}
-                              {new Date(s.completedAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+                    {sessions.slice().reverse().slice(0, 10).map((s) => {
+                      const { Icon, color } = getSubjectVisuals(s.subject);
+                      return (
+                        <div 
+                          key={s.id || s.completedAt}
+                          className="flex items-center justify-between p-3.5 rounded-xl bg-white/[0.01] border border-white/5 hover:border-white/10 transition-all text-xs group"
+                        >
+                          <div className="flex items-center gap-3">
+                            {/* Beautiful generated mini icon container with dynamic colors */}
+                            <div className={`w-8 h-8 rounded-xl ${color.bg} border ${color.border} flex items-center justify-center transition-transform group-hover:scale-105`}>
+                              <Icon className={`w-4 h-4 ${color.text}`} />
+                            </div>
+                            <div className="flex flex-col">
+                              <div className="flex items-center gap-1.5">
+                                <span className="font-bold text-slate-200">{s.subject}</span>
+                                <span className={`w-1.5 h-1.5 rounded-full ${color.text} opacity-80`} style={{ backgroundColor: 'currentColor' }} />
+                              </div>
+                              <span className="text-[10px] text-slate-500 mt-0.5">
+                                {new Date(s.completedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} at{' '}
+                                {new Date(s.completedAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+                              </span>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-3">
+                            <span className="font-mono text-[10px] font-bold text-slate-400 uppercase bg-white/5 px-2 py-0.5 rounded border border-white/5">
+                              {Math.round(s.durationSec / 60)} mins
                             </span>
+                            <button
+                              onClick={() => handleRemoveSingleSession(s.id)}
+                              className="p-1 rounded hover:bg-white/5 text-slate-500 hover:text-rose-400 transition-colors cursor-pointer"
+                              title="Delete Session"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
                           </div>
                         </div>
-
-                        <div className="flex items-center gap-3">
-                          <span className="font-mono text-[10px] font-bold text-slate-400 uppercase bg-white/5 px-2 py-0.5 rounded border border-white/5">
-                            {Math.round(s.durationSec / 60)} mins
-                          </span>
-                          <button
-                            onClick={() => handleRemoveSingleSession(s.id)}
-                            className="p-1 rounded hover:bg-white/5 text-slate-500 hover:text-rose-400 transition-colors cursor-pointer"
-                            title="Delete Session"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </div>
