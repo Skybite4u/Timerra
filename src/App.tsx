@@ -23,6 +23,7 @@ import {
   Bell,
   BellOff,
   Star,
+  Download,
   Compass,
   Target,
   Plus,
@@ -94,6 +95,7 @@ const defaultSettings: TimerSettings = {
   subject: 'Deep Work',
   autoDim: true,
   syncWithSystem: false,
+  alertSoundId: 'default',
 };
 
 const getSubjectVisuals = (subjectName: string) => {
@@ -889,7 +891,7 @@ export default function App() {
 
   // Advance to next cycle phase
   const advancePhase = useCallback(async (isNaturalComplete = true) => {
-    playComplete();
+    playComplete(settings.alertSoundId || 'default', settings.customSoundData);
 
     const isStudyMode = mode === 'focus' || mode === 'deepFocus' || mode === 'sprint' || mode === 'marathon' || mode === 'zen';
 
@@ -1438,6 +1440,21 @@ export default function App() {
     }
   };
 
+  const handleExportSubjectHistory = (sub: string) => {
+    // filter sessions for this subject
+    const subjectSessions = sessions.filter(s => s.subject === sub);
+    const jsonStr = JSON.stringify(subjectSessions, null, 2);
+    const blob = new Blob([jsonStr], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `timerra_session_history_${sub.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
   // Clear focus database log history
   const handleClearHistory = async () => {
     if (window.confirm('Are you sure you want to clear your local focus database? All history and configurations will be reset.')) {
@@ -1802,6 +1819,8 @@ export default function App() {
           cycle={cycle}
           subject={settings.subject}
           isFullscreen={isFullscreen}
+          completedCycles={todaySessions.length}
+          totalCyclesTarget={settings.cyclesBeforeLongBreak || 4}
         />
 
         {/* Guided Breathing Decompression Overlay during Short Breaks */}
@@ -2067,7 +2086,7 @@ export default function App() {
                               );
                             })()}
 
-                            <div className="flex items-center justify-between mt-1">
+                            <div className="flex items-center justify-between mt-1 gap-1.5 flex-wrap">
                               <button
                                 type="button"
                                 onClick={(e) => {
@@ -2081,6 +2100,19 @@ export default function App() {
                                 className="flex items-center gap-1 text-[9px] text-rose-400 hover:text-rose-300 bg-rose-500/10 hover:bg-rose-500/25 px-2 py-1 rounded-lg border border-rose-500/10 cursor-pointer"
                               >
                                 <Trash2 className="w-2.5 h-2.5" /> Remove
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  playClick();
+                                  handleExportSubjectHistory(sub);
+                                }}
+                                className="flex items-center gap-1 text-[9px] text-sky-400 hover:text-sky-300 bg-sky-500/10 hover:bg-sky-500/25 px-2 py-1 rounded-lg border border-sky-500/10 cursor-pointer animate-pulse"
+                                title="Export single subject focus history as JSON file"
+                              >
+                                <Download className="w-2.5 h-2.5 text-sky-400" /> Export JSON
                               </button>
 
                               <button
@@ -2753,7 +2785,7 @@ export default function App() {
                               );
                             })()}
 
-                            <div className="flex items-center justify-between mt-1">
+                            <div className="flex items-center justify-between mt-1 gap-1.5 flex-wrap">
                               <button
                                 type="button"
                                 onClick={(e) => {
@@ -2767,6 +2799,19 @@ export default function App() {
                                 className="flex items-center gap-1 text-[9px] text-rose-400 hover:text-rose-300 bg-rose-500/10 hover:bg-rose-500/25 px-2 py-1 rounded-lg border border-rose-500/10 cursor-pointer"
                               >
                                 <Trash2 className="w-2.5 h-2.5" /> Remove
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  playClick();
+                                  handleExportSubjectHistory(sub);
+                                }}
+                                className="flex items-center gap-1 text-[9px] text-sky-400 hover:text-sky-300 bg-sky-500/10 hover:bg-sky-500/25 px-2 py-1 rounded-lg border border-sky-500/10 cursor-pointer animate-pulse"
+                                title="Export single subject focus history as JSON file"
+                              >
+                                <Download className="w-2.5 h-2.5 text-sky-400" /> Export JSON
                               </button>
 
                               <button

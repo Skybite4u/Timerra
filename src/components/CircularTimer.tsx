@@ -11,6 +11,8 @@ interface CircularTimerProps {
   cycle: number;
   subject: string;
   isFullscreen?: boolean;
+  completedCycles?: number;
+  totalCyclesTarget?: number;
 }
 
 // 100% Static background components wrapped in React.memo to completely bypass virtual DOM diffing and re-renders
@@ -182,6 +184,8 @@ export const CircularTimer = React.memo<CircularTimerProps>(({
   cycle,
   subject,
   isFullscreen = false,
+  completedCycles,
+  totalCyclesTarget,
 }) => {
   const [explosionActive, setExplosionActive] = useState(false);
   const prevModeRef = useRef<TimerMode>(mode);
@@ -215,6 +219,21 @@ export const CircularTimer = React.memo<CircularTimerProps>(({
 
   // Wave position
   const waveY = 92 - fillLevel * 84;
+
+  // Setup default values for completed and target cycles
+  const completedCount = completedCycles !== undefined ? completedCycles : Math.max(0, cycle - 1);
+  const targetCount = totalCyclesTarget || 4;
+
+  const cycleDots = Array.from({ length: targetCount }).map((_, i) => {
+    // Distribute around the ring of radius 44.5 inside a 100x100 SVG viewbox
+    // Start from -Math.PI / 2 (top) and go clockwise
+    const angle = -Math.PI / 2 + (i * 2 * Math.PI) / targetCount;
+    const cx = 50 + 44.5 * Math.cos(angle);
+    const cy = 50 + 44.5 * Math.sin(angle);
+    const isCompleted = i < completedCount;
+    const isCurrent = i === completedCount && ['focus', 'deepFocus', 'sprint', 'marathon', 'zen'].includes(mode) && status === 'running';
+    return { cx, cy, isCompleted, isCurrent, index: i };
+  });
 
   // Render Stopwatch (Hours, Minutes, Seconds, Milliseconds)
   const renderStopwatchTime = () => {
@@ -525,6 +544,68 @@ export const CircularTimer = React.memo<CircularTimerProps>(({
             className="absolute bottom-2 inset-x-16 h-[12%] bg-gradient-to-t from-white/10 to-transparent rounded-full blur-[5px] z-20 pointer-events-none"
             style={{ transform: 'translateZ(15px)' }}
           />
+
+          {/* --- CYCLE RING VISUALIZATION --- */}
+          <svg className="absolute inset-0 w-full h-full pointer-events-none z-10 select-none" viewBox="0 0 100 100">
+            {/* Subtle connecting track line */}
+            <circle
+              cx="50"
+              cy="50"
+              r="44.5"
+              fill="none"
+              stroke="currentColor"
+              className="text-white/[0.04]"
+              strokeWidth="0.75"
+              strokeDasharray="1.5 2.5"
+            />
+            {cycleDots.map((dot) => (
+              <g key={dot.index} className="transition-all duration-500">
+                {/* Outer halo / glowing layer for completed dots */}
+                {dot.isCompleted && (
+                  <circle
+                    cx={dot.cx}
+                    cy={dot.cy}
+                    r="4.5"
+                    fill="currentColor"
+                    className="text-tm-primary/20 blur-[2px]"
+                  />
+                )}
+                {dot.isCurrent && (
+                  <circle
+                    cx={dot.cx}
+                    cy={dot.cy}
+                    r="5.5"
+                    fill="none"
+                    stroke="currentColor"
+                    className="text-tm-primary animate-pulse"
+                    strokeWidth="0.5"
+                    style={{ transformOrigin: '50% 50%' }}
+                  />
+                )}
+                
+                {/* Core Dot */}
+                <circle
+                  cx={dot.cx}
+                  cy={dot.cy}
+                  r={dot.isCurrent ? 2.5 : 1.8}
+                  className={`transition-all duration-500 ${
+                    dot.isCompleted
+                      ? 'fill-tm-primary stroke-tm-primary/40 stroke-[0.5]'
+                      : dot.isCurrent
+                      ? 'fill-tm-primary shadow-[0_0_8px_var(--tm-primary)]'
+                      : 'fill-white/10 stroke-white/5 stroke-[0.5]'
+                  }`}
+                />
+                
+                {/* Standard browser tooltip on hover */}
+                <title>
+                  {`Cycle ${dot.index + 1}: ${
+                    dot.isCompleted ? 'Completed' : dot.isCurrent ? 'In Progress' : 'Remaining'
+                  }`}
+                </title>
+              </g>
+            ))}
+          </svg>
 
           {/* --- MAIN DISPLAY CONTENT INSIDE ORB (3D perspective layer) --- */}
           <div 

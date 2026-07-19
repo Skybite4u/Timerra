@@ -25,6 +25,9 @@ export interface TimerSettings {
   syncWithSystem?: boolean;      // default false
   dailyGoalHours?: number;       // default 4
   focusReminderTime?: string;    // default undefined / None
+  alertSoundId?: string;         // default "default" / predefined ID
+  customSoundData?: string;      // Base64 or DataURL of custom uploaded sound
+  customSoundName?: string;      // Name of custom uploaded sound
   customTheme?: {
     primary: string;
     accent: string;
