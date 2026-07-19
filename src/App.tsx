@@ -19,6 +19,7 @@ import {
   Pause,
   RotateCcw,
   Eye,
+  EyeOff,
   Moon,
   Bell,
   BellOff,
@@ -185,6 +186,7 @@ export default function App() {
   const [ratingSessionDuration, setRatingSessionDuration] = useState<number>(0);
   const [dnaEvolutionStage, setDnaEvolutionStage] = useState<any | null>(null);
   const [activeTab, setActiveTab] = useState<'focus' | 'ambient' | 'analytics'>('focus');
+  const [isFocusModeActive, setIsFocusModeActive] = useState<boolean>(false);
 
   // --- Session duration timer (How long the user is on the website, resets on exit) ---
   const [sessionTime, setSessionTime] = useState<number>(0);
@@ -1734,6 +1736,33 @@ export default function App() {
 
           {/* Subjects board Selector widget in Navbar */}
           <div className="flex items-center gap-2 sm:gap-3 overflow-x-auto no-scrollbar py-1 max-w-[calc(100%-120px)] sm:max-w-none">
+            {/* Focus Mode Toggle */}
+            <button
+              onClick={() => {
+                playClick();
+                setIsFocusModeActive(prev => {
+                  const next = !prev;
+                  if (next) {
+                    setActiveTab('focus');
+                  }
+                  return next;
+                });
+              }}
+              className={`flex items-center gap-1.5 border rounded-2xl px-3 py-1.5 text-xs font-bold transition-all cursor-pointer shrink-0 ${
+                isFocusModeActive
+                  ? 'bg-orange-500/10 text-orange-400 border-orange-500/25 shadow-[0_0_15px_rgba(249,115,22,0.15)]'
+                  : 'bg-white/[0.03] hover:bg-white/[0.08] border border-white/[0.06] hover:border-white/15 text-slate-200 hover:text-white'
+              }`}
+              title="Toggle pure focus space"
+            >
+              {isFocusModeActive ? (
+                <EyeOff className="w-3.5 h-3.5 text-orange-400" />
+              ) : (
+                <Eye className="w-3.5 h-3.5 text-slate-300" />
+              )}
+              <span className="hidden sm:inline">Focus Mode</span>
+            </button>
+
             {/* Vault Milestone button */}
             <button
               onClick={() => { playClick(); setShowMilestoneVault(true); }}
@@ -1789,12 +1818,12 @@ export default function App() {
       <main className={`max-w-7xl mx-auto px-3 sm:px-6 flex flex-col items-center w-full transition-all duration-500 ${isFullscreen ? 'justify-center min-h-screen py-12' : 'py-3 sm:py-12'}`}>
         
         {/* Dynamic 9-Mode Navigation Dock */}
-        <div className={`transition-all duration-500 ease-in-out w-full flex justify-center ${isFullscreen ? (controlsVisible ? 'opacity-100 translate-y-0 scale-100 pointer-events-auto' : 'opacity-0 -translate-y-4 scale-95 pointer-events-none') : 'opacity-100 scale-100'}`}>
-          <ModeSelector activeMode={mode} onChangeMode={handleModeChange} />
+        <div className={`transition-all duration-500 ease-in-out w-full flex justify-center ${isFullscreen ? (controlsVisible ? 'opacity-100 translate-y-0 scale-100 pointer-events-auto' : 'opacity-0 -translate-y-4 scale-95 pointer-events-none') : (isFocusModeActive ? 'opacity-0 h-0 overflow-hidden pointer-events-none mb-0' : 'opacity-100 scale-100')}`}>
+          {!isFocusModeActive && <ModeSelector activeMode={mode} onChangeMode={handleModeChange} />}
         </div>
 
         {/* Progress Summary at a Glance */}
-        {!isFullscreen && (
+        {!isFullscreen && !isFocusModeActive && (
           <div className="flex flex-col sm:flex-row items-center gap-3 sm:gap-5 mt-4 sm:mt-6 mb-4 sm:mb-8 bg-[#030712]/45 backdrop-blur-md border border-white/[0.05] rounded-2xl sm:rounded-full px-4 py-2.5 sm:px-5 text-xs animate-fade-in shadow-[0_8px_32px_-6px_rgba(0,0,0,0.5)] text-center sm:text-left w-auto max-w-full">
             <div className="flex items-center justify-center gap-3 border-b sm:border-b-0 sm:border-r border-white/5 pb-2.5 sm:pb-0 pr-0 sm:pr-5 w-full sm:w-auto">
               <div className="relative w-5 h-5 flex items-center justify-center shrink-0">
@@ -1902,17 +1931,32 @@ export default function App() {
 
         {/* Curved Buttons Deck */}
         {!isFullscreen ? (
-          <ArcuateDeck
-            status={status}
-            mode={mode}
-            isFullscreen={isFullscreen}
-            onTogglePlay={handleTogglePlay}
-            onReset={handleReset}
-            onSkip={handleSkip}
-            onOpenSettings={handleOpenSettings}
-            onOpenBackup={handleOpenBackup}
-            onToggleFullscreen={handleToggleFS}
-          />
+          <>
+            <ArcuateDeck
+              status={status}
+              mode={mode}
+              isFullscreen={isFullscreen}
+              onTogglePlay={handleTogglePlay}
+              onReset={handleReset}
+              onSkip={handleSkip}
+              onOpenSettings={handleOpenSettings}
+              onOpenBackup={handleOpenBackup}
+              onToggleFullscreen={handleToggleFS}
+            />
+            {isFocusModeActive && (
+              <div className="mt-6 flex flex-col items-center justify-center gap-1.5 animate-fade-in text-center select-none">
+                <div className="flex items-center gap-2 bg-orange-500/10 border border-orange-500/20 text-orange-400 px-4 py-1.5 rounded-full text-[10px] font-bold tracking-widest uppercase">
+                  <span className="relative flex h-1.5 w-1.5">
+                    <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-orange-400"></span>
+                  </span>
+                  <span>Pure Focus Space Enabled</span>
+                </div>
+                <p className="text-[10px] text-slate-500 max-w-xs leading-normal">
+                  Dashboard panels & metrics are tucked away for zero distractions.
+                </p>
+              </div>
+            )}
+          </>
         ) : (
           /* Minimalist Fullscreen Floating Control Panel (highly elegant, glassmorphic, zero distractions) */
           <div className={`fixed bottom-8 flex items-center gap-4 bg-black/45 backdrop-blur-md px-6 py-3 rounded-full border border-white/10 shadow-[0_0_30px_rgba(0,0,0,0.5)] z-50 transition-all duration-500 hover:scale-105 ${controlsVisible ? 'opacity-100 translate-y-0 pointer-events-auto' : 'opacity-0 translate-y-4 pointer-events-none'}`}>
@@ -1949,7 +1993,7 @@ export default function App() {
         )}
 
         {/* TAB NAVIGATION: SIMPLE, MODERN & CLEAN CONFIGURATION (STRICT USER MANDATE) */}
-        {!isFullscreen && (
+        {!isFullscreen && !isFocusModeActive && (
           <div className="w-full max-w-md mx-auto mt-12 mb-8 flex items-center justify-center p-1 rounded-2xl bg-white/[0.02] border border-white/5 backdrop-blur-md shadow-lg select-none">
             {[
               { id: 'focus', label: 'Focus Space', icon: Target, color: 'text-orange-400' },
@@ -1979,7 +2023,7 @@ export default function App() {
         {/* STATIONS & STATISTICS DIVISION ROW */}
         {!isFullscreen && (
           <div className="w-full mt-6 animate-fade-in">
-            {activeTab === 'focus' && (
+            {activeTab === 'focus' && !isFocusModeActive && (
               <div className="w-full max-w-2xl mx-auto space-y-6 animate-fade-in">
                 {/* Subject Board & Mood Selector */}
             <div className="w-full p-5 rounded-3xl tm-glass-dense border border-white/5 relative overflow-hidden flex flex-col gap-4 animate-fade-in select-none">
