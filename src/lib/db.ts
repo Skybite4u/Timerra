@@ -83,16 +83,25 @@ export const TimerraDB = {
     }
   },
 
-  async addSession(session: Session): Promise<void> {
-    inMemoryStore.sessions.push(session);
+  async addSession(session: Session): Promise<number> {
     try {
       const db = await openDB();
-      await new Promise<void>((resolve, reject) => {
+      return await new Promise<number>((resolve, reject) => {
         try {
           const transaction = db.transaction('sessions', 'readwrite');
           const store = transaction.objectStore('sessions');
           const request = store.add(session);
-          request.onsuccess = () => resolve();
+          request.onsuccess = () => {
+            const id = request.result as number;
+            session.id = id;
+            const idx = inMemoryStore.sessions.indexOf(session);
+            if (idx === -1) {
+              inMemoryStore.sessions.push(session);
+            } else {
+              inMemoryStore.sessions[idx].id = id;
+            }
+            resolve(id);
+          };
           request.onerror = () => reject(request.error);
         } catch (err) {
           reject(err);
@@ -100,6 +109,11 @@ export const TimerraDB = {
       });
     } catch (e) {
       console.warn('DB warning: Session saved in memory only', e);
+      if (!session.id) {
+        session.id = Date.now() + Math.floor(Math.random() * 1000);
+      }
+      inMemoryStore.sessions.push(session);
+      return session.id;
     }
   },
 

@@ -449,4 +449,24 @@
   box-shadow: 0 0 12px rgba(255, 255, 255, 0.05) !important;
 }
 
+/* --- MOBILE HEARTBEAT & PULSE REMOVAL (STRICT USER MANDATE) --- */
+@media (max-width: 1024px) {
+  .animate-pulse,
+  .animate-pulse-slow,
+  .animate-pulse-border,
+  .animate-breathe,
+  .animate-float,
+  .animate-float-gentle,
+  .animate-float-calm,
+  .animate-wave-a,
+  .animate-wave-b,
+  [class*="animate-pulse"],
+  [class*="animate-breathe"],
+  [class*="pulse"],
+  [class*="breathe"] {
+    animation: none !important;
+    transform: none !important;
+  }
+}
+
 

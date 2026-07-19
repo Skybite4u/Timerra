@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { NotificationManager, TimerraNotification, NotificationCategory } from '../lib/notificationManager';
 import { playClick } from '../lib/audio';
+import { Session } from '../types';
 
 interface NotificationCenterProps {
   isOpen: boolean;
@@ -13,6 +14,7 @@ interface NotificationCenterProps {
   isSilenceModeActive: boolean;
   onToggleSilenceMode?: () => void;
   onOpenCompletedSubjects?: () => void;
+  sessions: Session[];
 }
 
 export const NotificationCenter: React.FC<NotificationCenterProps> = ({
@@ -20,13 +22,85 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
   onClose,
   isSilenceModeActive,
   onToggleSilenceMode,
-  onOpenCompletedSubjects
+  onOpenCompletedSubjects,
+  sessions
 }) => {
   const [notifications, setNotifications] = useState<TimerraNotification[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<'all' | 'unread' | 'read'>('all');
   const [browserPermission, setBrowserPermission] = useState<NotificationPermission>('default');
+
+  // Streak Loss Warning and Risk Calculations
+  const streakDays = useMemo(() => {
+    const focusSess = sessions.filter(s => s.mode === 'focus');
+    if (focusSess.length === 0) return 0;
+
+    const uniqueDates = Array.from(new Set<string>(
+      focusSess.map(s => new Date(s.completedAt).toISOString().split('T')[0])
+    )).sort((a: string, b: string) => new Date(b).getTime() - new Date(a).getTime());
+
+    const expectedStr = new Date().toISOString().split('T')[0];
+    const prevDay = new Date();
+    prevDay.setDate(prevDay.getDate() - 1);
+    const prevStr = prevDay.toISOString().split('T')[0];
+
+    if (uniqueDates[0] !== expectedStr && uniqueDates[0] !== prevStr) {
+      return 0;
+    }
+
+    let streak = 0;
+    const tracker = new Date(uniqueDates[0]);
+
+    for (let i = 0; i < uniqueDates.length; i++) {
+      const uStr = uniqueDates[i];
+      const matchStr = tracker.toISOString().split('T')[0];
+      if (uStr === matchStr) {
+        streak++;
+        tracker.setDate(tracker.getDate() - 1);
+      } else {
+        break;
+      }
+    }
+    return streak;
+  }, [sessions]);
+
+  const hasFocusSessionToday = useMemo(() => {
+    const todayStr = new Date().toISOString().split('T')[0];
+    return sessions.some(s => s.mode === 'focus' && new Date(s.completedAt).toISOString().split('T')[0] === todayStr);
+  }, [sessions]);
+
+  const isStreakAtRisk = streakDays > 0 && !hasFocusSessionToday;
+  const currentHour = new Date().getHours();
+  const isLateHourRisk = currentHour >= 20; // 8:00 PM or later
+
+  // Automatically dispatch a notification event once per day when they are at risk
+  useEffect(() => {
+    if (isOpen && isStreakAtRisk) {
+      const todayStr = new Date().toISOString().split('T')[0];
+      const lastWarnedToday = localStorage.getItem('timerra_last_streak_risk_warning_date');
+      
+      if (lastWarnedToday !== todayStr) {
+        localStorage.setItem('timerra_last_streak_risk_warning_date', todayStr);
+        
+        const title = isLateHourRisk 
+          ? 'CRITICAL: Streak at Risk of Resetting! ⚡'
+          : 'Keep Your Study Streak Active! 🔥';
+          
+        const message = isLateHourRisk
+          ? `It is past 8:00 PM and you have not completed a focus session today. Log a focus session before midnight to save your pristine ${streakDays}-day streak!`
+          : `You currently have an active ${streakDays}-day study streak, but no focus sessions have been completed today. Log just one focus session today to keep your streak alive!`;
+
+        NotificationManager.addNotification(
+          title,
+          message,
+          'Focus Goals',
+          isLateHourRisk, // critical if past 8:00 PM
+          isSilenceModeActive
+        );
+      }
+    }
+  }, [isOpen, isStreakAtRisk, streakDays, isLateHourRisk, isSilenceModeActive]);
 
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const prevNotificationsCountRef = useRef<number>(0);
@@ -298,6 +372,59 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
               </button>
             )}
           </div>
+
+          {/* Streak Risk Warning Widget */}
+          {isStreakAtRisk && (
+            <div className={`flex flex-col gap-2.5 border rounded-2xl p-3.5 transition-all relative overflow-hidden ${
+              isLateHourRisk 
+                ? 'bg-rose-500/[0.06] border-rose-500/35 shadow-[0_0_20px_rgba(244,63,94,0.1)]' 
+                : 'bg-amber-500/[0.03] border-amber-500/25'
+            }`}>
+              {/* Hot visual highlight glow */}
+              <div className={`absolute top-0 right-0 w-20 h-20 rounded-full blur-2xl pointer-events-none -mr-4 -mt-4 ${
+                isLateHourRisk ? 'bg-rose-500/15' : 'bg-amber-500/10'
+              }`} />
+
+              <div className="flex items-start justify-between gap-3 relative z-10">
+                <div className="flex items-start gap-3">
+                  <div className={`p-2 rounded-xl flex items-center justify-center shrink-0 mt-0.5 ${
+                    isLateHourRisk 
+                      ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30' 
+                      : 'bg-amber-500/15 text-amber-400 border border-amber-500/20'
+                  }`}>
+                    <Flame className={`w-4 h-4 ${isLateHourRisk ? 'animate-bounce text-rose-400' : 'animate-pulse text-amber-400'}`} />
+                  </div>
+                  <div className="space-y-0.5">
+                    <span className={`text-[11px] font-extrabold uppercase tracking-wider flex items-center gap-1.5 ${
+                      isLateHourRisk ? 'text-rose-400' : 'text-amber-400'
+                    }`}>
+                      Streak at Risk ({streakDays}d)
+                      <span className={`w-1.5 h-1.5 rounded-full animate-pulse ${isLateHourRisk ? 'bg-rose-500' : 'bg-amber-500'}`} />
+                    </span>
+                    <p className="text-[10px] text-slate-300 leading-normal font-medium">
+                      {isLateHourRisk 
+                        ? `Critical: It's past 8:00 PM! Complete a focus session before midnight to save your pristine ${streakDays}-day streak.`
+                        : `You have an active streak from yesterday but haven't focused today yet. Keep the fire burning!`
+                      }
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => {
+                    playClick();
+                    onClose();
+                  }}
+                  className={`text-[9px] font-black uppercase px-2.5 py-1.5 rounded-lg border cursor-pointer transition-all shrink-0 hover:scale-[1.03] active:scale-[0.97] ${
+                    isLateHourRisk 
+                      ? 'bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 hover:text-white border-rose-500/35' 
+                      : 'bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 hover:text-white border-amber-500/25'
+                  }`}
+                >
+                  Focus Now
+                </button>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* NOTIFICATIONS CONTAINER */}

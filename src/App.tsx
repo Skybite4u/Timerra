@@ -69,6 +69,7 @@ import { GuideModal } from './components/GuideModal';
 import { MorePanel } from './components/MorePanel';
 import { NavigationRail } from './components/NavigationRail';
 import { GuidedBreathing } from './components/GuidedBreathing';
+import { FocusRatingModal } from './components/FocusRatingModal';
 import { AnimatePresence, motion } from 'motion/react';
 
 // Custom Libs and Hooks
@@ -96,6 +97,7 @@ const defaultSettings: TimerSettings = {
   autoDim: true,
   syncWithSystem: false,
   alertSoundId: 'default',
+  focusIntensity: 'standard',
 };
 
 const getSubjectVisuals = (subjectName: string) => {
@@ -176,7 +178,13 @@ export default function App() {
   const [showGuideModal, setShowGuideModal] = useState<boolean>(false);
   const [showFocusDna, setShowFocusDna] = useState<boolean>(false);
   const [showConstellation, setShowConstellation] = useState<boolean>(false);
+  
+  // --- Focus Rating Modal States ---
+  const [ratingSessionId, setRatingSessionId] = useState<number | null>(null);
+  const [ratingSessionSubject, setRatingSessionSubject] = useState<string>('');
+  const [ratingSessionDuration, setRatingSessionDuration] = useState<number>(0);
   const [dnaEvolutionStage, setDnaEvolutionStage] = useState<any | null>(null);
+  const [activeTab, setActiveTab] = useState<'focus' | 'ambient' | 'analytics'>('focus');
 
   // --- Session duration timer (How long the user is on the website, resets on exit) ---
   const [sessionTime, setSessionTime] = useState<number>(0);
@@ -545,7 +553,7 @@ export default function App() {
         week: weekStr,
         month: monthStr
       };
-      await TimerraDB.addSession(newSession);
+      const createdId = await TimerraDB.addSession(newSession);
       setSubjectNotes(prev => {
         const updated = { ...prev };
         delete updated[settings.subject];
@@ -553,6 +561,13 @@ export default function App() {
       });
       const updatedSessions = await TimerraDB.allSessions();
       setSessions(updatedSessions);
+
+      // Trigger focus rating modal on completed session
+      if (completed && createdId) {
+        setRatingSessionId(createdId);
+        setRatingSessionSubject(newSession.subject);
+        setRatingSessionDuration(Math.round(newSession.durationSec / 60));
+      }
       
       // Reset unlogged seconds committed and start time
       if (forceAll) {
@@ -1065,28 +1080,41 @@ export default function App() {
     }
   }, [remainingSec, elapsedSec, status, settings.tickSound, mode]);
 
-  // --- Auto-Pause feature on hidden browser tab (5s delay) ---
+  // --- Auto-Pause feature on hidden browser tab (Strict: instant vs Standard: 5s delay) ---
   useEffect(() => {
     let hideTimeoutId: any = null;
 
     const handleVisibilityChange = async () => {
       if (document.visibilityState === 'hidden') {
         if (status === 'running') {
-          hideTimeoutId = setTimeout(async () => {
+          const isStrict = settings.focusIntensity === 'strict';
+          const delay = isStrict ? 0 : 5000;
+
+          const pauseTimer = async () => {
             if (document.visibilityState === 'hidden') {
               setStatus('paused');
               vibratePause();
               await commitUnloggedStudySec(true);
 
               NotificationManager.addNotification(
-                'Auto-Paused due to Background Tab ⏸️',
-                'Your timer was automatically paused because the browser tab was hidden for more than 5 seconds. This keeps your study tracking highly accurate!',
+                isStrict ? 'Auto-Paused Instantly ⏸️' : 'Auto-Paused due to Background Tab ⏸️',
+                isStrict
+                  ? 'Your timer was paused instantly because the tab was hidden in Strict Focus Intensity mode.'
+                  : 'Your timer was automatically paused because the browser tab was hidden for more than 5 seconds. This keeps your study tracking highly accurate!',
                 'System',
                 true,
                 isFocusSilenceMode
               );
             }
-          }, 5000);
+          };
+
+          if (isStrict) {
+            await pauseTimer();
+          } else {
+            hideTimeoutId = setTimeout(async () => {
+              await pauseTimer();
+            }, delay);
+          }
         }
       } else {
         if (hideTimeoutId) {
@@ -1104,7 +1132,7 @@ export default function App() {
       }
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [status, isFocusSilenceMode, commitUnloggedStudySec]);
+  }, [status, isFocusSilenceMode, commitUnloggedStudySec, settings.focusIntensity]);
 
   // --- Event Handlers ---
   const handleTogglePlay = useCallback(async () => {
@@ -1118,6 +1146,19 @@ export default function App() {
       vibrateStart();
     }
   }, [status, mode, commitUnloggedStudySec]);
+
+  const handleSaveFocusRating = useCallback(async (rating: number) => {
+    if (ratingSessionId) {
+      const found = sessions.find(s => s.id === ratingSessionId);
+      if (found) {
+        const updated = { ...found, rating };
+        await TimerraDB.updateSession(updated);
+        const updatedSessions = await TimerraDB.allSessions();
+        setSessions(updatedSessions);
+      }
+    }
+    setRatingSessionId(null);
+  }, [ratingSessionId, sessions]);
 
   const handleReset = useCallback(async () => {
     playClick();
@@ -1907,14 +1948,40 @@ export default function App() {
           </div>
         )}
 
+        {/* TAB NAVIGATION: SIMPLE, MODERN & CLEAN CONFIGURATION (STRICT USER MANDATE) */}
+        {!isFullscreen && (
+          <div className="w-full max-w-md mx-auto mt-12 mb-8 flex items-center justify-center p-1 rounded-2xl bg-white/[0.02] border border-white/5 backdrop-blur-md shadow-lg select-none">
+            {[
+              { id: 'focus', label: 'Focus Space', icon: Target, color: 'text-orange-400' },
+              { id: 'ambient', label: 'Soundscapes', icon: Music, color: 'text-indigo-400' },
+              { id: 'analytics', label: 'Analytics & Hub', icon: BarChart2, color: 'text-cyan-400' },
+            ].map(tab => {
+              const isActive = activeTab === tab.id;
+              const Icon = tab.icon;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => { playClick(); setActiveTab(tab.id as any); }}
+                  className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-[11px] font-bold uppercase tracking-wider transition-all cursor-pointer relative ${
+                    isActive 
+                      ? 'bg-white/[0.06] text-white shadow-md border border-white/10' 
+                      : 'text-slate-400 hover:text-slate-200 hover:bg-white/[0.02]'
+                  }`}
+                >
+                  <Icon className={`w-3.5 h-3.5 ${isActive ? tab.color : 'text-slate-400'}`} />
+                  <span>{tab.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        )}
+
         {/* STATIONS & STATISTICS DIVISION ROW */}
         {!isFullscreen && (
-          <div className="w-full grid grid-cols-1 lg:grid-cols-3 gap-6 mt-16 animate-fade-in">
-          
-          {/* Column 1: Focus Subject & Mood Board + Multi-track audio ambient mixer */}
-          <div className="lg:col-span-1 space-y-6">
-            
-            {/* Subject Board & Mood Selector */}
+          <div className="w-full mt-6 animate-fade-in">
+            {activeTab === 'focus' && (
+              <div className="w-full max-w-2xl mx-auto space-y-6 animate-fade-in">
+                {/* Subject Board & Mood Selector */}
             <div className="w-full p-5 rounded-3xl tm-glass-dense border border-white/5 relative overflow-hidden flex flex-col gap-4 animate-fade-in select-none">
               {/* background decorative flow */}
               <div className="absolute top-0 left-0 w-24 h-24 bg-tm-primary/5 rounded-full blur-2xl pointer-events-none" />
@@ -2228,17 +2295,22 @@ export default function App() {
                 </div>
               </div>
 
-            </div>
+              </div>
+              </div>
+            )}
 
-            <AmbientMixer 
-              timerStatus={status}
-              timerMode={mode}
-            />
-          </div>
+            {activeTab === 'ambient' && (
+              <div className="w-full max-w-2xl mx-auto animate-fade-in">
+                <AmbientMixer 
+                  timerStatus={status}
+                  timerMode={mode}
+                />
+              </div>
+            )}
 
-          {/* Columns 2-3: Performance analysis dashboard */}
-          <div className="lg:col-span-2 space-y-6">
-            <div className="p-5 sm:p-6 rounded-3xl tm-glass space-y-6">
+            {activeTab === 'analytics' && (
+              <div className="w-full max-w-4xl mx-auto space-y-6 animate-fade-in">
+                <div className="p-5 sm:p-6 rounded-3xl tm-glass space-y-6">
               
               {/* Stats title bar */}
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-white/5">
@@ -2427,10 +2499,10 @@ export default function App() {
                 )}
               </div>
 
-            </div>
+                </div>
+              </div>
+            )}
           </div>
-
-        </div>
         )}
 
       </main>
@@ -2510,6 +2582,7 @@ export default function App() {
         isSilenceModeActive={isFocusSilenceMode}
         onToggleSilenceMode={() => setIsFocusSilenceMode(p => !p)}
         onOpenCompletedSubjects={() => setShowCompletedSubjectsPanel(true)}
+        sessions={sessions}
       />
 
       {/* COMPREHENSIVE INTERACTIVE STUDY HISTORY PANEL */}
@@ -2562,6 +2635,15 @@ export default function App() {
           onClose={() => setDnaEvolutionStage(null)}
         />
       )}
+
+      {/* POST-SESSION FOCUS RATING MODAL */}
+      <FocusRatingModal
+        isOpen={ratingSessionId !== null}
+        subject={ratingSessionSubject}
+        durationMinutes={ratingSessionDuration}
+        onSave={handleSaveFocusRating}
+        onClose={() => setRatingSessionId(null)}
+      />
 
       {/* 🧭 NAVIGATION SYSTEM: LEFT NAVIGATION RAIL & FLOATING ORB DOCK */}
       {!isFullscreen && (

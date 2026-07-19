@@ -82,6 +82,7 @@ export const HistoryPanel: React.FC<HistoryPanelProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [modeFilter, setModeFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [dateRangeFilter, setDateRangeFilter] = useState<'all' | 'week' | 'month'>('all');
   const [sortBy, setSortBy] = useState<'newest' | 'oldest' | 'longest' | 'shortest'>('newest');
   
   // Note editing state
@@ -302,9 +303,32 @@ export const HistoryPanel: React.FC<HistoryPanelProps> = ({
     }
   };
 
+  // Filter sessions by selected date range
+  const dateFilteredSessions = useMemo(() => {
+    const now = new Date();
+    
+    // Start of current week (Sunday)
+    const startOfWeek = new Date(now.getFullYear(), now.getMonth(), now.getDate() - now.getDay());
+    startOfWeek.setHours(0, 0, 0, 0);
+
+    // Start of current month (1st of month)
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    startOfMonth.setHours(0, 0, 0, 0);
+
+    return sessions.filter((s) => {
+      if (dateRangeFilter === 'week') {
+        return s.completedAt >= startOfWeek.getTime();
+      }
+      if (dateRangeFilter === 'month') {
+        return s.completedAt >= startOfMonth.getTime();
+      }
+      return true; // 'all'
+    });
+  }, [sessions, dateRangeFilter]);
+
   // Process Search, Filtering & Sorting
   const filteredSessions = useMemo(() => {
-    return sessions.filter((s) => {
+    return dateFilteredSessions.filter((s) => {
       // Search term
       if (searchQuery.trim()) {
         const query = searchQuery.toLowerCase();
@@ -334,23 +358,23 @@ export const HistoryPanel: React.FC<HistoryPanelProps> = ({
       if (sortBy === 'shortest') return a.durationSec - b.durationSec;
       return 0;
     });
-  }, [sessions, searchQuery, modeFilter, statusFilter, sortBy]);
+  }, [dateFilteredSessions, searchQuery, modeFilter, statusFilter, sortBy]);
 
   // Statistics Computations
   const stats = useMemo(() => {
-    const totalSec = sessions.reduce((sum, s) => sum + s.durationSec, 0);
-    const completedCount = sessions.filter(s => s.completed).length;
-    const completionRate = sessions.length > 0 ? Math.round((completedCount / sessions.length) * 100) : 0;
+    const totalSec = dateFilteredSessions.reduce((sum, s) => sum + s.durationSec, 0);
+    const completedCount = dateFilteredSessions.filter(s => s.completed).length;
+    const completionRate = dateFilteredSessions.length > 0 ? Math.round((completedCount / dateFilteredSessions.length) * 100) : 0;
 
     // Daily focus times to calculate streak
     const uniqueDays = new Set(
-      sessions.map(s => new Date(s.completedAt).toDateString())
+      dateFilteredSessions.map(s => new Date(s.completedAt).toDateString())
     );
     const totalDaysFocused = uniqueDays.size;
 
     // Find most productive subject overall
     const subjectMins: { [sub: string]: number } = {};
-    sessions.forEach(s => {
+    dateFilteredSessions.forEach(s => {
       subjectMins[s.subject] = (subjectMins[s.subject] || 0) + s.durationSec / 60;
     });
     let topSubject = 'None';
@@ -364,7 +388,7 @@ export const HistoryPanel: React.FC<HistoryPanelProps> = ({
 
     // Find most productive subject this week (last 7 days)
     const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
-    const weeklySessions = sessions.filter(s => s.completedAt >= sevenDaysAgo);
+    const weeklySessions = dateFilteredSessions.filter(s => s.completedAt >= sevenDaysAgo);
     const weeklySubjectMins: { [sub: string]: number } = {};
     weeklySessions.forEach(s => {
       weeklySubjectMins[s.subject] = (weeklySubjectMins[s.subject] || 0) + s.durationSec / 60;
@@ -384,19 +408,19 @@ export const HistoryPanel: React.FC<HistoryPanelProps> = ({
 
     return {
       hours: (totalSec / 3600).toFixed(1),
-      sessionsCount: sessions.length,
+      sessionsCount: dateFilteredSessions.length,
       completionRate,
       streak: totalDaysFocused,
       topSubject: topSubject.length > 18 ? topSubject.slice(0, 15) + '...' : topSubject,
       weeklyTopSubject: weeklyTopSubject.length > 18 ? weeklyTopSubject.slice(0, 15) + '...' : weeklyTopSubject
     };
-  }, [sessions]);
+  }, [dateFilteredSessions]);
 
   // Client-Side CSV Export File Generator
   const handleExportCSV = () => {
     playClick();
-    if (sessions.length === 0) {
-      alert('No sessions available to export.');
+    if (filteredSessions.length === 0) {
+      alert('No sessions matching the active filters are available to export.');
       return;
     }
 
@@ -406,7 +430,7 @@ export const HistoryPanel: React.FC<HistoryPanelProps> = ({
       'Completed', 'Skipped', 'Stopped', 'Goal', 'Notes', 'Mood', 'Orb Theme', 'Device', 'Date', 'Week', 'Month'
     ];
 
-    const rows = sessions.map(s => [
+    const rows = filteredSessions.map(s => [
       s.id || '',
       s.mode,
       `"${s.subject.replace(/"/g, '""')}"`,
@@ -442,12 +466,12 @@ export const HistoryPanel: React.FC<HistoryPanelProps> = ({
   // Client-Side JSON Export File Generator
   const handleExportJSON = () => {
     playClick();
-    if (sessions.length === 0) {
-      alert('No sessions available to export.');
+    if (filteredSessions.length === 0) {
+      alert('No sessions matching the active filters are available to export.');
       return;
     }
 
-    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(sessions, null, 2));
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(filteredSessions, null, 2));
     const link = document.createElement("a");
     link.setAttribute("href", dataStr);
     link.setAttribute("download", `timerra_focus_history_${Date.now()}.json`);
@@ -564,6 +588,21 @@ export const HistoryPanel: React.FC<HistoryPanelProps> = ({
           {/* Center: Filters & Sorters */}
           <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
             
+            {/* Date Range Select */}
+            <select
+              value={dateRangeFilter}
+              onChange={(e) => {
+                playClick();
+                setDateRangeFilter(e.target.value as any);
+              }}
+              className="bg-white/[0.02] border border-white/5 rounded-2xl px-3 py-2.5 text-xs text-white focus:outline-none cursor-pointer hover:bg-white/[0.05] transition-all"
+              title="Filter by completion date range"
+            >
+              <option value="all" className="bg-[#0b1020]">All Time</option>
+              <option value="week" className="bg-[#0b1020]">This Week</option>
+              <option value="month" className="bg-[#0b1020]">This Month</option>
+            </select>
+
             {/* Mode Select */}
             <select
               value={modeFilter}

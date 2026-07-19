@@ -60,6 +60,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
   const [syncWithSystem, setSyncWithSystem] = useState(settings.syncWithSystem === true);
   const [dailyGoalHoursVal, setDailyGoalHoursVal] = useState(settings.dailyGoalHours || 4);
   const [focusReminderTime, setFocusReminderTime] = useState(settings.focusReminderTime || '');
+  const [focusIntensityVal, setFocusIntensityVal] = useState<'standard' | 'strict'>(settings.focusIntensity || 'standard');
   const [alertSoundId, setAlertSoundId] = useState(settings.alertSoundId || 'default');
   const [customSoundData, setCustomSoundData] = useState(settings.customSoundData || '');
   const [customSoundName, setCustomSoundName] = useState(settings.customSoundName || '');
@@ -201,6 +202,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
       dailyGoalHours: Number(dailyGoalHoursVal),
       focusReminderTime: focusReminderTime || undefined,
       alertSoundId: alertSoundId,
+      focusIntensity: focusIntensityVal,
       customSoundData: customSoundData || undefined,
       customSoundName: customSoundName || undefined,
       customTheme: {
@@ -849,6 +851,38 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                       />
                       <div className="w-10 h-5.5 bg-white/10 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[3px] after:left-[3px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-tm-primary" />
                     </label>
+                  </div>
+
+                  {/* Focus Intensity Toggle */}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between p-3.5 rounded-xl bg-black/20 border border-white/5 hover:border-white/10 transition-all gap-3">
+                    <div className="space-y-0.5 max-w-[70%]">
+                      <span className="text-xs font-bold text-slate-200">Focus Intensity (Auto-Pause)</span>
+                      <p className="text-[10px] text-slate-400">Choose between Strict (pauses tab instantly) and Standard (5s delay).</p>
+                    </div>
+                    <div className="flex bg-white/[0.03] border border-white/10 p-1 rounded-xl shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => { playClick(); setFocusIntensityVal('standard'); }}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                          focusIntensityVal === 'standard'
+                            ? 'bg-tm-primary text-white shadow-[0_0_10px_rgba(255,255,255,0.1)]'
+                            : 'text-slate-400 hover:text-white hover:bg-white/5'
+                        }`}
+                      >
+                        Standard
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => { playClick(); setFocusIntensityVal('strict'); }}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                          focusIntensityVal === 'strict'
+                            ? 'bg-tm-primary text-white shadow-[0_0_10px_rgba(255,255,255,0.1)]'
+                            : 'text-slate-400 hover:text-white hover:bg-white/5'
+                        }`}
+                      >
+                        Strict
+                      </button>
+                    </div>
                   </div>
 
                   {/* Metronome study tick sound toggle */}

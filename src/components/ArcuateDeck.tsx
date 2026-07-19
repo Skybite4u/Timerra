@@ -77,7 +77,7 @@ export const ArcuateDeck: React.FC<ArcuateDeckProps> = ({
                 title={btn.label}
                 className={`rounded-full flex items-center justify-center group active:scale-95 cursor-pointer transition-all duration-300 relative ${
                   btn.isCenter
-                    ? 'w-16 h-16 bg-gradient-to-tr from-tm-primary to-tm-accent border-2 border-white/20 text-white shadow-[0_0_25px_rgba(251,146,60,0.3)] z-20 animate-pulse-slow'
+                    ? 'w-16 h-16 bg-gradient-to-tr from-tm-primary to-tm-accent border-2 border-white/20 text-white shadow-[0_0_25px_rgba(251,146,60,0.3)] z-20'
                     : 'w-12 h-12 text-white/80 hover:text-white border border-white/10 bg-white/[0.03] backdrop-blur-md'
                 }`}
                 style={{

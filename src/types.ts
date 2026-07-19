@@ -26,6 +26,7 @@ export interface TimerSettings {
   dailyGoalHours?: number;       // default 4
   focusReminderTime?: string;    // default undefined / None
   alertSoundId?: string;         // default "default" / predefined ID
+  focusIntensity?: 'standard' | 'strict'; // default "standard"
   customSoundData?: string;      // Base64 or DataURL of custom uploaded sound
   customSoundName?: string;      // Name of custom uploaded sound
   customTheme?: {
@@ -60,6 +61,7 @@ export interface Session {
   date?: string; // YYYY-MM-DD
   week?: string; // e.g., "Week 28"
   month?: string; // e.g., "July"
+  rating?: number; // Focus rating 1-5 stars
 }
 
 export interface BackupPayload {
