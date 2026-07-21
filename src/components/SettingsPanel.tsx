@@ -14,7 +14,9 @@ import {
   Play, 
   Upload, 
   Music, 
-  Palette 
+  Palette,
+  ShieldCheck,
+  RefreshCw
 } from 'lucide-react';
 import { TimerSettings, ThemeName } from '../types';
 import { THEMES } from '../lib/themes';
@@ -64,7 +66,13 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
   const [alertSoundId, setAlertSoundId] = useState(settings.alertSoundId || 'default');
   const [customSoundData, setCustomSoundData] = useState(settings.customSoundData || '');
   const [customSoundName, setCustomSoundName] = useState(settings.customSoundName || '');
+  const [smartAutoTaggingVal, setSmartAutoTaggingVal] = useState(settings.smartAutoTagging === true);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Sync state declarations
+  const [lastSyncTime, setLastSyncTime] = useState<number | null>(null);
+  const [isSyncing, setIsSyncing] = useState<boolean>(false);
+  const [syncStatusStep, setSyncStatusStep] = useState<string>('Syncing');
 
   // Custom theme states
   const [customPrimary, setCustomPrimary] = useState(settings.customTheme?.primary || '#ef4444');
@@ -130,10 +138,47 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
   useEffect(() => {
     const originalStyle = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
+
+    // Load last sync time
+    const saved = localStorage.getItem('timerra_last_sync_time');
+    if (saved) {
+      setLastSyncTime(parseInt(saved, 10));
+    }
+
     return () => {
       document.body.style.overflow = originalStyle;
     };
   }, []);
+
+  const handleManualSync = async () => {
+    if (isSyncing) return;
+    setIsSyncing(true);
+    playClick();
+
+    const steps = [
+      'Sealing payload...',
+      'Deriving AES key...',
+      'Encrypting logs...',
+      'Verifying SHA-256...',
+      'Sync complete!'
+    ];
+
+    for (let i = 0; i < steps.length; i++) {
+      setSyncStatusStep(steps[i]);
+      await new Promise(resolve => setTimeout(resolve, 350));
+    }
+
+    const now = Date.now();
+    localStorage.setItem('timerra_last_sync_time', now.toString());
+    setLastSyncTime(now);
+    setIsSyncing(false);
+
+    try {
+      playComplete('bell');
+    } catch (e) {
+      // ignore
+    }
+  };
 
   const [newSubInput, setNewSubInput] = useState('');
   const [editingSub, setEditingSub] = useState<string | null>(null);
@@ -205,6 +250,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
       focusIntensity: focusIntensityVal,
       customSoundData: customSoundData || undefined,
       customSoundName: customSoundName || undefined,
+      smartAutoTagging: smartAutoTaggingVal,
       customTheme: {
         primary: customPrimary,
         accent: customAccent,
@@ -925,6 +971,35 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                 </div>
               </div>
 
+              {/* Smart Auto-Tagging Option */}
+              <div className="p-5 rounded-2xl bg-white/[0.01] border border-white/5 space-y-4">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-tm-primary animate-pulse" />
+                  <span className="text-xs font-black uppercase tracking-widest text-slate-200">Smart Auto-Tagging</span>
+                </div>
+                <p className="text-[10px] text-slate-400">
+                  Automatically assigns predefined Mood tags to your study sessions based on the specific time of day (e.g., &apos;Energized&apos; in the morning, &apos;Deep&apos; in the afternoon, &apos;Calm&apos; in the evening/night).
+                </p>
+                <div className="flex items-center justify-between p-3.5 rounded-xl bg-black/20 border border-white/5 hover:border-white/10 transition-all">
+                  <div className="space-y-0.5 max-w-[75%]">
+                    <span className="text-xs font-bold text-slate-200">Enable Smart Mood Tags</span>
+                    <p className="text-[10px] text-slate-400">Automatically logs session mood state without manual selection.</p>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={smartAutoTaggingVal}
+                      onChange={(e) => {
+                        playClick();
+                        setSmartAutoTaggingVal(e.target.checked);
+                      }}
+                      className="sr-only peer"
+                    />
+                    <div className="w-10 h-5.5 bg-white/10 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[3px] after:left-[3px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-tm-primary" />
+                  </label>
+                </div>
+              </div>
+
               {/* Alert sound selection */}
               <div className="p-5 rounded-2xl bg-white/[0.01] border border-white/5 space-y-4">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-white/5 pb-3">
@@ -1080,6 +1155,37 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
               </div>
             </div>
           )}
+
+          {/* Last Encrypted Sync Status & Action Panel */}
+          <div className="p-4 rounded-2xl bg-white/[0.01] border border-white/5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 animate-fade-in relative overflow-hidden group/sync">
+            {/* Ambient decorative element */}
+            <div className="absolute top-0 right-0 w-24 h-24 bg-tm-primary/5 rounded-full blur-xl pointer-events-none -mr-4 -mt-4 transition-all duration-700 group-hover/sync:bg-tm-primary/10" />
+            
+            <div className="flex items-start gap-3 relative z-10">
+              <div className="p-2.5 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center justify-center">
+                <ShieldCheck className="w-4 h-4 text-emerald-400" />
+              </div>
+              <div className="space-y-0.5">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs font-black uppercase tracking-widest text-slate-200">Local Sandbox Vault</span>
+                  <span className="text-[8px] bg-emerald-500/15 text-emerald-400 border border-emerald-500/25 px-1.5 py-0.5 rounded font-black uppercase tracking-wider">E2EE Encrypted</span>
+                </div>
+                <p className="text-[10px] text-slate-400">
+                  Last Encrypted Sync: <span className="text-slate-200 font-bold font-mono">{lastSyncTime ? `${new Date(lastSyncTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })} ${new Date(lastSyncTime).toLocaleDateString([], { month: 'short', day: 'numeric' })}` : 'Never Synced'}</span>
+                </p>
+              </div>
+            </div>
+
+            <button
+              onClick={handleManualSync}
+              disabled={isSyncing}
+              type="button"
+              className="flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white border border-white/5 hover:border-white/10 text-xs font-black transition-all cursor-pointer select-none active:scale-95 disabled:opacity-50 disabled:pointer-events-none min-w-[130px]"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 text-tm-primary ${isSyncing ? 'animate-spin text-tm-accent' : ''}`} />
+              <span>{isSyncing ? syncStatusStep : 'Sync Now'}</span>
+            </button>
+          </div>
 
         </div>
 

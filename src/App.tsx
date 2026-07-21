@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback, CSSProperties } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo, CSSProperties } from 'react';
 import { 
   Clock, 
   Sparkles, 
@@ -72,6 +72,7 @@ import { NavigationRail } from './components/NavigationRail';
 import { GuidedBreathing } from './components/GuidedBreathing';
 import { FocusRatingModal } from './components/FocusRatingModal';
 import { FocusCalendar } from './components/FocusCalendar';
+import { VoiceController } from './components/VoiceController';
 import { AnimatePresence, motion } from 'motion/react';
 
 // Custom Libs and Hooks
@@ -100,6 +101,7 @@ const defaultSettings: TimerSettings = {
   syncWithSystem: false,
   alertSoundId: 'default',
   focusIntensity: 'standard',
+  smartAutoTagging: false,
 };
 
 const getSubjectVisuals = (subjectName: string) => {
@@ -212,6 +214,57 @@ export default function App() {
   // --- Focus Subject & Mood states ---
   const [newSubjectInput, setNewSubjectInput] = useState<string>('');
   const [completedSubjects, setCompletedSubjects] = useState<string[]>([]);
+
+  // --- Smart Suggest for new subjects ---
+  const subjectSuggestions = useMemo(() => {
+    const trimmedInput = newSubjectInput.trim().toLowerCase();
+    if (!trimmedInput) return [];
+
+    // 1. Base list of common subjects
+    const presetSubjects = [
+      'Mathematics', 'Computer Science', 'Physics', 'Chemistry', 'Biology',
+      'History', 'Literature', 'Writing', 'Exercise', 'Design',
+      'Marketing', 'Programming', 'LeetCode', 'Reading', 'Deep Work',
+      'Language Learning', 'Calculus', 'Algorithms', 'React Development',
+      'Japanese', 'Spanish', 'German', 'French', 'Data Science',
+      'Machine Learning', 'System Design', 'Psychology', 'Economics',
+      'Finance', 'Accounting', 'Public Speaking', 'Photography'
+    ];
+
+    // 2. Gather from existing subjects in state (active)
+    const activeSet = new Set(subjects.map(s => s.toLowerCase()));
+
+    // 3. Gather from historical sessions
+    const sessionSubjects = sessions.map(s => s.subject).filter(Boolean) as string[];
+
+    // 4. Combine all unique candidate names (preset + historical + completed)
+    const candidates = Array.from(new Set([
+      ...presetSubjects,
+      ...sessionSubjects,
+      ...completedSubjects
+    ]));
+
+    // 5. Filter out candidates that are already active
+    const inactiveCandidates = candidates.filter(name => !activeSet.has(name.toLowerCase()));
+
+    // 6. Filter candidates matching the user input
+    // Sort so that items starting with the prefix are first, then items containing it
+    const matched = inactiveCandidates.filter(name => 
+      name.toLowerCase().includes(trimmedInput)
+    );
+
+    matched.sort((a, b) => {
+      const aLower = a.toLowerCase();
+      const bLower = b.toLowerCase();
+      const aStarts = aLower.startsWith(trimmedInput);
+      const bStarts = bLower.startsWith(trimmedInput);
+      if (aStarts && !bStarts) return -1;
+      if (!aStarts && bStarts) return 1;
+      return aLower.localeCompare(bLower);
+    });
+
+    return matched.slice(0, 5);
+  }, [newSubjectInput, subjects, sessions, completedSubjects]);
   const [completingSubject, setCompletingSubject] = useState<string | null>(null);
   const [subjectTargets, setSubjectTargets] = useState<Record<string, number>>(() => {
     try {
@@ -255,6 +308,30 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem('timerra_completed_subjects', JSON.stringify(completedSubjects));
   }, [completedSubjects]);
+
+  // Smart Auto-Tagging time of day effect
+  useEffect(() => {
+    if (settings.smartAutoTagging) {
+      const getMoodByTime = () => {
+        const hr = new Date().getHours();
+        if (hr >= 5 && hr < 12) {
+          return 'Energized';
+        } else if (hr >= 12 && hr < 18) {
+          return 'Deep';
+        } else {
+          return 'Calm';
+        }
+      };
+
+      setCurrentFocusMood(getMoodByTime());
+
+      const interval = setInterval(() => {
+        setCurrentFocusMood(getMoodByTime());
+      }, 60000); // Check every minute
+
+      return () => clearInterval(interval);
+    }
+  }, [settings.smartAutoTagging]);
 
   // Persistence of completed dates
   const [completedDates, setCompletedDates] = useState<Record<string, number>>(() => {
@@ -1544,6 +1621,44 @@ export default function App() {
 
   // --- Cryp Backup Sync triggers ---
   const handleGetBackupPayload = async () => {
+    // Read extra localstorage variables
+    let ambientVolumesObj = {};
+    try {
+      ambientVolumesObj = JSON.parse(localStorage.getItem('ambient_volumes') || '{}');
+    } catch (_) {}
+
+    let milestonesStateObj = null;
+    try {
+      milestonesStateObj = JSON.parse(localStorage.getItem('timerra_milestones_state') || 'null');
+    } catch (_) {}
+
+    let cardsStateObj = null;
+    try {
+      cardsStateObj = JSON.parse(localStorage.getItem('timerra_cards_state') || 'null');
+    } catch (_) {}
+
+    let focusDnaHistoryObj = null;
+    try {
+      focusDnaHistoryObj = JSON.parse(localStorage.getItem('timerra_focus_dna_history') || 'null');
+    } catch (_) {}
+
+    let orbConfigObj = null;
+    try {
+      orbConfigObj = JSON.parse(localStorage.getItem('timerra_orb_config') || 'null');
+    } catch (_) {}
+
+    let bgConfigObj = null;
+    try {
+      bgConfigObj = JSON.parse(localStorage.getItem('timerra_bg_config') || 'null');
+    } catch (_) {}
+
+    const ambientGlobalVolumeVal = parseInt(localStorage.getItem('ambient_global_volume') || '80', 10);
+    const ambientAutoStopVal = localStorage.getItem('ambient_auto_stop') === 'true';
+    const ambientAutoStopFocusEndVal = localStorage.getItem('ambient_auto_stop_focus_end') !== 'false';
+    const ytVideoIdVal = localStorage.getItem('yt_video_id') || '';
+    const discoveredResonanceVal = localStorage.getItem('timerra_discovered_resonance') || '';
+    const immersiveClockVal = localStorage.getItem('timerra_immersive_clock') !== 'false';
+
     return {
       app: 'Timerra' as const,
       version: 1 as const,
@@ -1555,6 +1670,21 @@ export default function App() {
       subjectTargets,
       subjectNotes,
       completedDates,
+      // Ambient Mixer Config
+      ambientVolumes: ambientVolumesObj,
+      ambientGlobalVolume: ambientGlobalVolumeVal,
+      ambientAutoStop: ambientAutoStopVal,
+      ambientAutoStopFocusEnd: ambientAutoStopFocusEndVal,
+      ytVideoId: ytVideoIdVal,
+      // Milestones / Cards / Focus DNA Achievements
+      milestonesState: milestonesStateObj,
+      cardsState: cardsStateObj,
+      focusDnaHistory: focusDnaHistoryObj,
+      discoveredResonance: discoveredResonanceVal,
+      // Immersive config
+      immersiveClock: immersiveClockVal,
+      orbConfig: orbConfigObj,
+      bgConfig: bgConfigObj,
     };
   };
 
@@ -1607,6 +1737,48 @@ export default function App() {
       localStorage.removeItem('timerra_subject_notes');
     }
 
+    // Restore Ambient Mixer Config if present
+    if (payload.ambientVolumes) {
+      localStorage.setItem('ambient_volumes', JSON.stringify(payload.ambientVolumes));
+    }
+    if (payload.ambientGlobalVolume !== undefined) {
+      localStorage.setItem('ambient_global_volume', payload.ambientGlobalVolume.toString());
+    }
+    if (payload.ambientAutoStop !== undefined) {
+      localStorage.setItem('ambient_auto_stop', payload.ambientAutoStop.toString());
+    }
+    if (payload.ambientAutoStopFocusEnd !== undefined) {
+      localStorage.setItem('ambient_auto_stop_focus_end', payload.ambientAutoStopFocusEnd.toString());
+    }
+    if (payload.ytVideoId !== undefined) {
+      localStorage.setItem('yt_video_id', payload.ytVideoId);
+    }
+
+    // Restore Milestones, Cards, Focus DNA achievements if present
+    if (payload.milestonesState) {
+      localStorage.setItem('timerra_milestones_state', JSON.stringify(payload.milestonesState));
+    }
+    if (payload.cardsState) {
+      localStorage.setItem('timerra_cards_state', JSON.stringify(payload.cardsState));
+    }
+    if (payload.focusDnaHistory) {
+      localStorage.setItem('timerra_focus_dna_history', JSON.stringify(payload.focusDnaHistory));
+    }
+    if (payload.discoveredResonance) {
+      localStorage.setItem('timerra_discovered_resonance', payload.discoveredResonance);
+    }
+
+    // Restore Immersive config
+    if (payload.immersiveClock !== undefined) {
+      localStorage.setItem('timerra_immersive_clock', payload.immersiveClock.toString());
+    }
+    if (payload.orbConfig) {
+      localStorage.setItem('timerra_orb_config', JSON.stringify(payload.orbConfig));
+    }
+    if (payload.bgConfig) {
+      localStorage.setItem('timerra_bg_config', JSON.stringify(payload.bgConfig));
+    }
+
     // Additive merging of sessions list
     const currentList = await TimerraDB.allSessions();
     const existingTimes = new Set(currentList.map(s => s.completedAt));
@@ -1625,6 +1797,11 @@ export default function App() {
     setTotalDurationSec(payload.settings.focusMinutes * 60);
     setMode('focus');
     setStatus('idle');
+
+    // Trigger full system refresh after a tiny delay so UI states reload fully
+    setTimeout(() => {
+      window.location.reload();
+    }, 1500);
   };
 
   // --- Statistical Metric Calcs ---
@@ -2023,13 +2200,23 @@ export default function App() {
 
         {/* STATIONS & STATISTICS DIVISION ROW */}
         {!isFullscreen && (
-          <div className="w-full mt-6 animate-fade-in">
-            {activeTab === 'focus' && !isFocusModeActive && (
-              <div className="w-full max-w-2xl mx-auto space-y-6 animate-fade-in">
-                {/* Subject Board & Mood Selector */}
-            <div className="w-full p-5 rounded-3xl tm-glass-dense border border-white/5 relative overflow-hidden flex flex-col gap-4 animate-fade-in select-none">
+          <div className="w-full mt-6">
+            <AnimatePresence mode="wait">
+              {activeTab === 'focus' && !isFocusModeActive && (
+                <motion.div
+                  key="focus-tab"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.2, ease: 'easeInOut' }}
+                  className="w-full max-w-2xl mx-auto space-y-6"
+                >
+                  {/* Subject Board & Mood Selector */}
+            <div className="w-full p-5 rounded-3xl tm-glass-dense border border-white/5 relative flex flex-col gap-4 animate-fade-in select-none">
               {/* background decorative flow */}
-              <div className="absolute top-0 left-0 w-24 h-24 bg-tm-primary/5 rounded-full blur-2xl pointer-events-none" />
+              <div className="absolute inset-0 overflow-hidden rounded-3xl pointer-events-none">
+                <div className="absolute top-0 left-0 w-24 h-24 bg-tm-primary/5 rounded-full blur-2xl pointer-events-none" />
+              </div>
               
               {/* Row 1: Title and direct settings path */}
               <div className="flex items-center justify-between border-b border-white/10 pb-3 relative z-10">
@@ -2076,7 +2263,7 @@ export default function App() {
                       playClick();
                       setSubjectSortOrder(e.target.value as 'alphabetical' | 'timeSpent');
                     }}
-                    className="bg-white/5 hover:bg-white/10 text-[10px] text-slate-300 font-bold border border-white/10 rounded-lg px-2 py-0.5 focus:outline-none focus:border-tm-primary/50 cursor-pointer transition-colors"
+                    className="bg-slate-950/40 hover:bg-white/5 text-[10px] text-slate-300 font-bold border border-white/5 rounded-xl px-3 py-1 pr-8 focus:outline-none focus:border-tm-primary/50 cursor-pointer transition-all backdrop-blur-md"
                   >
                     <option value="alphabetical" className="bg-slate-900 text-slate-300">Alphabetical</option>
                     <option value="timeSpent" className="bg-slate-900 text-slate-300">Total Time Spent</option>
@@ -2252,32 +2439,63 @@ export default function App() {
                   )}
                 </div>
 
-                {/* Direct quick add input */}
-                <form 
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    if (newSubjectInput.trim()) {
-                      playClick();
-                      handleAddSubject(newSubjectInput.trim());
-                      setNewSubjectInput('');
-                    }
-                  }}
-                  className="flex items-center gap-1.5 mt-2"
-                >
-                  <input
-                    type="text"
-                    value={newSubjectInput}
-                    onChange={(e) => setNewSubjectInput(e.target.value)}
-                    placeholder="Quick add subject..."
-                    className="flex-grow bg-white/[0.02] border border-white/10 focus:border-tm-primary/50 rounded-xl px-3 py-2 text-xs text-white focus:outline-none placeholder-slate-600 transition-colors"
-                  />
-                  <button
-                    type="submit"
-                    className="h-8 w-8 bg-tm-primary/15 hover:bg-tm-primary/35 border border-tm-primary/20 hover:border-tm-primary/40 rounded-xl flex items-center justify-center text-white cursor-pointer active:scale-95 transition-all"
+                {/* Direct quick add input with Smart Suggest */}
+                <div className="relative mt-2">
+                  <form 
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      const val = newSubjectInput.trim();
+                      if (val) {
+                        playClick();
+                        handleAddSubject(val);
+                        handleSaveSettings({ ...settings, subject: val });
+                        setNewSubjectInput('');
+                      }
+                    }}
+                    className="flex items-center gap-1.5"
                   >
-                    <Plus className="w-4 h-4 text-tm-primary" />
-                  </button>
-                </form>
+                    <input
+                      type="text"
+                      value={newSubjectInput}
+                      onChange={(e) => setNewSubjectInput(e.target.value)}
+                      placeholder="Quick add subject..."
+                      className="flex-grow bg-white/[0.02] border border-white/10 focus:border-tm-primary/50 rounded-xl px-3 py-2 text-xs text-white focus:outline-none placeholder-slate-600 transition-colors"
+                    />
+                    <button
+                      type="submit"
+                      className="h-8 w-8 bg-tm-primary/15 hover:bg-tm-primary/35 border border-tm-primary/20 hover:border-tm-primary/40 rounded-xl flex items-center justify-center text-white cursor-pointer active:scale-95 transition-all"
+                    >
+                      <Plus className="w-4 h-4 text-tm-primary" />
+                    </button>
+                  </form>
+
+                  {/* Smart Suggestions Floating Box */}
+                  {subjectSuggestions.length > 0 && (
+                    <div className="absolute left-0 right-0 top-full mt-1.5 z-[100] bg-[#0c1424]/95 border border-white/[0.08] rounded-2xl shadow-[0_10px_30px_rgba(0,0,0,0.6)] backdrop-blur-md overflow-hidden py-1.5 max-h-48 overflow-y-auto animate-in fade-in slide-in-from-top-2 duration-200">
+                      <div className="px-3 py-1 text-[8px] font-black uppercase tracking-wider text-slate-500 border-b border-white/5 flex items-center gap-1">
+                        <Sparkles className="w-2.5 h-2.5 text-rose-400" /> Smart Suggestions
+                      </div>
+                      {subjectSuggestions.map((suggestion) => (
+                        <button
+                          key={suggestion}
+                          type="button"
+                          onClick={() => {
+                            playClick();
+                            handleAddSubject(suggestion);
+                            handleSaveSettings({ ...settings, subject: suggestion });
+                            setNewSubjectInput('');
+                          }}
+                          className="w-full text-left px-3.5 py-2.5 hover:bg-white/[0.04] text-[11px] text-slate-300 hover:text-white flex items-center justify-between transition-colors group cursor-pointer"
+                        >
+                          <span className="font-medium">{suggestion}</span>
+                          <span className="text-[8px] font-black uppercase tracking-wider opacity-0 group-hover:opacity-100 bg-rose-500/10 text-rose-400 border border-rose-500/20 px-2 py-0.5 rounded-lg transition-all">
+                            Add Instantly
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
               
               {/* SECTION: Optional Focus Notes */}
@@ -2308,7 +2526,14 @@ export default function App() {
               <div className="border-t border-white/10 pt-3.5 space-y-2.5 relative z-10">
                 <div className="flex items-center justify-between">
                   <span className="text-[9px] font-extrabold uppercase tracking-widest text-slate-400">Focus Mood Tag</span>
-                  <span className="text-[10px] bg-tm-accent/10 text-tm-accent px-2.5 py-1 rounded-lg border border-tm-accent/25 font-extrabold uppercase tracking-wider">{currentFocusMood}</span>
+                  <div className="flex items-center gap-1.5">
+                    {settings.smartAutoTagging && (
+                      <span className="text-[8px] bg-amber-500/10 text-amber-400 border border-amber-500/20 px-2 py-0.5 rounded font-black uppercase tracking-wider flex items-center gap-1 animate-pulse">
+                        <Sparkles className="w-2.5 h-2.5 text-rose-400" /> Smart Auto
+                      </span>
+                    )}
+                    <span className="text-[10px] bg-tm-accent/10 text-tm-accent px-2.5 py-1 rounded-lg border border-tm-accent/25 font-extrabold uppercase tracking-wider">{currentFocusMood}</span>
+                  </div>
                 </div>
 
                 {/* Mood Tag Grid of 4 Actions */}
@@ -2341,20 +2566,34 @@ export default function App() {
               </div>
 
               </div>
-              </div>
+              </motion.div>
             )}
 
             {activeTab === 'ambient' && (
-              <div className="w-full max-w-2xl mx-auto animate-fade-in">
+              <motion.div
+                key="ambient-tab"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.2, ease: 'easeInOut' }}
+                className="w-full max-w-2xl mx-auto"
+              >
                 <AmbientMixer 
                   timerStatus={status}
                   timerMode={mode}
                 />
-              </div>
+              </motion.div>
             )}
 
             {activeTab === 'analytics' && (
-              <div className="w-full max-w-4xl mx-auto space-y-6 animate-fade-in">
+              <motion.div
+                key="analytics-tab"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.2, ease: 'easeInOut' }}
+                className="w-full max-w-4xl mx-auto space-y-6"
+              >
                 <div className="p-5 sm:p-6 rounded-3xl tm-glass space-y-6">
               
               {/* Stats title bar */}
@@ -2548,8 +2787,9 @@ export default function App() {
               </div>
 
                 </div>
-              </div>
+              </motion.div>
             )}
+            </AnimatePresence>
           </div>
         )}
 
@@ -2728,6 +2968,9 @@ export default function App() {
       <MorePanel
         isOpen={showMorePanel}
         onClose={() => setShowMorePanel(false)}
+        timerStatus={status}
+        timerRunning={status === 'running'}
+        isFullscreen={isFullscreen}
         onTriggerAction={(actionId) => {
           playClick();
           setShowMorePanel(false);
@@ -2796,7 +3039,7 @@ export default function App() {
                       playClick();
                       setSubjectSortOrder(e.target.value as 'alphabetical' | 'timeSpent');
                     }}
-                    className="bg-white/5 hover:bg-white/10 text-[10px] text-slate-300 font-bold border border-white/10 rounded-lg px-2 py-0.5 focus:outline-none focus:border-tm-primary/50 cursor-pointer transition-colors"
+                    className="bg-slate-950/40 hover:bg-white/5 text-[10px] text-slate-300 font-bold border border-white/5 rounded-xl px-3 py-1 pr-8 focus:outline-none focus:border-tm-primary/50 cursor-pointer transition-all backdrop-blur-md"
                   >
                     <option value="alphabetical" className="bg-slate-900 text-slate-300">Alphabetical</option>
                     <option value="timeSpent" className="bg-slate-900 text-slate-300">Total Time Spent</option>
@@ -2969,32 +3212,63 @@ export default function App() {
                   )}
                 </div>
 
-                {/* Direct quick add input */}
-                <form 
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    if (newSubjectInput.trim()) {
-                      playClick();
-                      handleAddSubject(newSubjectInput.trim());
-                      setNewSubjectInput('');
-                    }
-                  }}
-                  className="flex items-center gap-1.5 mt-2"
-                >
-                  <input
-                    type="text"
-                    value={newSubjectInput}
-                    onChange={(e) => setNewSubjectInput(e.target.value)}
-                    placeholder="Quick add subject..."
-                    className="flex-grow bg-white/[0.02] border border-white/10 focus:border-tm-primary/50 rounded-xl px-3 py-2 text-xs text-white focus:outline-none placeholder-slate-600 transition-colors"
-                  />
-                  <button
-                    type="submit"
-                    className="h-8 w-8 bg-tm-primary/15 hover:bg-tm-primary/35 border border-tm-primary/20 hover:border-tm-primary/40 rounded-xl flex items-center justify-center text-white cursor-pointer active:scale-95 transition-all"
+                {/* Direct quick add input with Smart Suggest */}
+                <div className="relative mt-2">
+                  <form 
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      const val = newSubjectInput.trim();
+                      if (val) {
+                        playClick();
+                        handleAddSubject(val);
+                        handleSaveSettings({ ...settings, subject: val });
+                        setNewSubjectInput('');
+                      }
+                    }}
+                    className="flex items-center gap-1.5"
                   >
-                    <Plus className="w-4 h-4 text-tm-primary" />
-                  </button>
-                </form>
+                    <input
+                      type="text"
+                      value={newSubjectInput}
+                      onChange={(e) => setNewSubjectInput(e.target.value)}
+                      placeholder="Quick add subject..."
+                      className="flex-grow bg-white/[0.02] border border-white/10 focus:border-tm-primary/50 rounded-xl px-3 py-2 text-xs text-white focus:outline-none placeholder-slate-600 transition-colors"
+                    />
+                    <button
+                      type="submit"
+                      className="h-8 w-8 bg-tm-primary/15 hover:bg-tm-primary/35 border border-tm-primary/20 hover:border-tm-primary/40 rounded-xl flex items-center justify-center text-white cursor-pointer active:scale-95 transition-all"
+                    >
+                      <Plus className="w-4 h-4 text-tm-primary" />
+                    </button>
+                  </form>
+
+                  {/* Smart Suggestions Floating Box */}
+                  {subjectSuggestions.length > 0 && (
+                    <div className="absolute left-0 right-0 top-full mt-1.5 z-[100] bg-[#0c1424]/95 border border-white/[0.08] rounded-2xl shadow-[0_10px_30px_rgba(0,0,0,0.6)] backdrop-blur-md overflow-hidden py-1.5 max-h-48 overflow-y-auto animate-in fade-in slide-in-from-top-2 duration-200">
+                      <div className="px-3 py-1 text-[8px] font-black uppercase tracking-wider text-slate-500 border-b border-white/5 flex items-center gap-1">
+                        <Sparkles className="w-2.5 h-2.5 text-rose-400" /> Smart Suggestions
+                      </div>
+                      {subjectSuggestions.map((suggestion) => (
+                        <button
+                          key={suggestion}
+                          type="button"
+                          onClick={() => {
+                            playClick();
+                            handleAddSubject(suggestion);
+                            handleSaveSettings({ ...settings, subject: suggestion });
+                            setNewSubjectInput('');
+                          }}
+                          className="w-full text-left px-3.5 py-2.5 hover:bg-white/[0.04] text-[11px] text-slate-300 hover:text-white flex items-center justify-between transition-colors group cursor-pointer"
+                        >
+                          <span className="font-medium">{suggestion}</span>
+                          <span className="text-[8px] font-black uppercase tracking-wider opacity-0 group-hover:opacity-100 bg-rose-500/10 text-rose-400 border border-rose-500/20 px-2 py-0.5 rounded-lg transition-all">
+                            Add Instantly
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
 
                 {/* SECTION: Optional Focus Notes in Fullscreen */}
                 <div className="space-y-2 mt-4 pt-4 border-t border-white/10">
@@ -3024,6 +3298,16 @@ export default function App() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* 🗣️ INTELLIGENT VOICE CONTROL SYSTEM */}
+      <VoiceController
+        status={status}
+        isFocusSilenceMode={isFocusSilenceMode}
+        onTogglePlay={handleTogglePlay}
+        onStop={handleStop}
+        onToggleSilenceMode={() => setIsFocusSilenceMode(p => !p)}
+        isFullscreen={isFullscreen}
+      />
 
     </div>
   );

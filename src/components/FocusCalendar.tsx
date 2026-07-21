@@ -235,16 +235,18 @@ export const FocusCalendar: React.FC<FocusCalendarProps> = ({ sessions }) => {
             const sessionsOnDay = sessionsByDate[item.dateKey] || [];
             const isToday = item.isCurrentMonth && item.dayNum === currentDate && viewMonth === currentMonth && viewYear === currentYear;
             
-            // Subtle color tier depending on number of sessions completed (like contributions map)
+            // Color-intensity scale depending on total focus duration in minutes (light green to dark green)
             let highlightClass = '';
             if (hasSessions) {
-              const count = sessionsOnDay.length;
-              if (count === 1) {
-                highlightClass = 'bg-tm-primary/20 border-tm-primary/30 text-white font-bold shadow-[0_0_12px_rgba(var(--tm-primary-rgb),0.1)]';
-              } else if (count === 2) {
-                highlightClass = 'bg-tm-primary/35 border-tm-primary/50 text-white font-bold shadow-[0_0_15px_rgba(var(--tm-primary-rgb),0.2)]';
+              const totalMinutesOnDay = sessionsOnDay.reduce((acc, curr) => acc + curr.durationSec, 0) / 60;
+              if (totalMinutesOnDay < 30) {
+                highlightClass = 'bg-emerald-500/20 border-emerald-500/30 text-emerald-300 font-bold shadow-[0_0_8px_rgba(16,185,129,0.15)] hover:bg-emerald-500/30';
+              } else if (totalMinutesOnDay < 60) {
+                highlightClass = 'bg-emerald-500/40 border-emerald-500/55 text-emerald-200 font-bold shadow-[0_0_12px_rgba(16,185,129,0.2)] hover:bg-emerald-500/50';
+              } else if (totalMinutesOnDay < 120) {
+                highlightClass = 'bg-emerald-500/65 border-emerald-500/75 text-white font-extrabold shadow-[0_0_15px_rgba(16,185,129,0.25)] hover:bg-emerald-500/75';
               } else {
-                highlightClass = 'bg-tm-primary/55 border-tm-primary/80 text-white font-extrabold shadow-[0_0_18px_rgba(var(--tm-primary-rgb),0.3)]';
+                highlightClass = 'bg-emerald-500 border-emerald-400 text-white font-black shadow-[0_0_20px_rgba(16,185,129,0.4)] hover:bg-emerald-400';
               }
             }
 
@@ -339,7 +341,7 @@ export const FocusCalendar: React.FC<FocusCalendarProps> = ({ sessions }) => {
         </div>
 
         {/* Legend */}
-        <div className="flex items-center gap-3 text-slate-500">
+        <div className="flex items-center gap-2.5 sm:gap-3 text-slate-500">
           <span className="flex items-center gap-1">
             <span className="w-2 h-2 rounded-md bg-white/[0.01] border border-white/[0.03]" />
             Empty
@@ -349,8 +351,20 @@ export const FocusCalendar: React.FC<FocusCalendarProps> = ({ sessions }) => {
             Today
           </span>
           <span className="flex items-center gap-1">
-            <span className="w-2 h-2 rounded-md bg-tm-primary/30 border border-tm-primary/50" />
-            Completed
+            <span className="w-2 h-2 rounded-md bg-emerald-500/25 border border-emerald-500/40" />
+            &lt;30m
+          </span>
+          <span className="flex items-center gap-1">
+            <span className="w-2 h-2 rounded-md bg-emerald-500/45 border border-emerald-500/60" />
+            30m-1h
+          </span>
+          <span className="flex items-center gap-1">
+            <span className="w-2 h-2 rounded-md bg-emerald-500/70 border border-emerald-500/80" />
+            1h-2h
+          </span>
+          <span className="flex items-center gap-1">
+            <span className="w-2 h-2 rounded-md bg-emerald-500 border border-emerald-400" />
+            2h+
           </span>
         </div>
       </div>

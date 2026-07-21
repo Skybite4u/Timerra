@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { 
-  X, Search, ChevronRight, Award, Sparkles, Clock, Dna, Star, HelpCircle, Database, Sliders, BarChart2
+  X, Search, ChevronRight, Award, Sparkles, Clock, Dna, Star, HelpCircle, Database, Sliders, BarChart2, Keyboard
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -10,6 +10,9 @@ interface MorePanelProps {
   onTriggerAction: (action: string) => void;
   todaySessionsCount: number;
   streakDays: number;
+  timerRunning?: boolean;
+  timerStatus?: 'running' | 'paused' | 'idle';
+  isFullscreen?: boolean;
 }
 
 interface NavItem {
@@ -27,9 +30,14 @@ export const MorePanel: React.FC<MorePanelProps> = ({
   onClose, 
   onTriggerAction,
   todaySessionsCount,
-  streakDays
+  streakDays,
+  timerRunning = false,
+  timerStatus = 'idle',
+  isFullscreen = false
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
+  const [showShortcuts, setShowShortcuts] = useState(false);
+  const [pressedKey, setPressedKey] = useState<string | null>(null);
 
   useEffect(() => {
     if (isOpen) {
@@ -40,6 +48,58 @@ export const MorePanel: React.FC<MorePanelProps> = ({
       };
     }
   }, [isOpen]);
+
+  useEffect(() => {
+    if (!showShortcuts) {
+      setPressedKey(null);
+      return;
+    }
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement;
+      if (
+        !target ||
+        target.tagName === 'INPUT' ||
+        target.tagName === 'TEXTAREA' ||
+        target.isContentEditable
+      ) {
+        return;
+      }
+
+      let keyId = '';
+      if (e.key === ' ') {
+        keyId = 'space';
+      } else {
+        keyId = e.key.toLowerCase();
+      }
+
+      if (['space', 'r', 'f', 's', 'm'].includes(keyId)) {
+        // Prevent default spacebar scrolling
+        if (keyId === 'space') {
+          e.preventDefault();
+        }
+        setPressedKey(keyId);
+      }
+    };
+
+    const handleKeyUp = () => {
+      setPressedKey(null);
+    };
+
+    const handleBlur = () => {
+      setPressedKey(null);
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+    window.addEventListener('blur', handleBlur);
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+      window.removeEventListener('blur', handleBlur);
+    };
+  }, [showShortcuts]);
 
   const navItems: NavItem[] = useMemo(() => [
     {
@@ -239,6 +299,31 @@ export const MorePanel: React.FC<MorePanelProps> = ({
             })
           )}
 
+          {/* KEYBOARD SHORTCUTS TRIGGER BUTTON */}
+          <div className="pt-2">
+            <button
+              onClick={() => setShowShortcuts(true)}
+              className="w-full text-left p-3.5 bg-white/[0.02] hover:bg-white/[0.06] border border-white/5 hover:border-white/10 rounded-2xl transition-all duration-300 flex items-center justify-between group cursor-pointer active:scale-[0.99] shadow-sm hover:shadow-md"
+            >
+              <div className="flex items-center gap-3.5">
+                <div className="w-10 h-10 rounded-xl bg-white/[0.03] border border-white/5 flex items-center justify-center transition-all group-hover:scale-110 shrink-0 group-hover:bg-rose-500/10 group-hover:border-rose-500/30">
+                  <Keyboard size={18} className="text-slate-300 group-hover:text-rose-400 transition-colors" />
+                </div>
+                <div className="space-y-0.5">
+                  <span className="text-xs font-bold text-white group-hover:text-rose-400 transition-colors flex items-center gap-1.5">
+                    Keyboard Shortcuts
+                  </span>
+                  <p className="text-[10px] text-slate-400/90 leading-tight">
+                    Instant hotkeys to seamlessly control the focus timer
+                  </p>
+                </div>
+              </div>
+              <span className="text-[9px] font-black uppercase tracking-wider bg-rose-500/10 border border-rose-500/20 text-rose-400 px-2.5 py-1 rounded-lg shrink-0 group-hover:bg-rose-500/20 transition-colors">
+                View
+              </span>
+            </button>
+          </div>
+
           {/* TIMERRA ABOUT INFO BLOCK */}
           <div className="pt-4">
             <div className="p-4 bg-white/[0.01] border border-white/5 rounded-2xl flex flex-col gap-1.5 text-center relative overflow-hidden backdrop-blur-md">
@@ -251,6 +336,277 @@ export const MorePanel: React.FC<MorePanelProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Keyboard Shortcuts Glassy Modal Overlay */}
+      <AnimatePresence>
+        {showShortcuts && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/75 backdrop-blur-md px-4">
+            {/* Click backdrop to close */}
+            <div className="absolute inset-0 cursor-default" onClick={() => setShowShortcuts(false)} />
+
+            {/* Modal Body */}
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              transition={{ duration: 0.2, ease: 'easeOut' }}
+              className="relative w-full max-w-sm bg-[#060b18]/95 border border-white/[0.08] rounded-[2rem] p-6 shadow-[0_0_60px_rgba(0,0,0,0.85)] overflow-hidden backdrop-blur-[24px]"
+            >
+              {/* Decorative glows */}
+              <div className="absolute -top-12 -right-12 w-32 h-32 bg-rose-500/10 rounded-full blur-2xl pointer-events-none" />
+              <div className="absolute -bottom-12 -left-12 w-32 h-32 bg-indigo-500/10 rounded-full blur-2xl pointer-events-none" />
+
+              {/* Close Button */}
+              <button
+                onClick={() => setShowShortcuts(false)}
+                className="absolute top-4 right-4 w-8 h-8 hover:bg-white/10 rounded-full text-slate-400 hover:text-white transition-colors cursor-pointer flex items-center justify-center z-10"
+              >
+                <X className="w-4 h-4" />
+              </button>
+
+              {/* Modal Title */}
+              <div className="flex items-center gap-3 mb-5 relative z-10">
+                <div className="w-9 h-9 rounded-xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center text-rose-400 animate-pulse">
+                  <Keyboard className="w-4 h-4" />
+                </div>
+                <div className="text-left">
+                  <h3 className="text-xs font-black uppercase tracking-[0.2em] text-white">Timerra Hotkeys</h3>
+                  <p className="text-[9.5px] text-slate-400 font-medium">Control study sessions instantly</p>
+                </div>
+              </div>
+
+              {/* Interactive Keypress Help Info */}
+              <div className="mb-4 p-3 bg-white/[0.02] border border-white/5 rounded-2xl text-left relative overflow-hidden">
+                <div className="flex items-center gap-2">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                  <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Live Input Detector</span>
+                </div>
+                <p className="text-[10px] text-slate-500 mt-1 leading-tight">
+                  Press any hotkey listed below on your keyboard to see the live detector flash and trigger!
+                </p>
+              </div>
+
+              {/* Shortcuts List */}
+              <div className="space-y-2.5 relative z-10">
+                {/* Spacebar */}
+                <div 
+                  className={`flex flex-col gap-1.5 p-3 rounded-2xl border transition-all duration-200 ${
+                    pressedKey === 'space' 
+                      ? 'bg-rose-500/10 border-rose-500/30 shadow-[0_0_15px_rgba(239,68,68,0.15)] scale-[1.01]' 
+                      : 'bg-white/[0.01] border-white/5 hover:border-white/10'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      {pressedKey === 'space' && (
+                        <span className="relative flex h-2 w-2">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
+                          <span className="relative inline-flex rounded-full h-2 w-2 bg-rose-500"></span>
+                        </span>
+                      )}
+                      <span className="text-[10px] text-slate-300 font-bold transition-colors">Play / Pause Timer</span>
+                    </div>
+                    <kbd 
+                      className={`px-3 py-1 text-[9px] font-mono rounded-lg transition-all duration-150 uppercase tracking-wider shadow-sm ${
+                        pressedKey === 'space'
+                          ? 'bg-rose-500 text-white border border-rose-400 shadow-[0_0_10px_rgba(239,68,68,0.4)] scale-110 font-black'
+                          : 'bg-white/5 border border-white/10 text-slate-200'
+                      }`}
+                    >
+                      Space
+                    </kbd>
+                  </div>
+                  <div className="flex items-center justify-between mt-0.5 pt-1.5 border-t border-white/[0.03]">
+                    <span className="text-[8px] uppercase tracking-wider text-slate-500 font-bold">Status:</span>
+                    {timerStatus === 'running' ? (
+                      <span className="inline-flex items-center gap-1 text-[8px] bg-emerald-500/10 text-emerald-400 px-2 py-0.5 rounded-full font-bold border border-emerald-500/25">
+                        <span className="w-1 h-1 rounded-full bg-emerald-400 animate-pulse" /> Active (Running)
+                      </span>
+                    ) : timerStatus === 'paused' ? (
+                      <span className="inline-flex items-center gap-1 text-[8px] bg-amber-500/10 text-amber-400 px-2 py-0.5 rounded-full font-bold border border-amber-500/25">
+                        <span className="w-1 h-1 rounded-full bg-amber-400 animate-pulse" /> Paused
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 text-[8px] bg-blue-500/10 text-blue-400 px-2 py-0.5 rounded-full font-bold border border-blue-500/25">
+                        <span className="w-1 h-1 rounded-full bg-blue-400" /> Ready (Idle)
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Reset R */}
+                <div 
+                  className={`flex flex-col gap-1.5 p-3 rounded-2xl border transition-all duration-200 ${
+                    pressedKey === 'r' 
+                      ? 'bg-rose-500/10 border-rose-500/30 shadow-[0_0_15px_rgba(239,68,68,0.15)] scale-[1.01]' 
+                      : 'bg-white/[0.01] border-white/5 hover:border-white/10'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      {pressedKey === 'r' && (
+                        <span className="relative flex h-2 w-2">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
+                          <span className="relative inline-flex rounded-full h-2 w-2 bg-rose-500"></span>
+                        </span>
+                      )}
+                      <span className="text-[10px] text-slate-300 font-bold transition-colors">Reset Focus Session</span>
+                    </div>
+                    <kbd 
+                      className={`px-3 py-1 text-[9px] font-mono rounded-lg transition-all duration-150 uppercase tracking-wider shadow-sm ${
+                        pressedKey === 'r'
+                          ? 'bg-rose-500 text-white border border-rose-400 shadow-[0_0_10px_rgba(239,68,68,0.4)] scale-110 font-black'
+                          : 'bg-white/5 border border-white/10 text-slate-200'
+                      }`}
+                    >
+                      R
+                    </kbd>
+                  </div>
+                  <div className="flex items-center justify-between mt-0.5 pt-1.5 border-t border-white/[0.03]">
+                    <span className="text-[8px] uppercase tracking-wider text-slate-500 font-bold">Status:</span>
+                    {timerStatus !== 'idle' ? (
+                      <span className="inline-flex items-center gap-1 text-[8px] bg-emerald-500/10 text-emerald-400 px-2 py-0.5 rounded-full font-bold border border-emerald-500/25">
+                        <span className="w-1 h-1 rounded-full bg-emerald-400" /> Available
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 text-[8px] bg-white/[0.03] text-slate-500 px-2 py-0.5 rounded-full font-bold border border-white/5">
+                        Unavailable (No Active Session)
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Fullscreen F */}
+                <div 
+                  className={`flex flex-col gap-1.5 p-3 rounded-2xl border transition-all duration-200 ${
+                    pressedKey === 'f' 
+                      ? 'bg-rose-500/10 border-rose-500/30 shadow-[0_0_15px_rgba(239,68,68,0.15)] scale-[1.01]' 
+                      : 'bg-white/[0.01] border-white/5 hover:border-white/10'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      {pressedKey === 'f' && (
+                        <span className="relative flex h-2 w-2">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
+                          <span className="relative inline-flex rounded-full h-2 w-2 bg-rose-500"></span>
+                        </span>
+                      )}
+                      <span className="text-[10px] text-slate-300 font-bold transition-colors">Toggle Fullscreen Mode</span>
+                    </div>
+                    <kbd 
+                      className={`px-3 py-1 text-[9px] font-mono rounded-lg transition-all duration-150 uppercase tracking-wider shadow-sm ${
+                        pressedKey === 'f'
+                          ? 'bg-rose-500 text-white border border-rose-400 shadow-[0_0_10px_rgba(239,68,68,0.4)] scale-110 font-black'
+                          : 'bg-white/5 border border-white/10 text-slate-200'
+                      }`}
+                    >
+                      F
+                    </kbd>
+                  </div>
+                  <div className="flex items-center justify-between mt-0.5 pt-1.5 border-t border-white/[0.03]">
+                    <span className="text-[8px] uppercase tracking-wider text-slate-500 font-bold">Status:</span>
+                    {isFullscreen ? (
+                      <span className="inline-flex items-center gap-1 text-[8px] bg-purple-500/15 text-purple-400 px-2 py-0.5 rounded-full font-bold border border-purple-500/25 shadow-[0_0_8px_rgba(168,85,247,0.15)]">
+                        Active (Fullscreen)
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 text-[8px] bg-blue-500/10 text-blue-400 px-2 py-0.5 rounded-full font-bold border border-blue-500/25">
+                        Available
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Settings S */}
+                <div 
+                  className={`flex flex-col gap-1.5 p-3 rounded-2xl border transition-all duration-200 ${
+                    pressedKey === 's' 
+                      ? 'bg-rose-500/10 border-rose-500/30 shadow-[0_0_15px_rgba(239,68,68,0.15)] scale-[1.01]' 
+                      : 'bg-white/[0.01] border-white/5 hover:border-white/10'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      {pressedKey === 's' && (
+                        <span className="relative flex h-2 w-2">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
+                          <span className="relative inline-flex rounded-full h-2 w-2 bg-rose-500"></span>
+                        </span>
+                      )}
+                      <span className="text-[10px] text-slate-300 font-bold transition-colors">Open System Settings</span>
+                    </div>
+                    <kbd 
+                      className={`px-3 py-1 text-[9px] font-mono rounded-lg transition-all duration-150 uppercase tracking-wider shadow-sm ${
+                        pressedKey === 's'
+                          ? 'bg-rose-500 text-white border border-rose-400 shadow-[0_0_10px_rgba(239,68,68,0.4)] scale-110 font-black'
+                          : 'bg-white/5 border border-white/10 text-slate-200'
+                      }`}
+                    >
+                      S
+                    </kbd>
+                  </div>
+                  <div className="flex items-center justify-between mt-0.5 pt-1.5 border-t border-white/[0.03]">
+                    <span className="text-[8px] uppercase tracking-wider text-slate-500 font-bold">Status:</span>
+                    <span className="inline-flex items-center gap-1 text-[8px] bg-blue-500/10 text-blue-400 px-2 py-0.5 rounded-full font-bold border border-blue-500/25">
+                      Available
+                    </span>
+                  </div>
+                </div>
+
+                {/* Stopwatch M */}
+                <div 
+                  className={`flex flex-col gap-1.5 p-3 rounded-2xl border transition-all duration-200 ${
+                    pressedKey === 'm' 
+                      ? 'bg-rose-500/10 border-rose-500/30 shadow-[0_0_15px_rgba(239,68,68,0.15)] scale-[1.01]' 
+                      : 'bg-white/[0.01] border-white/5 hover:border-white/10'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      {pressedKey === 'm' && (
+                        <span className="relative flex h-2 w-2">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
+                          <span className="relative inline-flex rounded-full h-2 w-2 bg-rose-500"></span>
+                        </span>
+                      )}
+                      <span className="text-[10px] text-slate-300 font-bold transition-colors">Toggle Stopwatch Mode</span>
+                    </div>
+                    <kbd 
+                      className={`px-3 py-1 text-[9px] font-mono rounded-lg transition-all duration-150 uppercase tracking-wider shadow-sm ${
+                        pressedKey === 'm'
+                          ? 'bg-rose-500 text-white border border-rose-400 shadow-[0_0_10px_rgba(239,68,68,0.4)] scale-110 font-black'
+                          : 'bg-white/5 border border-white/10 text-slate-200'
+                      }`}
+                    >
+                      M
+                    </kbd>
+                  </div>
+                  <div className="flex items-center justify-between mt-0.5 pt-1.5 border-t border-white/[0.03]">
+                    <span className="text-[8px] uppercase tracking-wider text-slate-500 font-bold">Status:</span>
+                    {timerStatus === 'idle' ? (
+                      <span className="inline-flex items-center gap-1 text-[8px] bg-emerald-500/10 text-emerald-400 px-2 py-0.5 rounded-full font-bold border border-emerald-500/25">
+                        Available
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 text-[8px] bg-rose-500/10 text-rose-400 px-2 py-0.5 rounded-full font-bold border border-rose-500/25">
+                        Locked (Active Session)
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Action hint footer */}
+              <div className="mt-5 pt-3.5 border-t border-white/5 text-center relative z-10">
+                <span className="text-[8px] uppercase tracking-wider text-slate-500 font-bold">
+                  *Hotkeys are active unless typing in an input
+                </span>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

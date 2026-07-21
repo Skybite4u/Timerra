@@ -29,6 +29,7 @@ export interface TimerSettings {
   focusIntensity?: 'standard' | 'strict'; // default "standard"
   customSoundData?: string;      // Base64 or DataURL of custom uploaded sound
   customSoundName?: string;      // Name of custom uploaded sound
+  smartAutoTagging?: boolean;    // Automatically assign a predefined Mood tag based on time of day
   customTheme?: {
     primary: string;
     accent: string;
@@ -75,6 +76,18 @@ export interface BackupPayload {
   subjectTargets?: Record<string, number>;
   subjectNotes?: Record<string, string>;
   completedDates?: Record<string, number>;
+  ambientVolumes?: Record<string, number>;
+  ambientGlobalVolume?: number;
+  ambientAutoStop?: boolean;
+  ambientAutoStopFocusEnd?: boolean;
+  ytVideoId?: string;
+  milestonesState?: any;
+  cardsState?: any;
+  focusDnaHistory?: any;
+  discoveredResonance?: string;
+  immersiveClock?: boolean;
+  orbConfig?: any;
+  bgConfig?: any;
 }
 
 export interface EncryptedBackupFile {

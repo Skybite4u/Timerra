@@ -475,15 +475,41 @@
   }
 }
 
-/* Hide scrollbars globally during fullscreen mode to prevent right-side slider/scrollbar while preserving scrollability */
+/* Custom scrollbar for fullscreen mode that matches the app's dark theme to remain aesthetically hidden while preserving layout */
 :fullscreen::-webkit-scrollbar,
 html:fullscreen::-webkit-scrollbar,
 body:fullscreen::-webkit-scrollbar,
 :-webkit-full-screen::-webkit-scrollbar,
 :-moz-full-screen::-webkit-scrollbar {
-  display: none !important;
-  width: 0 !important;
-  height: 0 !important;
+  display: block !important;
+  width: 4px !important;
+  height: 4px !important;
+  background-color: transparent !important;
+}
+
+:fullscreen::-webkit-scrollbar-track,
+html:fullscreen::-webkit-scrollbar-track,
+body:fullscreen::-webkit-scrollbar-track,
+:-webkit-full-screen::-webkit-scrollbar-track,
+:-moz-full-screen::-webkit-scrollbar-track {
+  background: transparent !important;
+}
+
+:fullscreen::-webkit-scrollbar-thumb,
+html:fullscreen::-webkit-scrollbar-thumb,
+body:fullscreen::-webkit-scrollbar-thumb,
+:-webkit-full-screen::-webkit-scrollbar-thumb,
+:-moz-full-screen::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.04) !important;
+  border-radius: 9999px !important;
+}
+
+:fullscreen::-webkit-scrollbar-thumb:hover,
+html:fullscreen::-webkit-scrollbar-thumb:hover,
+body:fullscreen::-webkit-scrollbar-thumb:hover,
+:-webkit-full-screen::-webkit-scrollbar-thumb:hover,
+:-moz-full-screen::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.08) !important;
 }
 
 :fullscreen,
@@ -491,8 +517,47 @@ html:fullscreen,
 body:fullscreen,
 :-webkit-full-screen,
 :-ms-fullscreen {
-  -ms-overflow-style: none !important;
-  scrollbar-width: none !important;
+  -ms-overflow-style: auto !important;
+  scrollbar-width: thin !important;
+  scrollbar-color: rgba(255, 255, 255, 0.04) transparent !important;
+}
+
+/* --- PREMIUM GLASSY DROPDOWN SELECT MENUS OVERRIDE --- */
+select {
+  appearance: none !important;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='rgba(156, 163, 175, 0.8)' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E") !important;
+  background-repeat: no-repeat !important;
+  background-position: right 0.85rem center !important;
+  background-size: 0.85em !important;
+  padding-right: 2.25rem !important;
+  background-color: rgba(15, 23, 42, 0.4) !important;
+  border: 1px solid rgba(255, 255, 255, 0.07) !important;
+  border-radius: 0.75rem !important;
+  color: #f1f5f9 !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.025em !important;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  backdrop-filter: blur(16px) !important;
+  -webkit-backdrop-filter: blur(16px) !important;
+}
+
+select:hover {
+  background-color: rgba(255, 255, 255, 0.05) !important;
+  border-color: rgba(255, 255, 255, 0.15) !important;
+  box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.3) !important;
+}
+
+select:focus {
+  outline: none !important;
+  border-color: var(--tm-primary, #ef4444) !important;
+  box-shadow: 0 0 15px -3px var(--tm-glow, rgba(239, 68, 68, 0.25)) !important;
+}
+
+select option {
+  background-color: #0b0f19 !important; /* Premium dark slate background for system dropdown choices */
+  color: #f1f5f9 !important;
+  font-weight: 500 !important;
+  padding: 0.75rem !important;
 }
 
 

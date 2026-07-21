@@ -1,8 +1,10 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { 
   X, Search, Filter, ArrowUpDown, Download, Trash2, Calendar, Clock, 
-  Tag, Compass, Smile, Smartphone, Flame, Award, BarChart2, Plus, Edit2, Check
+  Tag, Compass, Smile, Smartphone, Flame, Award, BarChart2, Plus, Edit2, Check,
+  AlertTriangle
 } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
 import { Session, TimerMode } from '../types';
 import { TimerraDB } from '../lib/db';
 import { playClick } from '../lib/audio';
@@ -104,6 +106,10 @@ export const HistoryPanel: React.FC<HistoryPanelProps> = ({
   const [manualGoal, setManualGoal] = useState('');
   const [manualNotes, setManualNotes] = useState('');
   const [manualMood, setManualMood] = useState('Focused');
+
+  // Deletion modals state
+  const [deleteTargetId, setDeleteTargetId] = useState<number | null>(null);
+  const [isClearingAll, setIsClearingAll] = useState<boolean>(false);
 
   const getTodayString = () => {
     const d = new Date();
@@ -243,32 +249,42 @@ export const HistoryPanel: React.FC<HistoryPanelProps> = ({
   }, [isOpen]);
 
   // Single Session deletion
-  const handleDeleteSession = async (id: number) => {
-    if (window.confirm('Are you sure you want to permanently delete this focus session record?')) {
-      playClick();
-      try {
-        await TimerraDB.deleteSession(id);
-        await reloadHistory();
-      } catch (e) {
-        console.error('Failed to delete session:', e);
-      }
+  const handleDeleteSession = (id: number) => {
+    playClick();
+    setDeleteTargetId(id);
+  };
+
+  const confirmDeleteSession = async () => {
+    if (!deleteTargetId) return;
+    playClick();
+    try {
+      await TimerraDB.deleteSession(deleteTargetId);
+      await reloadHistory();
+    } catch (e) {
+      console.error('Failed to delete session:', e);
+    } finally {
+      setDeleteTargetId(null);
     }
   };
 
   // Clear entire history
-  const handleClearHistory = async () => {
-    if (window.confirm('CRITICAL ACTION: This will permanently delete ALL focus session logs. This action is irreversible. Proceed?')) {
-      playClick();
-      try {
-        // We'll delete them one by one or create a clear function in DB. 
-        // Let's delete each session currently in local list.
-        for (const s of sessions) {
-          if (s.id) await TimerraDB.deleteSession(s.id);
-        }
-        await reloadHistory();
-      } catch (e) {
-        console.error('Failed to clear session history:', e);
+  const handleClearHistory = () => {
+    playClick();
+    setIsClearingAll(true);
+  };
+
+  const confirmClearHistory = async () => {
+    playClick();
+    try {
+      // Let's delete each session currently in local list.
+      for (const s of sessions) {
+        if (s.id) await TimerraDB.deleteSession(s.id);
       }
+      await reloadHistory();
+    } catch (e) {
+      console.error('Failed to clear session history:', e);
+    } finally {
+      setIsClearingAll(false);
     }
   };
 
@@ -1120,6 +1136,103 @@ export const HistoryPanel: React.FC<HistoryPanelProps> = ({
         </div>
 
       </div>
+
+      {/* DELETION CONFIRMATION MODALS */}
+      <AnimatePresence>
+        {deleteTargetId !== null && (
+          <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/85 backdrop-blur-md px-4 select-none">
+            {/* Click backdrop to close */}
+            <div className="absolute inset-0 cursor-default" onClick={() => setDeleteTargetId(null)} />
+
+            {/* Modal Box */}
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              transition={{ duration: 0.2, ease: 'easeOut' }}
+              className="relative w-full max-w-sm bg-[#060b18]/95 border border-rose-500/20 rounded-[2rem] p-6 shadow-[0_0_60px_rgba(239,68,68,0.15)] overflow-hidden backdrop-blur-[24px] text-center"
+            >
+              {/* Decorative radial warning glow */}
+              <div className="absolute -top-12 -left-12 w-32 h-32 bg-rose-500/10 rounded-full blur-2xl pointer-events-none" />
+
+              {/* Warning Indicator Icon */}
+              <div className="w-12 h-12 rounded-2xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center text-rose-500 mx-auto mb-4 animate-bounce">
+                <AlertTriangle className="w-6 h-6" />
+              </div>
+
+              {/* Title & Warning description */}
+              <h3 className="text-sm font-black uppercase tracking-[0.2em] text-white mb-2">Delete Forever?</h3>
+              <p className="text-xs text-slate-400 leading-relaxed px-1">
+                Are you sure you want to permanently delete this focus session record? This action is <strong className="text-rose-400">irreversible</strong> and will clear all metrics associated with it.
+              </p>
+
+              {/* Action Buttons */}
+              <div className="flex gap-3 mt-6">
+                <button
+                  onClick={() => { playClick(); setDeleteTargetId(null); }}
+                  className="flex-1 py-3 px-4 rounded-xl bg-white/[0.03] hover:bg-white/[0.08] border border-white/5 text-slate-300 hover:text-white transition-all text-xs font-bold cursor-pointer active:scale-[0.98]"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={confirmDeleteSession}
+                  className="flex-1 py-3 px-4 rounded-xl bg-gradient-to-r from-rose-600 to-red-500 hover:opacity-90 text-white shadow-[0_0_15px_rgba(239,68,68,0.35)] transition-all text-xs font-black uppercase tracking-wider cursor-pointer active:scale-[0.98]"
+                >
+                  Delete Forever
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {isClearingAll && (
+          <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/85 backdrop-blur-md px-4 select-none">
+            {/* Click backdrop to close */}
+            <div className="absolute inset-0 cursor-default" onClick={() => setIsClearingAll(false)} />
+
+            {/* Modal Box */}
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              transition={{ duration: 0.2, ease: 'easeOut' }}
+              className="relative w-full max-w-sm bg-[#060b18]/95 border border-rose-600/30 rounded-[2rem] p-6 shadow-[0_0_60px_rgba(220,38,38,0.25)] overflow-hidden backdrop-blur-[24px] text-center"
+            >
+              {/* Decorative intense radial warning glow */}
+              <div className="absolute -top-12 -left-12 w-32 h-32 bg-red-600/15 rounded-full blur-2xl pointer-events-none" />
+
+              {/* Danger Indicator Icon */}
+              <div className="w-12 h-12 rounded-2xl bg-red-500/15 border border-red-500/30 flex items-center justify-center text-red-500 mx-auto mb-4 animate-pulse">
+                <AlertTriangle className="w-6 h-6" />
+              </div>
+
+              {/* Title & Warning description */}
+              <h3 className="text-sm font-black uppercase tracking-[0.2em] text-rose-500 mb-2">FORMAT DATABASE?</h3>
+              <p className="text-xs text-slate-400 leading-relaxed px-1">
+                CRITICAL WARNING: This will permanently delete <strong className="text-rose-400">ALL focus session logs</strong>. Your entire focus history, achievements, and statistics will be wiped forever.
+              </p>
+
+              {/* Action Buttons */}
+              <div className="flex gap-3 mt-6">
+                <button
+                  onClick={() => { playClick(); setIsClearingAll(false); }}
+                  className="flex-1 py-3 px-4 rounded-xl bg-white/[0.03] hover:bg-white/[0.08] border border-white/5 text-slate-300 hover:text-white transition-all text-xs font-bold cursor-pointer active:scale-[0.98]"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={confirmClearHistory}
+                  className="flex-1 py-3 px-4 rounded-xl bg-gradient-to-r from-red-600 to-rose-600 hover:opacity-90 text-white shadow-[0_0_20px_rgba(220,38,38,0.45)] transition-all text-xs font-black uppercase tracking-wider cursor-pointer active:scale-[0.98]"
+                >
+                  Wipe Everything
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
     </div>
   </div>
