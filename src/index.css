@@ -460,13 +460,39 @@
   .animate-float-calm,
   .animate-wave-a,
   .animate-wave-b,
+  .animate-ring-1,
+  .animate-ring-2,
+  .animate-ring-3,
+  .animate-sun-spin,
+  .animate-galaxy,
+  .animate-crystal-shimmer,
   [class*="animate-pulse"],
   [class*="animate-breathe"],
   [class*="pulse"],
-  [class*="breathe"] {
+  [class*="breathe"],
+  [class*="ring-"] {
     animation: none !important;
-    transform: none !important;
   }
+}
+
+/* Hide scrollbars globally during fullscreen mode to prevent right-side slider/scrollbar while preserving scrollability */
+:fullscreen::-webkit-scrollbar,
+html:fullscreen::-webkit-scrollbar,
+body:fullscreen::-webkit-scrollbar,
+:-webkit-full-screen::-webkit-scrollbar,
+:-moz-full-screen::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
+:fullscreen,
+html:fullscreen,
+body:fullscreen,
+:-webkit-full-screen,
+:-ms-fullscreen {
+  -ms-overflow-style: none !important;
+  scrollbar-width: none !important;
 }
 
 

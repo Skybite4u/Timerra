@@ -71,6 +71,7 @@ import { MorePanel } from './components/MorePanel';
 import { NavigationRail } from './components/NavigationRail';
 import { GuidedBreathing } from './components/GuidedBreathing';
 import { FocusRatingModal } from './components/FocusRatingModal';
+import { FocusCalendar } from './components/FocusCalendar';
 import { AnimatePresence, motion } from 'motion/react';
 
 // Custom Libs and Hooks
@@ -2427,6 +2428,9 @@ export default function App() {
                   <span className="text-[9px] text-slate-400 mt-1">{sessions.filter(s => s.mode === 'focus').length} Focus cycles total</span>
                 </div>
               </div>
+
+              {/* Focus Calendar */}
+              <FocusCalendar sessions={sessions} />
 
               {/* Side-by-side Recharts displays */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4">
