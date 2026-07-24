@@ -705,7 +705,8 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                               theme.id === 'red' ? 'bg-red-500' :
                               theme.id === 'cyber' ? 'bg-cyan-400' :
                               theme.id === 'midnight' ? 'bg-indigo-900' :
-                              'bg-teal-300'
+                              theme.id === 'aurora' ? 'bg-teal-300' :
+                              'bg-lime-400'
                             }`} />
                           )}
                         </div>

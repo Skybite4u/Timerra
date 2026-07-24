@@ -291,11 +291,11 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
       <div className="absolute inset-0 cursor-default" onClick={onClose} />
 
       {/* Slide-over container panel: Slide-over on Desktop, Elegant Float Sheet on Mobile */}
-      <div className="relative w-full md:max-w-md h-[95vh] md:h-screen mt-auto md:mt-0 bg-slate-950/45 backdrop-blur-[32px] border-t md:border-t-0 md:border-l border-white/15 shadow-[0_0_80px_rgba(0,0,0,0.95)] flex flex-col overflow-hidden rounded-t-[2.5rem] md:rounded-t-none md:rounded-l-[2.5rem] animate-slide-in">
+      <div className="relative w-full md:max-w-md h-[95vh] md:h-screen mt-auto md:mt-0 bg-[#060814]/95 backdrop-blur-md border-t md:border-t-0 md:border-l border-white/10 shadow-2xl flex flex-col overflow-hidden rounded-t-[2.5rem] md:rounded-t-none md:rounded-l-[2.5rem] animate-slide-in">
         
         {/* Living background light waves */}
-        <div className="absolute top-0 right-0 w-80 h-80 bg-tm-primary/5 rounded-full blur-[100px] pointer-events-none" />
-        <div className="absolute bottom-0 left-0 w-80 h-80 bg-tm-accent/5 rounded-full blur-[100px] pointer-events-none" />
+        <div className="absolute top-0 right-0 w-64 h-64 bg-tm-primary/5 rounded-full pointer-events-none" />
+        <div className="absolute bottom-0 left-0 w-64 h-64 bg-tm-accent/5 rounded-full pointer-events-none" />
 
          {/* HEADER PANEL */}
         <div className="p-6 border-b border-white/5 flex items-center justify-between relative z-10 shrink-0">

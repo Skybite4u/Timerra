@@ -150,8 +150,8 @@ export const FocusConstellation: React.FC<FocusConstellationProps> = ({ isOpen, 
       
       {/* Absolute nebula cosmic backdrops */}
       <div className="absolute inset-0 bg-radial-[circle_at_50%_50%] from-indigo-950/20 via-slate-950 to-slate-950 pointer-events-none" />
-      <div className="absolute top-1/4 left-1/4 w-96 h-96 rounded-full bg-cyan-500/5 filter blur-[120px] pointer-events-none" />
-      <div className="absolute bottom-1/4 right-1/4 w-96 h-96 rounded-full bg-purple-500/5 filter blur-[120px] pointer-events-none animate-pulse" />
+      <div className="absolute top-1/4 left-1/4 w-80 h-80 rounded-full bg-cyan-500/5 pointer-events-none" />
+      <div className="absolute bottom-1/4 right-1/4 w-80 h-80 rounded-full bg-purple-500/5 pointer-events-none" />
 
       {/* Floating particles sky backgrounds (decorative stars) */}
       <div className="absolute inset-0 opacity-40 pointer-events-none">

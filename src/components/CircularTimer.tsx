@@ -357,6 +357,60 @@ export const CircularTimer = React.memo<CircularTimerProps>(({
           90% { opacity: 0.7; }
           100% { transform: translate(30px, 60px) rotate(240deg); opacity: 0; }
         }
+        @keyframes heartbeat-breath {
+          0% {
+            transform: scale(1);
+            box-shadow: 0 0 25px rgba(56, 189, 248, 0.2), inset 0 0 15px rgba(56, 189, 248, 0.15);
+            border-color: rgba(56, 189, 248, 0.3);
+          }
+          25% {
+            transform: scale(1.03);
+            box-shadow: 0 0 50px rgba(56, 189, 248, 0.55), 0 0 20px rgba(125, 211, 252, 0.4), inset 0 0 30px rgba(56, 189, 248, 0.35);
+            border-color: rgba(56, 189, 248, 0.8);
+          }
+          50% {
+            transform: scale(1.03);
+            box-shadow: 0 0 40px rgba(56, 189, 248, 0.45), inset 0 0 25px rgba(56, 189, 248, 0.25);
+            border-color: rgba(56, 189, 248, 0.6);
+          }
+          75% {
+            transform: scale(1);
+            box-shadow: 0 0 20px rgba(56, 189, 248, 0.2), inset 0 0 10px rgba(56, 189, 248, 0.1);
+            border-color: rgba(56, 189, 248, 0.25);
+          }
+          100% {
+            transform: scale(1);
+            box-shadow: 0 0 25px rgba(56, 189, 248, 0.2), inset 0 0 15px rgba(56, 189, 248, 0.15);
+            border-color: rgba(56, 189, 248, 0.3);
+          }
+        }
+        @keyframes heartbeat-breath-long {
+          0% {
+            transform: scale(1);
+            box-shadow: 0 0 30px rgba(79, 70, 229, 0.2), inset 0 0 15px rgba(79, 70, 229, 0.15);
+            border-color: rgba(129, 140, 248, 0.3);
+          }
+          25% {
+            transform: scale(1.03);
+            box-shadow: 0 0 55px rgba(99, 102, 241, 0.6), 0 0 25px rgba(168, 85, 247, 0.4), inset 0 0 35px rgba(99, 102, 241, 0.35);
+            border-color: rgba(165, 180, 252, 0.85);
+          }
+          50% {
+            transform: scale(1.03);
+            box-shadow: 0 0 45px rgba(99, 102, 241, 0.5), inset 0 0 25px rgba(99, 102, 241, 0.25);
+            border-color: rgba(129, 140, 248, 0.65);
+          }
+          75% {
+            transform: scale(1);
+            box-shadow: 0 0 22px rgba(79, 70, 229, 0.2), inset 0 0 12px rgba(79, 70, 229, 0.1);
+            border-color: rgba(129, 140, 248, 0.25);
+          }
+          100% {
+            transform: scale(1);
+            box-shadow: 0 0 30px rgba(79, 70, 229, 0.2), inset 0 0 15px rgba(79, 70, 229, 0.15);
+            border-color: rgba(129, 140, 248, 0.3);
+          }
+        }
         @keyframes explosion-burst {
           0% { transform: scale(0.7); opacity: 0; filter: blur(0px); }
           15% { opacity: 1; filter: blur(2px); }
@@ -379,6 +433,8 @@ export const CircularTimer = React.memo<CircularTimerProps>(({
         .animate-dust { animation: dust-rise 5s ease-in-out infinite; will-change: transform; }
         .animate-ripple { animation: ripple-wave 4s cubic-bezier(0.1, 0.8, 0.3, 1) infinite; will-change: transform, opacity; }
         .animate-cherry { animation: cherry-fall 9s ease-in-out infinite; will-change: transform, opacity; }
+        .animate-heartbeat-breath { animation: heartbeat-breath 16s ease-in-out infinite; will-change: transform, box-shadow, border-color; }
+        .animate-heartbeat-breath-long { animation: heartbeat-breath-long 16s ease-in-out infinite; will-change: transform, box-shadow, border-color; }
         .animate-explosion { animation: explosion-burst 1.2s cubic-bezier(0.1, 0.8, 0.3, 1) forwards; will-change: transform, opacity; }
         
         .no-scrollbar::-webkit-scrollbar { display: none; }
@@ -413,8 +469,8 @@ export const CircularTimer = React.memo<CircularTimerProps>(({
             mode === 'stopwatch' ? 'animate-float-calm border-blue-500/20 shadow-[0_0_35px_rgba(59,130,246,0.15)]' :
             mode === 'deepFocus' ? 'animate-float-calm animate-crystal-shimmer border-purple-500/30 shadow-[0_0_40px_rgba(168,85,247,0.2)]' :
             mode === 'infinityFocus' ? 'animate-galaxy border-pink-500/30 shadow-[0_0_45px_rgba(236,72,153,0.2)]' :
-            mode === 'shortBreak' ? 'animate-float-gentle border-sky-400/20 shadow-[0_0_30px_rgba(56,189,248,0.15)]' :
-            mode === 'longBreak' ? 'animate-float-gentle border-indigo-400/20 shadow-[0_0_40px_rgba(79,70,229,0.2)]' :
+            mode === 'shortBreak' ? 'animate-heartbeat-breath border-sky-400/30 shadow-[0_0_30px_rgba(56,189,248,0.2)]' :
+            mode === 'longBreak' ? 'animate-heartbeat-breath-long border-indigo-400/30 shadow-[0_0_40px_rgba(79,70,229,0.25)]' :
             mode === 'sprint' ? 'animate-breathe border-red-500/30 shadow-[0_0_50px_rgba(239,68,68,0.3)]' :
             mode === 'marathon' ? 'animate-float-gentle border-yellow-600/30 shadow-[0_0_35px_rgba(217,119,6,0.2)]' :
             'animate-float-gentle border-teal-500/30 shadow-[0_0_35px_rgba(20,184,166,0.2)]' // zen

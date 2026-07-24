@@ -27,11 +27,13 @@ export function useHotkeys({
         return;
       }
 
+      if (e.code === 'Space' || e.key === ' ' || e.key === 'Spacebar') {
+        e.preventDefault();
+        onTogglePlay();
+        return;
+      }
+
       switch (e.key) {
-        case ' ': // Space key
-          e.preventDefault();
-          onTogglePlay();
-          break;
         case 'r':
         case 'R':
           onReset();

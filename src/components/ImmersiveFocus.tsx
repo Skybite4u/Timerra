@@ -434,14 +434,6 @@ export const ImmersiveFocus: React.FC<ImmersiveFocusProps> = ({
         ctx.arc(p.x, p.y, p.size / 2, 0, Math.PI * 2);
         ctx.fillStyle = p.color + p.opacity + ')';
         ctx.fill();
-
-        // Optional shadow/glow effect for larger particles
-        if (p.size > 2) {
-          ctx.shadowBlur = 10;
-          ctx.shadowColor = p.color + '0.5)';
-        } else {
-          ctx.shadowBlur = 0;
-        }
       });
 
       animFrame = requestAnimationFrame(updateAndDraw);

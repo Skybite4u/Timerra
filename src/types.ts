@@ -9,7 +9,7 @@ export type TimerMode =
   | "marathon"       // Ancient Library (Warm)
   | "zen";           // Japanese Zen Garden (Peaceful)
 export type TimerStatus = "idle" | "running" | "paused" | "completed";
-export type ThemeName = "blue" | "purple" | "emerald" | "orange" | "red" | "cyber" | "midnight" | "aurora" | "custom";
+export type ThemeName = "blue" | "purple" | "emerald" | "orange" | "red" | "cyber" | "midnight" | "aurora" | "neonPulse" | "custom";
 
 export interface TimerSettings {
   focusMinutes: number;          // default 25

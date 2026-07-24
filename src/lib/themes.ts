@@ -15,6 +15,7 @@ export const THEMES: ThemeConfig[] = [
   { id: 'cyber', name: 'Hyper Cyber', desc: 'High-contrast neon cyan and magenta' },
   { id: 'midnight', name: 'Deep Midnight', desc: 'Abyssal navy blue with ink waves' },
   { id: 'aurora', name: 'Boreal Glow', desc: 'Northern lights shimmer in emerald & amethyst' },
+  { id: 'neonPulse', name: 'Neon Pulse', desc: 'Ultra bright high-contrast neon green & vivid magenta pulse' },
   { id: 'custom', name: 'Custom Studio', desc: 'Craft your own premium primary & accent color palette' },
 ];
 

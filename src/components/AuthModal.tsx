@@ -562,8 +562,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       <div className="absolute inset-0 cursor-default" onClick={onClose} />
 
       {/* Ambient glowing background blur */}
-      <div className="absolute top-[10%] left-[10%] w-[45%] h-[45%] bg-tm-primary/10 rounded-full blur-[140px] pointer-events-none" />
-      <div className="absolute bottom-[10%] right-[10%] w-[45%] h-[45%] bg-tm-accent/10 rounded-full blur-[140px] pointer-events-none" />
+      <div className="absolute top-[10%] left-[10%] w-[35%] h-[35%] bg-tm-primary/5 rounded-full pointer-events-none" />
+      <div className="absolute bottom-[10%] right-[10%] w-[35%] h-[35%] bg-tm-accent/5 rounded-full pointer-events-none" />
 
       {/* Embedded inline keyframes style block to guarantee beautiful, independent animations */}
       <style>{`
@@ -616,7 +616,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
       {/* Glassmorphic Modal Body: Slide-over on Desktop, Bottom Sheet on Mobile */}
       <div 
-        className="relative w-full md:max-w-2xl h-full md:h-screen mt-auto md:mt-0 bg-[#030712]/75 backdrop-blur-[24px] border-t md:border-t-0 md:border-l border-white/[0.08] shadow-[0_0_60px_rgba(0,0,0,0.95)] flex flex-col overflow-hidden rounded-t-[2.5rem] md:rounded-t-none md:rounded-l-[2.5rem] animate-slide-in"
+        className="relative w-full md:max-w-2xl h-full md:h-screen mt-auto md:mt-0 bg-[#030712]/95 backdrop-blur-md border-t md:border-t-0 md:border-l border-white/[0.08] shadow-2xl flex flex-col overflow-hidden rounded-t-[2.5rem] md:rounded-t-none md:rounded-l-[2.5rem] animate-slide-in"
         id="capsule-modal-card"
       >
         {/* Header bar */}

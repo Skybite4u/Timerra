@@ -4,6 +4,7 @@ import {
   Sparkles, 
   History, 
   TrendingUp, 
+  TrendingDown, 
   Trash2, 
   Database, 
   Sliders, 
@@ -40,7 +41,9 @@ import {
   Brain,
   Cpu,
   Music,
-  GraduationCap
+  GraduationCap,
+  Menu,
+  SlidersHorizontal
 } from 'lucide-react';
 
 // Focus DNA system imports
@@ -69,10 +72,10 @@ import { CompletedSubjectsPanel } from './components/CompletedSubjectsPanel';
 import { GuideModal } from './components/GuideModal';
 import { MorePanel } from './components/MorePanel';
 import { NavigationRail } from './components/NavigationRail';
+import { ControlDrawer } from './components/ControlDrawer';
 import { GuidedBreathing } from './components/GuidedBreathing';
 import { FocusRatingModal } from './components/FocusRatingModal';
 import { FocusCalendar } from './components/FocusCalendar';
-import { VoiceController } from './components/VoiceController';
 import { AnimatePresence, motion } from 'motion/react';
 
 // Custom Libs and Hooks
@@ -189,7 +192,6 @@ export default function App() {
   const [ratingSessionDuration, setRatingSessionDuration] = useState<number>(0);
   const [dnaEvolutionStage, setDnaEvolutionStage] = useState<any | null>(null);
   const [activeTab, setActiveTab] = useState<'focus' | 'ambient' | 'analytics'>('focus');
-  const [isFocusModeActive, setIsFocusModeActive] = useState<boolean>(false);
 
   // --- Session duration timer (How long the user is on the website, resets on exit) ---
   const [sessionTime, setSessionTime] = useState<number>(0);
@@ -393,8 +395,9 @@ export default function App() {
     }
   };
 
-  // --- Notification Center States ---
+  // --- Notification Center & Control Drawer States ---
   const [showNotificationCenter, setShowNotificationCenter] = useState<boolean>(false);
+  const [showControlDrawer, setShowControlDrawer] = useState<boolean>(false);
   const [showMorePanel, setShowMorePanel] = useState<boolean>(false);
   const [isFocusSilenceMode, setIsFocusSilenceMode] = useState<boolean>(false);
   const [unseenVaultCount, setUnseenVaultCount] = useState<number>(0);
@@ -461,6 +464,7 @@ export default function App() {
     setShowConstellation(false);
     setShowNotificationCenter(false);
     setShowMorePanel(false);
+    setShowControlDrawer(false);
   }, []);
 
   // Local silent-wrapped audio functions that obey Silence Mode
@@ -1825,6 +1829,49 @@ export default function App() {
   const dailyGoalMinutes = (settings.dailyGoalHours || 4) * 60;
   const focusGoalPercent = Math.min(100, Math.round((totalMinutesToday / dailyGoalMinutes) * 100));
 
+  // --- Weekly Progress Calc ---
+  const getLocalDateString = (offsetDays: number) => {
+    const d = new Date();
+    d.setDate(d.getDate() - offsetDays);
+    return d.toISOString().split('T')[0];
+  };
+
+  const current7DaysStrings = Array.from({ length: 7 }, (_, i) => getLocalDateString(i));
+  const previous7DaysStrings = Array.from({ length: 7 }, (_, i) => getLocalDateString(i + 7));
+
+  const currentDaySessions = sessions.filter(s => {
+    const sDate = new Date(s.completedAt).toISOString().split('T')[0];
+    return current7DaysStrings.includes(sDate) && s.mode === 'focus';
+  });
+
+  const previousDaySessions = sessions.filter(s => {
+    const sDate = new Date(s.completedAt).toISOString().split('T')[0];
+    return previous7DaysStrings.includes(sDate) && s.mode === 'focus';
+  });
+
+  const currentTotalMinutes = Math.round(
+    currentDaySessions.reduce((sum, s) => sum + (s.durationSec / 60), 0) + liveCurrentSessionMinutes
+  );
+  const currentAvgMinutes = Math.round(currentTotalMinutes / 7);
+
+  const previousTotalMinutes = Math.round(
+    previousDaySessions.reduce((sum, s) => sum + (s.durationSec / 60), 0)
+  );
+  const previousAvgMinutes = Math.round(previousTotalMinutes / 7);
+
+  let weeklyPercentageChange = 0;
+  let weeklyTrend: 'up' | 'down' | 'neutral' = 'neutral';
+
+  if (previousTotalMinutes > 0) {
+    weeklyPercentageChange = Math.round(((currentTotalMinutes - previousTotalMinutes) / previousTotalMinutes) * 100);
+    if (weeklyPercentageChange > 0) weeklyTrend = 'up';
+    else if (weeklyPercentageChange < 0) weeklyTrend = 'down';
+  } else if (currentTotalMinutes > 0) {
+    weeklyPercentageChange = 100;
+    weeklyTrend = 'up';
+  }
+  const absWeeklyPercentageChange = Math.abs(weeklyPercentageChange);
+
   // Study Streak Days
   const calculateStreak = (allSessions: Session[]): number => {
     const focusSess = allSessions.filter(s => s.mode === 'focus');
@@ -1912,83 +1959,24 @@ export default function App() {
             </div>
           </div>
 
-          {/* Subjects board Selector widget in Navbar */}
-          <div className="flex items-center gap-2 sm:gap-3 overflow-x-auto no-scrollbar py-1 max-w-[calc(100%-120px)] sm:max-w-none">
-            {/* Focus Mode Toggle */}
-            <button
-              onClick={() => {
-                playClick();
-                setIsFocusModeActive(prev => {
-                  const next = !prev;
-                  if (next) {
-                    setActiveTab('focus');
-                  }
-                  return next;
-                });
-              }}
-              className={`flex items-center gap-1.5 border rounded-2xl px-3 py-1.5 text-xs font-bold transition-all cursor-pointer shrink-0 ${
-                isFocusModeActive
-                  ? 'bg-orange-500/10 text-orange-400 border-orange-500/25 shadow-[0_0_15px_rgba(249,115,22,0.15)]'
-                  : 'bg-white/[0.03] hover:bg-white/[0.08] border border-white/[0.06] hover:border-white/15 text-slate-200 hover:text-white'
-              }`}
-              title="Toggle pure focus space"
-            >
-              {isFocusModeActive ? (
-                <EyeOff className="w-3.5 h-3.5 text-orange-400" />
-              ) : (
-                <Eye className="w-3.5 h-3.5 text-slate-300" />
-              )}
-              <span className="hidden sm:inline">Focus Mode</span>
-            </button>
-
-            {/* Vault Milestone button */}
-            <button
-              onClick={() => { playClick(); setShowMilestoneVault(true); }}
-              className="flex items-center gap-1.5 bg-white/[0.03] hover:bg-white/[0.08] border border-white/[0.06] hover:border-white/15 rounded-2xl px-3 py-1.5 text-xs text-slate-200 hover:text-white transition-all cursor-pointer relative shrink-0"
-              title="Milestone Vault"
-            >
-              <Award className="w-3.5 h-3.5 text-amber-400 animate-pulse" />
-              <span className="hidden sm:inline font-bold">Vault</span>
-              {unseenVaultCount > 0 && (
-                <span className="absolute top-0.5 right-0.5 w-2.5 h-2.5 rounded-full bg-amber-500 border border-[#060814] animate-pulse" />
-              )}
-            </button>
-
-            {/* Legacy Cards button */}
-            <button
-              onClick={() => { playClick(); setShowLegacyCardCenter(true); }}
-              className="flex items-center gap-1.5 bg-white/[0.03] hover:bg-white/[0.08] border border-white/[0.06] hover:border-white/15 rounded-2xl px-3 py-1.5 text-xs text-slate-200 hover:text-white transition-all cursor-pointer shrink-0"
-              title="Legacy Cards"
-            >
-              <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
-              <span className="hidden sm:inline font-bold">Legacy Cards</span>
-            </button>
-
-            {/* Focus DNA button */}
-            <button
-              onClick={() => { playClick(); setShowFocusDna(true); }}
-              className="flex items-center gap-1.5 bg-white/[0.03] hover:bg-white/[0.08] border border-white/[0.06] hover:border-white/15 rounded-2xl px-3 py-1.5 text-xs text-slate-200 hover:text-white transition-all cursor-pointer shrink-0"
-              title="Focus DNA Profile"
-            >
-              <Compass className="w-3.5 h-3.5 text-indigo-400 animate-pulse" />
-              <span className="hidden sm:inline font-bold">Focus DNA</span>
-            </button>
-
-            {/* Logs Notification Center Button */}
-            <button
-              onClick={() => { playClick(); setShowNotificationCenter(true); }}
-              className="flex items-center gap-1.5 bg-white/[0.03] hover:bg-white/[0.08] border border-white/[0.06] hover:border-white/15 rounded-2xl px-3 py-1.5 text-xs text-slate-200 hover:text-white transition-all cursor-pointer relative shrink-0"
-              title="Workspace Logs"
-            >
-              <Bell className="w-3.5 h-3.5 text-slate-300" />
-              <span className="hidden sm:inline font-bold">Logs</span>
-              {unreadNotificationCount > 0 && (
-                <span className="absolute top-0.5 right-0.5 w-3.5 h-3.5 rounded-full bg-rose-500 text-[8px] font-bold text-white flex items-center justify-center border border-[#060814]">
-                  {unreadNotificationCount}
-                </span>
-              )}
-            </button>
-          </div>
+          {/* Single Control Drawer Trigger in Top Right Corner */}
+          <button
+            onClick={() => {
+              playClick();
+              setShowControlDrawer(true);
+            }}
+            className="flex items-center gap-2 bg-white/[0.04] hover:bg-white/[0.08] border border-white/10 hover:border-white/20 rounded-2xl px-3.5 py-2 text-xs font-extrabold text-slate-200 hover:text-white transition-all cursor-pointer relative shrink-0 shadow-md active:scale-95 group"
+            title="Open Control Hub"
+          >
+            <SlidersHorizontal className="w-4 h-4 text-tm-primary group-hover:scale-110 transition-transform" />
+            <span className="hidden sm:inline font-extrabold uppercase tracking-wider text-[11px]">Controls</span>
+            {(unreadNotificationCount > 0 || unseenVaultCount > 0) && (
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-rose-500"></span>
+              </span>
+            )}
+          </button>
         </header>
       )}
 
@@ -1996,12 +1984,12 @@ export default function App() {
       <main className={`max-w-7xl mx-auto px-3 sm:px-6 flex flex-col items-center w-full transition-all duration-500 ${isFullscreen ? 'justify-center min-h-screen py-12' : 'py-3 sm:py-12'}`}>
         
         {/* Dynamic 9-Mode Navigation Dock */}
-        <div className={`transition-all duration-500 ease-in-out w-full flex justify-center ${isFullscreen ? (controlsVisible ? 'opacity-100 translate-y-0 scale-100 pointer-events-auto' : 'opacity-0 -translate-y-4 scale-95 pointer-events-none') : (isFocusModeActive ? 'opacity-0 h-0 overflow-hidden pointer-events-none mb-0' : 'opacity-100 scale-100')}`}>
-          {!isFocusModeActive && <ModeSelector activeMode={mode} onChangeMode={handleModeChange} />}
+        <div className={`transition-all duration-500 ease-in-out w-full flex justify-center ${isFullscreen ? (controlsVisible ? 'opacity-100 translate-y-0 scale-100 pointer-events-auto' : 'opacity-0 -translate-y-4 scale-95 pointer-events-none') : 'opacity-100 scale-100'}`}>
+          <ModeSelector activeMode={mode} onChangeMode={handleModeChange} />
         </div>
 
         {/* Progress Summary at a Glance */}
-        {!isFullscreen && !isFocusModeActive && (
+        {!isFullscreen && (
           <div className="flex flex-col sm:flex-row items-center gap-3 sm:gap-5 mt-4 sm:mt-6 mb-4 sm:mb-8 bg-[#030712]/45 backdrop-blur-md border border-white/[0.05] rounded-2xl sm:rounded-full px-4 py-2.5 sm:px-5 text-xs animate-fade-in shadow-[0_8px_32px_-6px_rgba(0,0,0,0.5)] text-center sm:text-left w-auto max-w-full">
             <div className="flex items-center justify-center gap-3 border-b sm:border-b-0 sm:border-r border-white/5 pb-2.5 sm:pb-0 pr-0 sm:pr-5 w-full sm:w-auto">
               <div className="relative w-5 h-5 flex items-center justify-center shrink-0">
@@ -2109,69 +2097,73 @@ export default function App() {
 
         {/* Curved Buttons Deck */}
         {!isFullscreen ? (
-          <>
-            <ArcuateDeck
-              status={status}
-              mode={mode}
-              isFullscreen={isFullscreen}
-              onTogglePlay={handleTogglePlay}
-              onReset={handleReset}
-              onSkip={handleSkip}
-              onOpenSettings={handleOpenSettings}
-              onOpenBackup={handleOpenBackup}
-              onToggleFullscreen={handleToggleFS}
-            />
-            {isFocusModeActive && (
-              <div className="mt-6 flex flex-col items-center justify-center gap-1.5 animate-fade-in text-center select-none">
-                <div className="flex items-center gap-2 bg-orange-500/10 border border-orange-500/20 text-orange-400 px-4 py-1.5 rounded-full text-[10px] font-bold tracking-widest uppercase">
-                  <span className="relative flex h-1.5 w-1.5">
-                    <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-orange-400"></span>
-                  </span>
-                  <span>Pure Focus Space Enabled</span>
-                </div>
-                <p className="text-[10px] text-slate-500 max-w-xs leading-normal">
-                  Dashboard panels & metrics are tucked away for zero distractions.
-                </p>
-              </div>
-            )}
-          </>
+          <ArcuateDeck
+            status={status}
+            mode={mode}
+            isFullscreen={isFullscreen}
+            onTogglePlay={handleTogglePlay}
+            onReset={handleReset}
+            onSkip={handleSkip}
+            onOpenSettings={handleOpenSettings}
+            onOpenBackup={handleOpenBackup}
+            onToggleFullscreen={handleToggleFS}
+          />
         ) : (
-          /* Minimalist Fullscreen Floating Control Panel (highly elegant, glassmorphic, zero distractions) */
-          <div className={`fixed bottom-8 flex items-center gap-4 bg-black/45 backdrop-blur-md px-6 py-3 rounded-full border border-white/10 shadow-[0_0_30px_rgba(0,0,0,0.5)] z-50 transition-all duration-500 hover:scale-105 ${controlsVisible ? 'opacity-100 translate-y-0 pointer-events-auto' : 'opacity-0 translate-y-4 pointer-events-none'}`}>
+          /* Minimalist Fullscreen Floating Control Panel (clear, comfortable, responsive on all devices) */
+          <div className={`fixed bottom-6 sm:bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-2 sm:gap-3 bg-[#060814]/90 backdrop-blur-xl px-4 sm:px-6 py-2.5 sm:py-3 rounded-full border border-white/10 shadow-[0_10px_35px_rgba(0,0,0,0.8)] z-50 transition-all duration-300 ${controlsVisible ? 'opacity-100 translate-y-0 pointer-events-auto' : 'opacity-0 translate-y-4 pointer-events-none'}`}>
             <button
               onClick={() => { playClick(); setShowFullscreenSubjectSelector(true); }}
-              className="px-3 py-1.5 rounded-full bg-white/5 hover:bg-white/10 text-[10px] font-bold text-slate-200 flex items-center gap-1.5 border border-white/5 cursor-pointer max-w-[130px]"
+              className="px-3 py-1.5 rounded-full bg-white/5 hover:bg-white/10 text-[10px] font-bold text-slate-200 flex items-center gap-1.5 border border-white/10 cursor-pointer max-w-[120px] sm:max-w-[160px]"
               title="Focus Subject Panel"
             >
-              <BookOpen className="w-3.5 h-3.5 text-tm-primary" />
+              <BookOpen className="w-3.5 h-3.5 text-tm-primary shrink-0" />
               <span className="truncate">{settings.subject}</span>
             </button>
+
+            <div className="h-4 w-[1px] bg-white/10 mx-0.5" />
+
             <button
               onClick={handleTogglePlay}
-              className="p-2.5 rounded-full hover:bg-white/10 text-white transition-colors cursor-pointer active:scale-95"
-              title={status === 'running' ? 'Pause' : 'Play'}
+              className={`p-2.5 rounded-full transition-all cursor-pointer active:scale-95 ${
+                status === 'running' 
+                  ? 'bg-tm-primary/20 text-tm-primary border border-tm-primary/40' 
+                  : 'bg-white/10 text-white hover:bg-white/20'
+              }`}
+              title={status === 'running' ? 'Pause Timer' : 'Start Timer'}
             >
-              {status === 'running' ? <Pause className="w-5 h-5 text-tm-primary animate-pulse" /> : <Play className="w-5 h-5" />}
+              {status === 'running' ? <Pause className="w-4 h-4 sm:w-5 sm:h-5" /> : <Play className="w-4 h-4 sm:w-5 sm:h-5 fill-current" />}
             </button>
+
             <button
               onClick={handleReset}
-              className="p-2.5 rounded-full hover:bg-white/10 text-white transition-colors cursor-pointer active:scale-95"
-              title="Reset"
+              className="p-2 sm:p-2.5 rounded-full hover:bg-white/10 text-slate-300 hover:text-white transition-colors cursor-pointer active:scale-95"
+              title="Reset Timer"
             >
-              <RotateCcw className="w-5 h-5" />
+              <RotateCcw className="w-4 h-4 sm:w-5 sm:h-5" />
             </button>
+
+            <button
+              onClick={handleSkip}
+              className="p-2 sm:p-2.5 rounded-full hover:bg-white/10 text-slate-300 hover:text-white transition-colors cursor-pointer active:scale-95"
+              title="Skip Session"
+            >
+              <SkipForward className="w-4 h-4 sm:w-5 sm:h-5" />
+            </button>
+
+            <div className="h-4 w-[1px] bg-white/10 mx-0.5" />
+
             <button
               onClick={handleToggleFS}
-              className="p-2.5 rounded-full hover:bg-white/10 text-white transition-colors cursor-pointer active:scale-95"
-              title="Exit Fullscreen"
+              className="p-2 sm:p-2.5 rounded-full hover:bg-rose-500/20 text-slate-300 hover:text-rose-400 transition-colors cursor-pointer active:scale-95"
+              title="Exit Fullscreen Mode"
             >
-              <Minimize2 className="w-5 h-5 text-tm-accent" />
+              <Minimize2 className="w-4 h-4 sm:w-5 sm:h-5" />
             </button>
           </div>
         )}
 
-        {/* TAB NAVIGATION: SIMPLE, MODERN & CLEAN CONFIGURATION (STRICT USER MANDATE) */}
-        {!isFullscreen && !isFocusModeActive && (
+        {/* TAB NAVIGATION: SIMPLE, MODERN & CLEAN CONFIGURATION */}
+        {!isFullscreen && (
           <div className="w-full max-w-md mx-auto mt-12 mb-8 flex items-center justify-center p-1 rounded-2xl bg-white/[0.02] border border-white/5 backdrop-blur-md shadow-lg select-none">
             {[
               { id: 'focus', label: 'Focus Space', icon: Target, color: 'text-orange-400' },
@@ -2202,7 +2194,7 @@ export default function App() {
         {!isFullscreen && (
           <div className="w-full mt-6">
             <AnimatePresence mode="wait">
-              {activeTab === 'focus' && !isFocusModeActive && (
+              {activeTab === 'focus' && (
                 <motion.div
                   key="focus-tab"
                   initial={{ opacity: 0 }}
@@ -2632,7 +2624,7 @@ export default function App() {
               </div>
 
               {/* High-level metrics blocks */}
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
                 <div className="p-4 rounded-2xl bg-white/[0.01] border border-white/5 flex flex-col justify-center relative overflow-hidden group">
                   <div className="absolute -right-3 -bottom-3 w-12 h-12 bg-tm-primary/5 rounded-full blur-xl" />
                   <span className="text-[9px] uppercase tracking-wider font-semibold text-slate-500 flex items-center gap-1">
@@ -2665,6 +2657,40 @@ export default function App() {
                     {totalOverallFocusHours} <span className="text-[10px] font-sans font-semibold text-slate-400">hrs</span>
                   </span>
                   <span className="text-[9px] text-slate-400 mt-1">{sessions.filter(s => s.mode === 'focus').length} Focus cycles total</span>
+                </div>
+
+                <div className="p-4 rounded-2xl bg-white/[0.01] border border-white/5 flex flex-col justify-center relative overflow-hidden group">
+                  <div className="absolute -right-3 -bottom-3 w-12 h-12 bg-emerald-500/5 rounded-full blur-xl" />
+                  <span className="text-[9px] uppercase tracking-wider font-semibold text-slate-500 flex items-center gap-1">
+                    {weeklyTrend === 'down' ? (
+                      <TrendingDown className="w-3 h-3 text-rose-400" />
+                    ) : (
+                      <TrendingUp className="w-3 h-3 text-emerald-400" />
+                    )}
+                    Weekly Progress
+                  </span>
+                  <span className="text-2xl font-black text-white font-mono mt-2 flex items-baseline gap-1">
+                    {currentAvgMinutes}
+                    <span className="text-[10px] font-sans font-semibold text-slate-400">m/day avg</span>
+                  </span>
+                  <div className="flex items-center gap-1.5 mt-1">
+                    {weeklyTrend === 'up' ? (
+                      <span className="inline-flex items-center gap-0.5 text-[8px] font-extrabold text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded-full border border-emerald-500/15">
+                        <TrendingUp className="w-2 h-2" />
+                        +{absWeeklyPercentageChange}%
+                      </span>
+                    ) : weeklyTrend === 'down' ? (
+                      <span className="inline-flex items-center gap-0.5 text-[8px] font-extrabold text-rose-400 bg-rose-500/10 px-1.5 py-0.5 rounded-full border border-rose-500/15">
+                        <TrendingDown className="w-2 h-2" />
+                        -{absWeeklyPercentageChange}%
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-0.5 text-[8px] font-extrabold text-slate-400 bg-white/5 px-1.5 py-0.5 rounded-full border border-white/5">
+                        0%
+                      </span>
+                    )}
+                    <span className="text-[8px] uppercase tracking-wider font-bold text-slate-500">vs prev week</span>
+                  </div>
                 </div>
               </div>
 
@@ -2933,36 +2959,22 @@ export default function App() {
         onClose={() => setRatingSessionId(null)}
       />
 
-      {/* 🧭 NAVIGATION SYSTEM: LEFT NAVIGATION RAIL & FLOATING ORB DOCK */}
-      {!isFullscreen && (
-        <NavigationRail
-          onOpenNotificationCenter={() => { playClick(); setShowNotificationCenter(true); }}
-          onOpenHistoryPanel={() => { playClick(); setShowHistoryPanel(true); }}
-          onOpenFocusDna={() => { playClick(); setShowFocusDna(true); }}
-          onOpenConstellation={() => { playClick(); setShowConstellation(true); }}
-          onOpenMorePanel={() => { playClick(); setShowMorePanel(true); }}
-          onOpenSettings={() => { playClick(); setShowSettings(true); }}
-          onOpenBackup={() => { playClick(); setShowBackup(true); }}
-          onOpenGuide={() => { playClick(); setShowGuideModal(true); }}
-          
-          timerRunning={status === 'running'}
-          onTogglePlay={handleTogglePlay}
-          onReset={handleReset}
-          onSkip={handleSkip}
-          onReturnToWorkspace={() => {
-            playClick();
-            closeAllPanels();
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-          }}
-          unreadCount={unreadNotificationCount}
-          activePanel={
-            showNotificationCenter ? 'logs' :
-            showHistoryPanel ? 'history' :
-            showFocusDna ? 'dna' :
-            showMorePanel ? 'more' : 'none'
-          }
-        />
-      )}
+      {/* 🧭 MINIMALIST CONTROL DRAWER HUB */}
+      <ControlDrawer
+        isOpen={showControlDrawer}
+        onClose={() => setShowControlDrawer(false)}
+        onOpenNotificationCenter={() => { playClick(); setShowNotificationCenter(true); }}
+        onOpenHistoryPanel={() => { playClick(); setShowHistoryPanel(true); }}
+        onOpenSettings={() => { playClick(); setShowSettings(true); }}
+        onOpenMilestoneVault={() => { playClick(); setShowMilestoneVault(true); }}
+        unseenVaultCount={unseenVaultCount}
+        onOpenFocusDna={() => { playClick(); setShowFocusDna(true); }}
+        onOpenLegacyCards={() => { playClick(); setShowLegacyCardCenter(true); }}
+        onOpenBackup={() => { playClick(); setShowBackup(true); }}
+        onOpenGuide={() => { playClick(); setShowGuideModal(true); }}
+        unreadNotificationCount={unreadNotificationCount}
+        playClick={playClick}
+      />
 
       {/* ☰ MORE PANEL PORTAL OVERLAY */}
       <MorePanel
@@ -3298,16 +3310,6 @@ export default function App() {
           </motion.div>
         )}
       </AnimatePresence>
-
-      {/* 🗣️ INTELLIGENT VOICE CONTROL SYSTEM */}
-      <VoiceController
-        status={status}
-        isFocusSilenceMode={isFocusSilenceMode}
-        onTogglePlay={handleTogglePlay}
-        onStop={handleStop}
-        onToggleSilenceMode={() => setIsFocusSilenceMode(p => !p)}
-        isFullscreen={isFullscreen}
-      />
 
     </div>
   );
