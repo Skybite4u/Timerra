@@ -4,6 +4,8 @@ import {
   X, Bell, History, Settings, Award, 
   Dna, Sparkles, Database, HelpCircle, SlidersHorizontal, ChevronRight
 } from 'lucide-react';
+import { MiniTimerCard } from './MiniTimerCard';
+import { TimerMode, TimerStatus } from '../types';
 
 interface ControlDrawerProps {
   isOpen: boolean;
@@ -19,6 +21,18 @@ interface ControlDrawerProps {
   onOpenGuide: () => void;
   unreadNotificationCount: number;
   playClick?: () => void;
+
+  // Optional Timer props for MiniTimerCard in Control Hub
+  mode?: TimerMode;
+  status?: TimerStatus;
+  remainingSec?: number;
+  elapsedSec?: number;
+  totalDurationSec?: number;
+  subject?: string;
+  theme?: string;
+  onTogglePlay?: () => void;
+  onReset?: () => void;
+  onSkip?: () => void;
 }
 
 export const ControlDrawer: React.FC<ControlDrawerProps> = ({
@@ -35,6 +49,16 @@ export const ControlDrawer: React.FC<ControlDrawerProps> = ({
   onOpenGuide,
   unreadNotificationCount,
   playClick,
+  mode,
+  status,
+  remainingSec,
+  elapsedSec,
+  totalDurationSec,
+  subject,
+  theme,
+  onTogglePlay,
+  onReset,
+  onSkip,
 }) => {
   const handleItemClick = (action: () => void) => {
     if (playClick) playClick();
@@ -92,6 +116,27 @@ export const ControlDrawer: React.FC<ControlDrawerProps> = ({
             {/* Menu Sections */}
             <div className="p-5 space-y-6 flex-1">
               
+              {/* Mini-Timer Quick Monitor */}
+              {mode && status && onTogglePlay && onReset && (
+                <div className="mb-2">
+                  <span className="text-[9px] uppercase tracking-[0.2em] font-extrabold text-slate-400 px-1 mb-2 block">
+                    Live Session Monitor
+                  </span>
+                  <MiniTimerCard
+                    mode={mode}
+                    status={status}
+                    remainingSec={remainingSec || 0}
+                    elapsedSec={elapsedSec || 0}
+                    totalDurationSec={totalDurationSec || 0}
+                    subject={subject || 'General'}
+                    theme={theme || 'blue'}
+                    onTogglePlay={onTogglePlay}
+                    onReset={onReset}
+                    onSkip={onSkip}
+                  />
+                </div>
+              )}
+
               {/* Core Actions */}
               <div>
                 <span className="text-[9px] uppercase tracking-[0.2em] font-extrabold text-slate-400 px-1 mb-2.5 block">

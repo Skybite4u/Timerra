@@ -37,8 +37,7 @@ export const ArcuateDeck: React.FC<ArcuateDeckProps> = ({
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  const isStudy = ['focus', 'deepFocus', 'sprint', 'marathon', 'zen'].includes(mode);
-  const resetLabel = isStudy ? 'Stop & Break' : 'Reset Timer';
+  const resetLabel = 'Reset Timer';
 
   // Configuration for 6 buttons along the deck
   const buttons = [

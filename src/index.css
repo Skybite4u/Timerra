@@ -176,6 +176,212 @@
   --tm-ink-dim: oklch(0.82 0.06 142);
 }
 
+.theme-glassmorphism {
+  --tm-primary: oklch(0.72 0.18 220);
+  --tm-accent: oklch(0.78 0.16 200);
+  --tm-glow: rgba(56, 189, 248, 0.4);
+  --tm-wave-a: rgba(56, 189, 248, 0.3);
+  --tm-wave-b: rgba(99, 102, 241, 0.25);
+  --tm-bg-from: oklch(0.18 0.05 230);
+  --tm-bg-to: oklch(0.08 0.03 240);
+  --tm-ink: oklch(0.98 0.01 220);
+  --tm-ink-dim: oklch(0.80 0.03 220);
+}
+
+.theme-glassyLight,
+.glassy-light {
+  --tm-primary: oklch(0.55 0.22 235);
+  --tm-accent: oklch(0.58 0.20 200);
+  --tm-glow: rgba(14, 165, 233, 0.35);
+  --tm-wave-a: rgba(56, 189, 248, 0.35);
+  --tm-wave-b: rgba(129, 140, 248, 0.30);
+  --tm-bg-from: #e0f2fe;
+  --tm-bg-to: #bae6fd;
+  --tm-ink: oklch(0.18 0.05 240);
+  --tm-ink-dim: oklch(0.35 0.04 240);
+  color-scheme: light;
+}
+
+.theme-cyberNeon {
+  --tm-primary: oklch(0.75 0.28 190);
+  --tm-accent: oklch(0.70 0.32 330);
+  --tm-glow: rgba(6, 182, 212, 0.6);
+  --tm-wave-a: rgba(6, 182, 212, 0.5);
+  --tm-wave-b: rgba(236, 72, 153, 0.45);
+  --tm-bg-from: #030712;
+  --tm-bg-to: #0c0a20;
+  --tm-ink: #f8fafc;
+  --tm-ink-dim: #cbd5e1;
+}
+
+.theme-prismGlass {
+  --tm-primary: oklch(0.78 0.22 280);
+  --tm-accent: oklch(0.82 0.20 160);
+  --tm-glow: rgba(168, 85, 247, 0.55);
+  --tm-wave-a: rgba(192, 132, 252, 0.4);
+  --tm-wave-b: rgba(56, 189, 248, 0.35);
+  --tm-bg-from: #090d20;
+  --tm-bg-to: #050312;
+  --tm-ink: #ffffff;
+  --tm-ink-dim: #e2e8f0;
+}
+
+.theme-crystalIce {
+  --tm-primary: oklch(0.82 0.18 200);
+  --tm-accent: oklch(0.85 0.15 180);
+  --tm-glow: rgba(56, 189, 248, 0.5);
+  --tm-wave-a: rgba(125, 211, 252, 0.45);
+  --tm-wave-b: rgba(186, 230, 253, 0.35);
+  --tm-bg-from: #040d1a;
+  --tm-bg-to: #020610;
+  --tm-ink: #f0f9ff;
+  --tm-ink-dim: #bae6fd;
+}
+
+/* ==========================================================================
+   GLASSY LIGHT MODE FULL WEBSITE COMPREHENSIVE OVERRIDES
+   Eye-Friendly Soft Sky Blue Glassy Theme (No harsh white glare)
+   ========================================================================== */
+
+/* 1. Global Text and Background Contrast Fixes */
+.theme-glassyLight body,
+.theme-glassyLight main,
+.theme-glassyLight header,
+.theme-glassyLight footer {
+  color: #0f172a !important;
+}
+
+/* 2. Glass utility overrides for Glassy Light */
+.theme-glassyLight .tm-glass {
+  background: rgba(224, 242, 254, 0.82) !important;
+  backdrop-filter: blur(16px) saturate(140%) !important;
+  -webkit-backdrop-filter: blur(16px) saturate(140%) !important;
+  border-color: rgba(56, 189, 248, 0.38) !important;
+  color: #0f172a !important;
+  box-shadow: 0 10px 30px -5px rgba(56, 189, 248, 0.2) !important;
+}
+
+.theme-glassyLight .tm-glass-dense {
+  background: rgba(203, 233, 252, 0.90) !important;
+  backdrop-filter: blur(20px) saturate(150%) !important;
+  -webkit-backdrop-filter: blur(20px) saturate(150%) !important;
+  border-color: rgba(56, 189, 248, 0.45) !important;
+  color: #0f172a !important;
+  box-shadow: 0 12px 36px -6px rgba(14, 165, 233, 0.22) !important;
+}
+
+.theme-glassyLight .tm-orb {
+  background: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.9) 0%, rgba(224, 242, 254, 0.6) 60%),
+              radial-gradient(circle at 70% 70%, rgba(186, 230, 253, 0.95) 0%, rgba(125, 211, 252, 0.5) 80%) !important;
+  border-color: rgba(56, 189, 248, 0.5) !important;
+  box-shadow: inset 0 2px 4px rgba(255, 255, 255, 0.95),
+              inset 0 -8px 20px rgba(56, 189, 248, 0.25),
+              0 15px 40px -10px rgba(14, 165, 233, 0.35) !important;
+}
+
+/* 3. Dark Background & Drawer Overrides for Full Website Light Mode */
+.theme-glassyLight .bg-\[\#030712\],
+.theme-glassyLight .bg-\[\#030712\]\/45,
+.theme-glassyLight .bg-\[\#030712\]\/35,
+.theme-glassyLight .bg-\[\#030712\]\/50,
+.theme-glassyLight .bg-\[\#030712\]\/90,
+.theme-glassyLight .bg-\[\#060814\],
+.theme-glassyLight .bg-\[\#060814\]\/95,
+.theme-glassyLight .bg-\[\#060814\]\/90,
+.theme-glassyLight .bg-\[\#080c1a\],
+.theme-glassyLight .bg-\[\#090d1a\],
+.theme-glassyLight .bg-\[\#0b0f19\],
+.theme-glassyLight .bg-slate-900,
+.theme-glassyLight .bg-slate-950,
+.theme-glassyLight .bg-black\/80,
+.theme-glassyLight .bg-black\/90,
+.theme-glassyLight .bg-black\/95,
+.theme-glassyLight .bg-\[\#020617\],
+.theme-glassyLight .bg-\[\#020617\]\/95,
+.theme-glassyLight .bg-\[\#020617\]\/90,
+.theme-glassyLight .bg-\[\#02040a\],
+.theme-glassyLight .bg-\[\#02040a\]\/40,
+.theme-glassyLight .bg-\[\#0f172a\] {
+  background-color: rgba(224, 242, 254, 0.88) !important;
+  border-color: rgba(56, 189, 248, 0.35) !important;
+  color: #0f172a !important;
+}
+
+/* 4. Text Contrast Adjustments in Light Mode */
+.theme-glassyLight .text-white {
+  color: #0f172a !important;
+}
+
+.theme-glassyLight .text-slate-200,
+.theme-glassyLight .text-slate-300 {
+  color: #1e293b !important;
+}
+
+.theme-glassyLight .text-slate-400 {
+  color: #334155 !important;
+}
+
+.theme-glassyLight .text-slate-500 {
+  color: #475569 !important;
+}
+
+/* 5. Border Overrides in Light Mode */
+.theme-glassyLight .border-white\/5,
+.theme-glassyLight .border-white\/10,
+.theme-glassyLight .border-white\/15,
+.theme-glassyLight .border-white\/20,
+.theme-glassyLight .border-white\/\[0\.05\],
+.theme-glassyLight .border-white\/\[0\.08\],
+.theme-glassyLight .border-white\/\[0\.12\],
+.theme-glassyLight .border-white\/\[0\.15\] {
+  border-color: rgba(56, 189, 248, 0.3) !important;
+}
+
+/* 6. Form Controls, Inputs, and Select Dropdowns in Light Mode */
+.theme-glassyLight select,
+.theme-glassyLight input,
+.theme-glassyLight textarea {
+  background-color: rgba(240, 249, 255, 0.95) !important;
+  border-color: rgba(56, 189, 248, 0.45) !important;
+  color: #0f172a !important;
+}
+
+.theme-glassyLight select option {
+  background-color: #f0f9ff !important;
+  color: #0f172a !important;
+}
+
+.theme-glassyLight input::placeholder,
+.theme-glassyLight textarea::placeholder {
+  color: #64748b !important;
+}
+
+/* 7. Buttons and Cards in Light Mode */
+.theme-glassyLight .bg-white\/5,
+.theme-glassyLight .bg-white\/10,
+.theme-glassyLight .bg-white\/\[0\.04\],
+.theme-glassyLight .bg-white\/\[0\.06\],
+.theme-glassyLight .bg-white\/\[0\.08\] {
+  background-color: rgba(255, 255, 255, 0.7) !important;
+  color: #0f172a !important;
+}
+
+/* 8. Navigation Rail in Light Mode */
+.theme-glassyLight .nav-premium-rail {
+  background: rgba(224, 242, 254, 0.90) !important;
+  border-color: rgba(56, 189, 248, 0.45) !important;
+  box-shadow: 0 20px 50px -10px rgba(56, 189, 248, 0.35) !important;
+}
+
+/* 9. Scrollbar in Light Mode */
+.theme-glassyLight ::-webkit-scrollbar-thumb {
+  background: rgba(56, 189, 248, 0.4) !important;
+}
+
+.theme-glassyLight ::-webkit-scrollbar-thumb:hover {
+  background: rgba(2, 132, 199, 0.65) !important;
+}
+
 /* --- AUTO-DIM NIGHT MODE OVERRIDES --- */
 .auto-dimmed {
   filter: contrast(0.9) brightness(0.8);
@@ -295,20 +501,72 @@
   100% { transform: rotateX(80deg) rotateZ(30deg) rotateZ(360deg); }
 }
 
+/* --- ZEN MODE SUBTLE BACKGROUND OPACITY CYCLE --- */
+@keyframes tm-zen-bg-opacity-cycle {
+  0%, 100% {
+    opacity: 0.98;
+    filter: saturate(100%) brightness(100%);
+  }
+  50% {
+    opacity: 0.82;
+    filter: saturate(106%) brightness(103%);
+  }
+}
+
+@keyframes tm-zen-ambient-pulse {
+  0%, 100% {
+    opacity: 0.22;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.42;
+    transform: scale(1.025);
+  }
+}
+
+.mode-zen,
+[data-mode="zen"] {
+  position: relative;
+  overflow-x: hidden;
+}
+
+.mode-zen::before,
+[data-mode="zen"]::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background: radial-gradient(
+    circle at 50% 40%,
+    rgba(20, 184, 166, 0.16) 0%,
+    rgba(15, 118, 110, 0.07) 45%,
+    rgba(6, 182, 212, 0.02) 75%,
+    transparent 100%
+  );
+  animation: tm-zen-ambient-pulse 14s ease-in-out infinite;
+  will-change: opacity, transform;
+}
+
+.zen-bg-cycle {
+  animation: tm-zen-bg-opacity-cycle 12s ease-in-out infinite;
+  will-change: opacity, filter;
+}
+
 /* --- UTILITIES & GLASSMORPHISM CLASSES via Tailwind v4 @utility --- */
 @utility tm-glass {
-  background: rgba(15, 22, 40, 0.85);
-  backdrop-filter: blur(8px) saturate(120%);
-  -webkit-backdrop-filter: blur(8px) saturate(120%);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--tm-glass-bg, rgba(15, 22, 40, 0.85));
+  backdrop-filter: blur(var(--tm-glass-blur, 16px)) saturate(130%);
+  -webkit-backdrop-filter: blur(var(--tm-glass-blur, 16px)) saturate(130%);
+  border: 1px solid var(--tm-glass-border, rgba(255, 255, 255, 0.08));
   contain: layout style paint;
 }
 
 @utility tm-glass-dense {
-  background: rgba(10, 15, 30, 0.9);
-  backdrop-filter: blur(10px) saturate(130%);
-  -webkit-backdrop-filter: blur(10px) saturate(130%);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: var(--tm-glass-bg, rgba(10, 15, 30, 0.9));
+  backdrop-filter: blur(calc(var(--tm-glass-blur, 16px) * 1.25)) saturate(140%);
+  -webkit-backdrop-filter: blur(calc(var(--tm-glass-blur, 16px) * 1.25)) saturate(140%);
+  border: 1px solid var(--tm-glass-border, rgba(255, 255, 255, 0.1));
   contain: layout style paint;
 }
 

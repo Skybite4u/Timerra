@@ -9,7 +9,7 @@ export type TimerMode =
   | "marathon"       // Ancient Library (Warm)
   | "zen";           // Japanese Zen Garden (Peaceful)
 export type TimerStatus = "idle" | "running" | "paused" | "completed";
-export type ThemeName = "blue" | "purple" | "emerald" | "orange" | "red" | "cyber" | "midnight" | "aurora" | "neonPulse" | "custom";
+export type ThemeName = "blue" | "purple" | "emerald" | "orange" | "red" | "cyber" | "midnight" | "aurora" | "neonPulse" | "glassmorphism" | "glassyLight" | "cyberNeon" | "prismGlass" | "crystalIce" | "custom";
 
 export interface TimerSettings {
   focusMinutes: number;          // default 25
@@ -30,6 +30,7 @@ export interface TimerSettings {
   customSoundData?: string;      // Base64 or DataURL of custom uploaded sound
   customSoundName?: string;      // Name of custom uploaded sound
   smartAutoTagging?: boolean;    // Automatically assign a predefined Mood tag based on time of day
+  glassIntensity?: number;       // default 60 (Glassmorphism blur & opacity level 0-100)
   customTheme?: {
     primary: string;
     accent: string;

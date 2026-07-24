@@ -16,6 +16,11 @@ export const THEMES: ThemeConfig[] = [
   { id: 'midnight', name: 'Deep Midnight', desc: 'Abyssal navy blue with ink waves' },
   { id: 'aurora', name: 'Boreal Glow', desc: 'Northern lights shimmer in emerald & amethyst' },
   { id: 'neonPulse', name: 'Neon Pulse', desc: 'Ultra bright high-contrast neon green & vivid magenta pulse' },
+  { id: 'cyberNeon', name: 'Cyber Neon', desc: 'High-voltage laser cyan & neon electric magenta glow' },
+  { id: 'prismGlass', name: 'Prism Glass', desc: 'Multichromatic holographic glass with iridescent refractions' },
+  { id: 'crystalIce', name: 'Crystal Ice', desc: 'Frosted arctic glacier glass with radiant ice blue aura' },
+  { id: 'glassmorphism', name: 'Ethereal Glass', desc: 'Frosted translucency & luminous sky cyan' },
+  { id: 'glassyLight', name: 'Glassy Light Mode', desc: 'Soft eye-friendly frosted icy blue phone light theme' },
   { id: 'custom', name: 'Custom Studio', desc: 'Craft your own premium primary & accent color palette' },
 ];
 

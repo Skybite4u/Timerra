@@ -10,7 +10,13 @@ export function primeAudio(): void {
 }
 
 export function vibrateClick(): void {
-  // Disabled to prevent phone haptic/vibration corruption issues
+  if (typeof window !== 'undefined' && 'navigator' in window && 'vibrate' in navigator) {
+    try {
+      navigator.vibrate(10);
+    } catch {
+      /* ignore */
+    }
+  }
 }
 
 export function playClick(): void {
@@ -73,15 +79,43 @@ export function playTick(volume: number = 0.5): void {
 }
 
 export function vibrateStart(): void {
-  // Disabled to prevent phone haptic/vibration corruption issues
+  if (typeof window !== 'undefined' && 'navigator' in window && 'vibrate' in navigator) {
+    try {
+      navigator.vibrate([20, 30, 20]);
+    } catch {
+      /* ignore */
+    }
+  }
 }
 
 export function vibratePause(): void {
-  // Disabled to prevent phone haptic/vibration corruption issues
+  if (typeof window !== 'undefined' && 'navigator' in window && 'vibrate' in navigator) {
+    try {
+      navigator.vibrate(15);
+    } catch {
+      /* ignore */
+    }
+  }
+}
+
+export function vibrateReset(): void {
+  if (typeof window !== 'undefined' && 'navigator' in window && 'vibrate' in navigator) {
+    try {
+      navigator.vibrate([25, 35, 25]);
+    } catch {
+      /* ignore */
+    }
+  }
 }
 
 export function vibrateComplete(): void {
-  // Disabled to prevent phone haptic/vibration corruption issues
+  if (typeof window !== 'undefined' && 'navigator' in window && 'vibrate' in navigator) {
+    try {
+      navigator.vibrate([40, 50, 40, 50, 60]);
+    } catch {
+      /* ignore */
+    }
+  }
 }
 
 export function playDefaultSweep(): void {

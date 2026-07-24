@@ -249,15 +249,15 @@ export const CircularTimer = React.memo<CircularTimerProps>(({
       <div className="flex items-baseline justify-center font-mono text-white select-text cursor-default tabular-nums">
         {h > 0 && (
           <>
-            <span className={isFullscreen ? "text-5xl sm:text-7xl md:text-8xl lg:text-9xl font-black" : "text-3xl sm:text-5xl md:text-6xl font-black"}>{pad(h)}</span>
-            <span className={isFullscreen ? "text-2xl sm:text-4xl md:text-5xl font-medium mx-1 text-white/50" : "text-lg sm:text-2xl md:text-3xl font-medium mx-0.5 text-white/50"}>:</span>
+            <span className={isFullscreen ? "text-3xl xs:text-4xl sm:text-6xl md:text-7xl landscape:text-2xl font-black" : "text-2xl xs:text-3xl sm:text-5xl md:text-6xl landscape:text-xl font-black"}>{pad(h)}</span>
+            <span className={isFullscreen ? "text-xl xs:text-2xl sm:text-4xl md:text-5xl landscape:text-lg font-medium mx-0.5 text-white/50" : "text-base sm:text-2xl md:text-3xl font-medium mx-0.5 text-white/50"}>:</span>
           </>
         )}
-        <span className={isFullscreen ? "text-5xl sm:text-7xl md:text-8xl lg:text-9xl font-black" : "text-3xl sm:text-5xl md:text-6xl font-black"}>{pad(m)}</span>
-        <span className={isFullscreen ? "text-2xl sm:text-4xl md:text-5xl font-medium mx-1 text-white/50" : "text-lg sm:text-2xl md:text-3xl font-medium mx-0.5 text-white/50"}>:</span>
-        <span className={isFullscreen ? "text-5xl sm:text-7xl md:text-8xl lg:text-9xl font-black" : "text-3xl sm:text-5xl md:text-6xl font-black"}>{pad(s)}</span>
-        <span className={isFullscreen ? "text-2xl sm:text-4xl md:text-5xl font-medium mx-1 text-tm-primary" : "text-lg sm:text-2xl md:text-3xl font-medium mx-0.5 text-tm-primary"}>.</span>
-        <span className={isFullscreen ? "text-3xl sm:text-5xl md:text-6xl lg:text-7xl font-extrabold text-tm-primary/80" : "text-xl sm:text-3xl md:text-4xl font-extrabold text-tm-primary/80"}>{pad(ms)}</span>
+        <span className={isFullscreen ? "text-3xl xs:text-4xl sm:text-6xl md:text-7xl landscape:text-2xl font-black" : "text-2xl xs:text-3xl sm:text-5xl md:text-6xl landscape:text-xl font-black"}>{pad(m)}</span>
+        <span className={isFullscreen ? "text-xl xs:text-2xl sm:text-4xl md:text-5xl landscape:text-lg font-medium mx-0.5 text-white/50" : "text-base sm:text-2xl md:text-3xl font-medium mx-0.5 text-white/50"}>:</span>
+        <span className={isFullscreen ? "text-3xl xs:text-4xl sm:text-6xl md:text-7xl landscape:text-2xl font-black" : "text-2xl xs:text-3xl sm:text-5xl md:text-6xl landscape:text-xl font-black"}>{pad(s)}</span>
+        <span className={isFullscreen ? "text-xl xs:text-2xl sm:text-4xl md:text-5xl landscape:text-lg font-medium mx-0.5 text-tm-primary" : "text-base sm:text-2xl md:text-3xl font-medium mx-0.5 text-tm-primary"}>.</span>
+        <span className={isFullscreen ? "text-2xl xs:text-3xl sm:text-5xl md:text-6xl landscape:text-lg font-extrabold text-tm-primary/80" : "text-lg sm:text-3xl md:text-4xl landscape:text-base font-extrabold text-tm-primary/80"}>{pad(ms)}</span>
       </div>
     );
   };
@@ -274,10 +274,10 @@ export const CircularTimer = React.memo<CircularTimerProps>(({
 
     return (
       <h1 
-        className={`font-mono font-bold tracking-tight text-white select-text cursor-default tabular-nums ${
+        className={`font-mono font-bold tracking-tight text-white select-text cursor-default tabular-nums transition-all duration-300 ${
           isFullscreen 
-            ? 'text-6xl sm:text-8xl md:text-[8rem] lg:text-[10rem] leading-none' 
-            : 'text-4xl sm:text-6xl md:text-7xl'
+            ? 'text-4xl xs:text-5xl sm:text-7xl md:text-8xl lg:text-9xl landscape:text-3xl landscape:sm:text-5xl landscape:md:text-6xl leading-none' 
+            : 'text-3xl xs:text-4xl sm:text-6xl md:text-7xl landscape:text-2xl landscape:sm:text-4xl'
         }`}
         style={{ textShadow: '0 4px 20px rgba(0, 0, 0, 0.5), 0 0 16px var(--tm-glow)' }}
       >
@@ -443,10 +443,10 @@ export const CircularTimer = React.memo<CircularTimerProps>(({
 
       {/* 3D Orbit Perspective Container */}
       <div 
-        className={`relative flex items-center justify-center transition-all duration-700 ${
+        className={`relative flex items-center justify-center transition-all duration-700 aspect-square ${
           isFullscreen 
-            ? 'w-[320px] h-[320px] xs:w-[420px] xs:h-[420px] sm:w-[520px] sm:h-[520px] md:w-[620px] md:h-[620px] lg:w-[680px] lg:h-[680px]' 
-            : 'w-64 h-64 sm:w-80 sm:h-80 md:w-96 md:h-96'
+            ? 'w-[280px] h-[280px] xs:w-[340px] xs:h-[340px] sm:w-[460px] sm:h-[460px] md:w-[560px] md:h-[560px] lg:w-[640px] lg:h-[640px] max-w-[85vw] max-h-[72vh] landscape:max-h-[62vh] landscape:max-w-[62vh]' 
+            : 'w-64 h-64 sm:w-80 sm:h-80 md:w-96 md:h-96 max-w-[85vw] max-h-[60vh] landscape:max-h-[55vh] landscape:max-w-[55vh]'
         }`}
         style={{ perspective: '1200px', transformStyle: 'preserve-3d' }}
       >
@@ -665,11 +665,11 @@ export const CircularTimer = React.memo<CircularTimerProps>(({
 
           {/* --- MAIN DISPLAY CONTENT INSIDE ORB (3D perspective layer) --- */}
           <div 
-            className="flex flex-col items-center justify-center z-20 text-center px-6 relative w-full"
+            className="flex flex-col items-center justify-center z-20 text-center px-3 sm:px-6 relative w-full h-full max-h-full overflow-hidden"
             style={{ transform: 'translateZ(40px)' }}
           >
             {/* Subject Indicator */}
-            <span className={`text-[10px] sm:text-xs font-bold tracking-[0.3em] uppercase mb-1 drop-shadow-md truncate max-w-[190px] sm:max-w-[240px] px-3 py-1 rounded-full transition-all duration-300 ${
+            <span className={`text-[9px] xs:text-[10px] sm:text-xs landscape:text-[8px] font-bold tracking-[0.25em] uppercase mb-0.5 sm:mb-1 drop-shadow-md truncate max-w-[140px] xs:max-w-[180px] sm:max-w-[240px] px-2.5 py-0.5 sm:py-1 rounded-full transition-all duration-300 ${
               status === 'running'
                 ? 'text-tm-primary bg-tm-primary/10 border border-tm-primary/30 shadow-[0_0_15px_rgba(var(--tm-glow-rgb),0.2)] animate-pulse'
                 : 'text-white/50 bg-white/[0.02] border border-white/5'
@@ -678,20 +678,20 @@ export const CircularTimer = React.memo<CircularTimerProps>(({
             </span>
 
             {/* Time Readout Box */}
-            <div className="min-h-[50px] sm:min-h-[64px] flex items-center justify-center w-full">
+            <div className="min-h-[36px] xs:min-h-[46px] sm:min-h-[64px] landscape:min-h-[30px] flex items-center justify-center w-full my-0.5 landscape:my-0">
               {mode === 'stopwatch' ? renderStopwatchTime() : renderStandardTime()}
             </div>
 
             {/* Dynamic Live Minute/Remaining Time Counter */}
             {mode !== 'stopwatch' && mode !== 'infinityFocus' && (
-              <div className="text-[10px] font-mono font-bold uppercase tracking-[0.15em] text-tm-primary/90 mt-0.5 animate-pulse">
+              <div className="text-[8px] xs:text-[9px] sm:text-[10px] landscape:text-[7.5px] font-mono font-bold uppercase tracking-[0.12em] text-tm-primary/90 mt-0.5 landscape:mt-0 animate-pulse">
                 Remaining Time: {Math.floor(remainingSec / 60)}m {Math.floor(remainingSec % 60)}s
               </div>
             )}
 
             {/* Status / Label */}
-            <span className="text-[10px] sm:text-xs font-semibold tracking-[0.35em] uppercase text-white/70 mt-2 flex items-center gap-2">
-              <span className={`w-2 h-2 rounded-full transition-colors duration-300 ${
+            <span className="text-[8px] xs:text-[9px] sm:text-xs landscape:text-[7.5px] font-semibold tracking-[0.25em] uppercase text-white/70 mt-1 sm:mt-2 landscape:mt-0.5 flex items-center gap-1.5">
+              <span className={`w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full transition-colors duration-300 ${
                 status === 'running' 
                   ? 'bg-tm-primary animate-pulse shadow-[0_0_8px_var(--tm-primary)]' 
                   : 'bg-white/30'
@@ -701,20 +701,20 @@ export const CircularTimer = React.memo<CircularTimerProps>(({
 
             {/* Specialized Secondary Metric display */}
             {mode === 'deepFocus' && status === 'running' && (
-              <span className="text-[9px] sm:text-[10px] text-white/40 uppercase tracking-widest mt-2 bg-purple-500/10 px-2 py-0.5 rounded border border-purple-500/10 transition-all duration-500">
+              <span className="text-[8px] sm:text-[10px] text-white/40 uppercase tracking-widest mt-1 sm:mt-2 bg-purple-500/10 px-2 py-0.5 rounded border border-purple-500/10 transition-all duration-500">
                 Finish ~ {getEstFinishTime()}
               </span>
             )}
 
             {mode === 'infinityFocus' && status === 'running' && (
-              <span className="text-[9px] sm:text-[10px] text-pink-400/80 uppercase tracking-widest mt-2 bg-pink-500/10 px-2.5 py-0.5 rounded-full border border-pink-500/10 transition-all duration-500">
+              <span className="text-[8px] sm:text-[10px] text-pink-400/80 uppercase tracking-widest mt-1 sm:mt-2 bg-pink-500/10 px-2 py-0.5 rounded-full border border-pink-500/10 transition-all duration-500">
                 Energy: {Math.floor(elapsedSec / 10)} CP
               </span>
             )}
 
             {/* Cycle Count Indicator (Only for Pomodoro/Break modes) */}
             {mode !== 'stopwatch' && mode !== 'infinityFocus' && (
-              <span className="text-[9px] sm:text-[10px] text-white/40 uppercase tracking-widest mt-2.5">
+              <span className="text-[8px] sm:text-[10px] landscape:text-[7.5px] text-white/40 uppercase tracking-widest mt-1 sm:mt-2">
                 Cycle {cycle}
               </span>
             )}

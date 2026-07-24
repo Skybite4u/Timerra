@@ -22,6 +22,8 @@ import {
   Eye,
   EyeOff,
   Moon,
+  Sun,
+  SunMoon,
   Bell,
   BellOff,
   Star,
@@ -54,6 +56,8 @@ import { calculateFocusDna } from './lib/focusDna';
 
 // Subcomponents
 import { CircularTimer } from './components/CircularTimer';
+import { MiniTimerCard } from './components/MiniTimerCard';
+import { StreakCounter } from './components/StreakCounter';
 import { MilestoneCeremony } from './components/MilestoneCeremony';
 import { MilestoneVault } from './components/MilestoneVault';
 import { LegacyCardCenter } from './components/LegacyCardCenter';
@@ -80,7 +84,7 @@ import { AnimatePresence, motion } from 'motion/react';
 
 // Custom Libs and Hooks
 import { TimerraDB } from './lib/db';
-import { playClick as basePlayClick, playTick as basePlayTick, playComplete, vibrateStart, vibratePause, vibrateClick } from './lib/audio';
+import { playClick as basePlayClick, playTick as basePlayTick, playComplete, vibrateStart, vibratePause, vibrateReset, vibrateClick } from './lib/audio';
 import { VaultManager } from './lib/vaultManager';
 import { CapsuleDB } from './lib/capsuleDb';
 import { NotificationManager } from './lib/notificationManager';
@@ -105,6 +109,7 @@ const defaultSettings: TimerSettings = {
   alertSoundId: 'default',
   focusIntensity: 'standard',
   smartAutoTagging: false,
+  glassIntensity: 60,
 };
 
 const getSubjectVisuals = (subjectName: string) => {
@@ -365,6 +370,72 @@ export default function App() {
     localStorage.setItem('timerra_subject_notes', JSON.stringify(subjectNotes));
   }, [subjectNotes]);
 
+  // --- Streak Calculations ---
+  const currentStreak = useMemo(() => {
+    if (!sessions || sessions.length === 0) return 0;
+    const activeDates = new Set(
+      sessions
+        .filter(s => s.completedAt)
+        .map(s => {
+          const d = new Date(s.completedAt);
+          return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        })
+    );
+    if (activeDates.size === 0) return 0;
+
+    const today = new Date();
+    const formatDate = (d: Date) =>
+      `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+    let streak = 0;
+    let checkDate = new Date(today);
+
+    if (!activeDates.has(formatDate(checkDate))) {
+      checkDate.setDate(checkDate.getDate() - 1);
+    }
+
+    while (activeDates.has(formatDate(checkDate))) {
+      streak++;
+      checkDate.setDate(checkDate.getDate() - 1);
+    }
+
+    return streak;
+  }, [sessions]);
+
+  const longestStreak = useMemo(() => {
+    if (!sessions || sessions.length === 0) return 0;
+    const sortedDates: string[] = Array.from<string>(
+      new Set(
+        sessions
+          .filter(s => s.completedAt)
+          .map(s => {
+            const d = new Date(s.completedAt);
+            return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+          })
+      )
+    ).sort();
+
+    if (sortedDates.length === 0) return 0;
+
+    let maxStreak = 1;
+    let current = 1;
+
+    for (let i = 1; i < sortedDates.length; i++) {
+      const prev = new Date(sortedDates[i - 1]);
+      const curr = new Date(sortedDates[i]);
+      const diffDays = Math.round((curr.getTime() - prev.getTime()) / (1000 * 3600 * 24));
+
+      if (diffDays === 1) {
+        current++;
+        maxStreak = Math.max(maxStreak, current);
+      } else if (diffDays > 1) {
+        current = 1;
+      }
+    }
+
+    return maxStreak;
+  }, [sessions]);
+
   // --- Subject Target Helpers ---
   const getSubjectTotalFocusTime = (subName: string) => {
     return sessions
@@ -402,6 +473,25 @@ export default function App() {
   const [isFocusSilenceMode, setIsFocusSilenceMode] = useState<boolean>(false);
   const [unseenVaultCount, setUnseenVaultCount] = useState<number>(0);
   const [unreadNotificationCount, setUnreadNotificationCount] = useState<number>(0);
+
+  // Phone-like Light/Dark Glassy Theme Switcher Ref & Handler
+  const lastDarkThemeRef = useRef<ThemeName>('blue');
+  const togglePhoneGlassyTheme = useCallback(() => {
+    vibrateClick();
+    setSettings(prev => {
+      if (prev.theme === 'glassyLight') {
+        const restored = (lastDarkThemeRef.current === 'glassyLight') ? 'glassmorphism' : lastDarkThemeRef.current;
+        const updated = { ...prev, theme: restored };
+        TimerraDB.saveSettings(updated).catch(console.error);
+        return updated;
+      } else {
+        lastDarkThemeRef.current = prev.theme;
+        const updated = { ...prev, theme: 'glassyLight' as ThemeName };
+        TimerraDB.saveSettings(updated).catch(console.error);
+        return updated;
+      }
+    });
+  }, []);
 
   // Focus Reminder Notification Checker
   useEffect(() => {
@@ -582,9 +672,6 @@ export default function App() {
 
   // Helper to commit accumulated study seconds to IndexedDB sessions history
   const commitUnloggedStudySec = useCallback(async (forceAll = false, statusOutcome?: 'completed' | 'skipped' | 'stopped' | 'cancelled') => {
-    const isStudyMode = mode === 'focus' || mode === 'deepFocus' || mode === 'sprint' || mode === 'marathon' || mode === 'zen' || mode === 'infinityFocus';
-    if (!isStudyMode) return;
-
     let secondsToCommit = 0;
     if (forceAll) {
       secondsToCommit = unloggedStudySecRef.current;
@@ -595,7 +682,7 @@ export default function App() {
       }
     }
 
-    if (secondsToCommit >= 5) {
+    if (secondsToCommit >= 3) {
       const now = Date.now();
       const startTime = sessionStartTimeRef.current || (now - secondsToCommit * 1000);
       
@@ -616,7 +703,7 @@ export default function App() {
       const cancelled = statusOutcome === 'cancelled';
 
       const newSession: Session = {
-        mode: mode === 'infinityFocus' ? 'infinityFocus' : mode, // Store actual mode
+        mode: mode, // Store actual mode for all orb types
         subject: settings.subject,
         durationSec: Math.floor(secondsToCommit),
         completedAt: now,
@@ -992,12 +1079,8 @@ export default function App() {
   const advancePhase = useCallback(async (isNaturalComplete = true) => {
     playComplete(settings.alertSoundId || 'default', settings.customSoundData);
 
-    const isStudyMode = mode === 'focus' || mode === 'deepFocus' || mode === 'sprint' || mode === 'marathon' || mode === 'zen';
-
-    // Persist all accumulated study time up to this natural complete phase
-    if (isStudyMode) {
-      await commitUnloggedStudySec(true);
-    }
+    // Persist all accumulated time up to this natural complete phase
+    await commitUnloggedStudySec(true, 'completed');
 
     // Phase progression logic (focus/study -> shortBreak -> focus/study -> longBreak)
     let nextMode: TimerMode = 'focus';
@@ -1029,7 +1112,7 @@ export default function App() {
 
     // Dispatch critical session progress notifications to central logs & trigger browser popups
     if (isNaturalComplete) {
-      if (isStudyMode) {
+      if (studyModes.includes(mode)) {
         NotificationManager.addNotification(
           'Focus Session Completed! 🎉',
           `Well done! You have completed your "${settings.subject}" focus session. Time for a well-deserved recovery break.`,
@@ -1054,7 +1137,7 @@ export default function App() {
     } else {
       setStatus('idle');
     }
-  }, [mode, cycle, settings, isFocusSilenceMode]);
+  }, [mode, cycle, settings, isFocusSilenceMode, commitUnloggedStudySec]);
 
   useEffect(() => {
     if (status !== 'running') {
@@ -1081,13 +1164,11 @@ export default function App() {
       if (dt <= 0) return;
       lastWallTimeRef.current = now;
 
-      const isStudyMode = mode === 'focus' || mode === 'deepFocus' || mode === 'sprint' || mode === 'marathon' || mode === 'zen' || mode === 'infinityFocus';
+      // Accumulate time for all timer modes
+      unloggedStudySecRef.current += dt;
 
       if (mode === 'stopwatch' || mode === 'infinityFocus') {
         precisionElapsedSecRef.current += dt;
-        if (mode === 'infinityFocus') {
-          unloggedStudySecRef.current += dt;
-        }
 
         if (mode === 'stopwatch') {
           // In stopwatch mode, update state on every tick to support sub-second/millisecond visuals
@@ -1102,9 +1183,6 @@ export default function App() {
         }
       } else {
         precisionRemainingSecRef.current -= dt;
-        if (isStudyMode) {
-          unloggedStudySecRef.current += dt;
-        }
 
         if (precisionRemainingSecRef.current <= 0) {
           precisionRemainingSecRef.current = 0;
@@ -1246,46 +1324,35 @@ export default function App() {
 
   const handleReset = useCallback(async () => {
     playClick();
-    const isStudyMode = mode === 'focus' || mode === 'deepFocus' || mode === 'sprint' || mode === 'marathon' || mode === 'zen' || mode === 'infinityFocus';
-    
-    if (isStudyMode) {
+    vibrateReset();
+
+    if (unloggedStudySecRef.current >= 3) {
       await commitUnloggedStudySec(true, 'stopped');
-
-      // Transition to next break mode automatically
-      let nextMode: TimerMode = 'shortBreak';
-      let nextCycle = cycle;
-
-      if (cycle >= settings.cyclesBeforeLongBreak) {
-        nextMode = 'longBreak';
-        nextCycle = 1;
-      } else {
-        nextMode = 'shortBreak';
-        nextCycle = cycle + 1;
-      }
-
-      setMode(nextMode);
-      setCycle(nextCycle);
-
-      let nextDurSec = settings.shortBreakMinutes * 60;
-      if (nextMode === 'longBreak') {
-        nextDurSec = settings.longBreakMinutes * 60;
-      }
-
-      setRemainingSec(nextDurSec);
-      setTotalDurationSec(nextDurSec);
-      setStatus('running'); // Start break immediately!
-      vibrateStart();
-    } else {
-      // If already a break, reset to idle focus mode
-      setStatus('idle');
-      setMode('focus');
-      const focusMinutes = settings.focusMinutes;
-      setRemainingSec(focusMinutes * 60);
-      setTotalDurationSec(focusMinutes * 60);
-      unloggedStudySecRef.current = 0;
-      sessionStartTimeRef.current = null;
     }
-  }, [mode, cycle, settings, commitUnloggedStudySec]);
+
+    setStatus('idle');
+    
+    let duration = settings.focusMinutes * 60;
+    if (mode === 'focus') duration = settings.focusMinutes * 60;
+    else if (mode === 'deepFocus') duration = Math.max(settings.focusMinutes, 45) * 60;
+    else if (mode === 'shortBreak') duration = settings.shortBreakMinutes * 60;
+    else if (mode === 'longBreak') duration = settings.longBreakMinutes * 60;
+    else if (mode === 'sprint') duration = 10 * 60;
+    else if (mode === 'marathon') duration = 60 * 60;
+    else if (mode === 'zen') duration = 20 * 60;
+
+    if (mode === 'stopwatch' || mode === 'infinityFocus') {
+      setElapsedSec(0);
+      precisionElapsedSecRef.current = 0;
+    } else {
+      setRemainingSec(duration);
+      setTotalDurationSec(duration);
+      precisionRemainingSecRef.current = duration;
+    }
+
+    unloggedStudySecRef.current = 0;
+    sessionStartTimeRef.current = null;
+  }, [mode, settings, commitUnloggedStudySec]);
 
   const handleStop = useCallback(async () => {
     playClick();
@@ -1351,11 +1418,12 @@ export default function App() {
     setShowSettings(false);
   }, []);
 
-  const handleThemePreview = useCallback((themeId: ThemeName, customTheme?: TimerSettings['customTheme']) => {
+  const handleThemePreview = useCallback((themeId: ThemeName, customTheme?: TimerSettings['customTheme'], glassIntensity?: number) => {
     setSettings(prev => ({
       ...prev,
       theme: themeId,
       customTheme: customTheme || prev.customTheme,
+      glassIntensity: glassIntensity !== undefined ? glassIntensity : prev.glassIntensity,
     }));
   }, []);
 
@@ -1912,6 +1980,31 @@ export default function App() {
   const currentHour = new Date().getHours();
   const isCurrentlyAutoDimmed = (settings.autoDim !== false) && (currentHour >= 22 || currentHour < 6);
 
+  // Synchronize theme and glass intensity variables to document element and body
+  useEffect(() => {
+    const intensity = settings.glassIntensity ?? 60;
+    const blurPx = Math.max(4, Math.round((intensity / 100) * 36));
+    const opacityVal = (0.2 + (intensity / 100) * 0.75).toFixed(2);
+
+    const themeClass = `theme-${settings.theme}`;
+    const modeClass = settings.theme === 'glassyLight' ? 'light-mode-active' : 'dark-mode-active';
+
+    document.body.className = `${themeClass} ${modeClass}`;
+    document.documentElement.className = `${themeClass} ${modeClass}`;
+
+    document.documentElement.style.setProperty('--tm-glass-blur', `${blurPx}px`);
+    document.documentElement.style.setProperty('--tm-glass-opacity', opacityVal);
+    document.documentElement.style.setProperty('--tm-glass-intensity', `${intensity}%`);
+
+    if (settings.theme === 'glassyLight') {
+      document.documentElement.style.setProperty('--tm-glass-bg', `rgba(224, 242, 254, ${(0.45 + (intensity / 100) * 0.50).toFixed(2)})`);
+      document.documentElement.style.setProperty('--tm-glass-border', `rgba(56, 189, 248, ${(0.25 + (intensity / 100) * 0.45).toFixed(2)})`);
+    } else {
+      document.documentElement.style.setProperty('--tm-glass-bg', `rgba(10, 15, 30, ${(0.35 + (intensity / 100) * 0.55).toFixed(2)})`);
+      document.documentElement.style.setProperty('--tm-glass-border', `rgba(255, 255, 255, ${(0.05 + (intensity / 100) * 0.35).toFixed(2)})`);
+    }
+  }, [settings.theme, settings.glassIntensity]);
+
   if (!isHydrated || !isLoaded) {
     return (
       <div className="min-h-screen bg-[#060814] flex flex-col items-center justify-center font-sans text-white">
@@ -1937,51 +2030,142 @@ export default function App() {
 
   return (
     <div 
-      className={`min-h-screen theme-${settings.theme} ${isCurrentlyAutoDimmed ? 'auto-dimmed' : ''} bg-gradient-to-b from-tm-bg-from to-tm-bg-to text-white font-sans transition-all duration-700 ease-in-out ${isFullscreen && !controlsVisible ? 'cursor-none' : ''}`}
+      className={`min-h-screen mode-${mode} theme-${settings.theme} ${isCurrentlyAutoDimmed ? 'auto-dimmed' : ''} bg-gradient-to-b from-tm-bg-from to-tm-bg-to ${settings.theme === 'glassyLight' ? 'text-slate-900' : 'text-white'} font-sans transition-all duration-700 ease-in-out ${isFullscreen && !controlsVisible ? 'cursor-none' : ''}`}
+      data-mode={mode}
       style={customThemeStyles}
     >
       
       {/* Branded Defs Gradients */}
       <BrandedDefs />
+
+      {/* FULLSCREEN & ROTATED LANDSCAPE ATMOSPHERIC GLOW */}
+      {isFullscreen && (
+        <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
+          <div className="absolute top-1/4 left-1/4 w-[500px] h-[500px] bg-gradient-to-tr from-tm-primary/25 via-cyan-500/20 to-purple-500/20 rounded-full blur-[120px] animate-pulse" />
+          <div className="absolute bottom-1/4 right-1/4 w-[550px] h-[550px] bg-gradient-to-br from-indigo-500/25 via-pink-500/20 to-tm-accent/25 rounded-full blur-[130px] animate-pulse" style={{ animationDelay: '2s' }} />
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-white/5 via-transparent to-black/70" />
+        </div>
+      )}
+
+      {/* FLOATING LEFT / BOTTOM NAVIGATION RAIL (RETURNING) */}
+      {!isFullscreen && (
+        <NavigationRail
+          onOpenNotificationCenter={() => { playClick(); setShowNotificationCenter(true); }}
+          onOpenHistoryPanel={() => { playClick(); setShowHistoryPanel(true); }}
+          onOpenFocusDna={() => { playClick(); setShowFocusDna(true); }}
+          onOpenConstellation={() => { playClick(); setShowConstellation(true); }}
+          onOpenMorePanel={() => { playClick(); setShowMorePanel(true); }}
+          onOpenSettings={() => { playClick(); setShowSettings(true); }}
+          onOpenBackup={() => { playClick(); setShowBackup(true); }}
+          onOpenGuide={() => { playClick(); setShowGuideModal(true); }}
+          timerRunning={status === 'running'}
+          onTogglePlay={handleTogglePlay}
+          onReset={handleReset}
+          onSkip={handleSkip}
+          onReturnToWorkspace={() => {
+            closeAllPanels();
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          }}
+          unreadCount={unreadNotificationCount}
+          activePanel={
+            showNotificationCenter ? 'logs' :
+            showHistoryPanel ? 'history' :
+            showFocusDna ? 'dna' :
+            showMorePanel ? 'more' : 'none'
+          }
+        />
+      )}
       
       {/* HEADER NAVBAR */}
       {!isFullscreen && (
-        <header className="sticky top-3 z-30 mt-3 px-4 sm:px-6 py-3.5 flex items-center justify-between border border-white/[0.05] border-t-white/[0.12] rounded-2xl max-w-7xl mx-4 xl:mx-auto animate-fade-in tm-glass-dense backdrop-blur-md shadow-[0_12px_40px_-8px_rgba(0,0,0,0.5)]">
+        <header className="sticky top-3 z-30 mt-3 px-4 sm:px-6 py-3.5 flex items-center justify-between border border-white/[0.08] border-t-white/[0.15] rounded-2xl max-w-7xl mx-4 xl:mx-auto animate-fade-in tm-glass-dense backdrop-blur-md shadow-[0_12px_40px_-8px_rgba(0,0,0,0.5)]">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-tm-primary to-tm-accent flex items-center justify-center shadow-[0_0_15px_-2px_var(--tm-glow)] shrink-0">
               <Clock className="w-4 h-4 text-white" />
             </div>
             <div>
-              <span className="font-mono text-base font-extrabold tracking-[0.25em] text-white uppercase">
+              <span className={`font-mono text-base font-extrabold tracking-[0.25em] uppercase ${settings.theme === 'glassyLight' ? 'text-slate-900' : 'text-white'}`}>
                 TIME<span className="text-tm-primary">RRA</span>
               </span>
-              <span className="hidden xs:inline-block text-[8px] bg-white/5 text-slate-400 font-bold px-1.5 py-0.5 rounded ml-2 border border-white/5">v1.1</span>
+              <span className="hidden xs:inline-block text-[8px] bg-white/10 text-slate-400 font-bold px-1.5 py-0.5 rounded ml-2 border border-white/10">v1.1</span>
             </div>
           </div>
 
-          {/* Single Control Drawer Trigger in Top Right Corner */}
-          <button
-            onClick={() => {
-              playClick();
-              setShowControlDrawer(true);
-            }}
-            className="flex items-center gap-2 bg-white/[0.04] hover:bg-white/[0.08] border border-white/10 hover:border-white/20 rounded-2xl px-3.5 py-2 text-xs font-extrabold text-slate-200 hover:text-white transition-all cursor-pointer relative shrink-0 shadow-md active:scale-95 group"
-            title="Open Control Hub"
-          >
-            <SlidersHorizontal className="w-4 h-4 text-tm-primary group-hover:scale-110 transition-transform" />
-            <span className="hidden sm:inline font-extrabold uppercase tracking-wider text-[11px]">Controls</span>
-            {(unreadNotificationCount > 0 || unseenVaultCount > 0) && (
-              <span className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-rose-500"></span>
+          {/* Right Header Actions: Phone OS Style Theme Toggle & Controls */}
+          <div className="flex items-center gap-2.5">
+            {/* Phone OS Style Glassy Light / Night Mode Animated Pill Toggle */}
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.94 }}
+              onClick={togglePhoneGlassyTheme}
+              className={`relative flex items-center gap-2 px-3 py-1.5 rounded-full border transition-all duration-300 cursor-pointer shadow-md overflow-hidden group/phonetoggle ${
+                settings.theme === 'glassyLight'
+                  ? 'bg-sky-100/90 border-sky-300 text-slate-900 shadow-[0_0_20px_rgba(56,189,248,0.35)]'
+                  : 'bg-slate-900/80 border-cyan-500/35 text-cyan-200 hover:border-cyan-400/70 shadow-[0_0_18px_rgba(6,182,212,0.25)]'
+              }`}
+              title={settings.theme === 'glassyLight' ? 'Switch to Dark Mode' : 'Switch to Soft Glassy Blue Light Mode'}
+            >
+              {/* Subtle animated background aura glow */}
+              <motion.div
+                className="absolute inset-0 bg-gradient-to-r from-sky-400/20 via-cyan-400/25 to-blue-500/20 pointer-events-none"
+                animate={{
+                  opacity: settings.theme === 'glassyLight' ? [0.3, 0.7, 0.3] : [0.1, 0.3, 0.1]
+                }}
+                transition={{ duration: 2.5, repeat: Infinity }}
+              />
+
+              {/* Phone Switch Capsule Track */}
+              <div className={`relative w-11 h-6 rounded-full p-0.5 flex items-center transition-colors duration-300 ${
+                settings.theme === 'glassyLight' ? 'bg-sky-200/90 border border-sky-400/60' : 'bg-slate-950/90 border border-slate-700/70'
+              }`}>
+                {/* Sliding Phone Thumb Orb */}
+                <motion.div
+                  layout
+                  transition={{ type: "spring", stiffness: 500, damping: 28 }}
+                  className={`w-5 h-5 rounded-full flex items-center justify-center shadow-md ${
+                    settings.theme === 'glassyLight'
+                      ? 'translate-x-[20px] bg-gradient-to-tr from-sky-400 to-cyan-300 text-slate-900'
+                      : 'translate-x-0 bg-gradient-to-tr from-cyan-500 to-blue-600 text-white'
+                  }`}
+                >
+                  {settings.theme === 'glassyLight' ? (
+                    <Sun className="w-3 h-3 text-amber-950 animate-spin-slow" />
+                  ) : (
+                    <Moon className="w-3 h-3 text-cyan-100" />
+                  )}
+                </motion.div>
+              </div>
+
+              {/* Toggle Label */}
+              <span className="hidden sm:inline-block text-[10px] font-black uppercase tracking-widest leading-none">
+                {settings.theme === 'glassyLight' ? 'Glassy Light' : 'Night Mode'}
               </span>
-            )}
-          </button>
+            </motion.button>
+
+            {/* Single Control Drawer Trigger in Top Right Corner */}
+            <button
+              onClick={() => {
+                playClick();
+                setShowControlDrawer(true);
+              }}
+              className="flex items-center gap-2 bg-white/[0.06] hover:bg-white/[0.12] border border-white/10 hover:border-white/20 rounded-2xl px-3.5 py-2 text-xs font-extrabold text-slate-200 hover:text-white transition-all cursor-pointer relative shrink-0 shadow-md active:scale-95 group"
+              title="Open Control Hub"
+            >
+              <SlidersHorizontal className="w-4 h-4 text-tm-primary group-hover:scale-110 transition-transform" />
+              <span className="hidden sm:inline font-extrabold uppercase tracking-wider text-[11px]">Controls</span>
+              {(unreadNotificationCount > 0 || unseenVaultCount > 0) && (
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-rose-500"></span>
+                </span>
+              )}
+            </button>
+          </div>
         </header>
       )}
 
       {/* CENTRAL TIMER GRID */}
-      <main className={`max-w-7xl mx-auto px-3 sm:px-6 flex flex-col items-center w-full transition-all duration-500 ${isFullscreen ? 'justify-center min-h-screen py-12' : 'py-3 sm:py-12'}`}>
+      <main className={`max-w-7xl mx-auto px-3 sm:px-6 flex flex-col items-center w-full transition-all duration-500 ${isFullscreen ? 'justify-center min-h-screen py-4 landscape:py-2 sm:py-8' : 'py-3 sm:py-12'}`}>
         
         {/* Dynamic 9-Mode Navigation Dock */}
         <div className={`transition-all duration-500 ease-in-out w-full flex justify-center ${isFullscreen ? (controlsVisible ? 'opacity-100 translate-y-0 scale-100 pointer-events-auto' : 'opacity-0 -translate-y-4 scale-95 pointer-events-none') : 'opacity-100 scale-100'}`}>
@@ -2070,30 +2254,6 @@ export default function App() {
             </div>
           )}
         </AnimatePresence>
-
-        {/* Standalone Premium Action Buttons under the Orb */}
-        {!isFullscreen && (
-          <div className="flex justify-center -mt-2 mb-6 animate-fade-in relative z-20">
-            {['focus', 'deepFocus', 'sprint', 'marathon', 'zen', 'infinityFocus'].includes(mode) ? (
-              <button
-                onClick={handleReset}
-                className="px-6 py-3 bg-[#a30000] hover:bg-[#c20000] text-white border-2 border-[#b80000] hover:border-white rounded-full text-xs font-extrabold uppercase tracking-widest transition-all duration-300 cursor-pointer flex items-center gap-2 active:scale-95 shadow-[0_4px_15px_rgba(163,0,0,0.35)] hover:shadow-[0_6px_22px_rgba(163,0,0,0.55)] backdrop-blur-md relative overflow-hidden group z-30"
-              >
-                <Coffee className="w-4 h-4 text-white animate-cup-sway" />
-                <span>Stop & Start Break</span>
-              </button>
-            ) : ['shortBreak', 'longBreak'].includes(mode) ? (
-              <button
-                onClick={handleSkip}
-                className="px-6 py-3 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-200 hover:text-white border border-emerald-500/30 hover:border-emerald-500/60 rounded-full text-xs font-extrabold uppercase tracking-widest transition-all duration-300 cursor-pointer flex items-center gap-2 active:scale-95 shadow-[0_0_20px_rgba(16,185,129,0.15)] hover:shadow-[0_0_30px_rgba(16,185,129,0.3)] backdrop-blur-md relative overflow-hidden group tm-3d-bar-shadow"
-              >
-                <span className="absolute inset-0 bg-gradient-to-r from-emerald-500/0 via-emerald-500/10 to-emerald-500/0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000 ease-out" />
-                <SkipForward className="w-4 h-4 text-emerald-400 group-hover:translate-x-0.5 transition-transform duration-300" />
-                <span>Skip Break</span>
-              </button>
-            ) : null}
-          </div>
-        )}
 
         {/* Curved Buttons Deck */}
         {!isFullscreen ? (
@@ -2222,6 +2382,34 @@ export default function App() {
                 >
                   <Sliders className="w-3 h-3" /> Settings Path
                 </button>
+              </div>
+
+              {/* STREAK COUNTER COMPONENT IN FOCUS HUB */}
+              <div className="relative z-10">
+                <StreakCounter
+                  currentStreak={currentStreak}
+                  longestStreak={longestStreak}
+                  theme={settings.theme}
+                />
+              </div>
+
+              {/* SECONDARY MINI-TIMER CARD FOR QUICK MONITORING */}
+              <div className="relative z-10">
+                <span className="text-[9px] font-extrabold uppercase tracking-widest text-slate-400 mb-2 block">
+                  Quick Timer Monitor
+                </span>
+                <MiniTimerCard
+                  mode={mode}
+                  status={status}
+                  remainingSec={remainingSec}
+                  elapsedSec={elapsedSec}
+                  totalDurationSec={totalDurationSec}
+                  subject={settings.subject}
+                  theme={settings.theme}
+                  onTogglePlay={handleTogglePlay}
+                  onReset={handleReset}
+                  onSkip={handleSkip}
+                />
               </div>
 
               {/* SECTION: Direct Subject Board */}
@@ -2974,6 +3162,16 @@ export default function App() {
         onOpenGuide={() => { playClick(); setShowGuideModal(true); }}
         unreadNotificationCount={unreadNotificationCount}
         playClick={playClick}
+        mode={mode}
+        status={status}
+        remainingSec={remainingSec}
+        elapsedSec={elapsedSec}
+        totalDurationSec={totalDurationSec}
+        subject={settings.subject}
+        theme={settings.theme}
+        onTogglePlay={handleTogglePlay}
+        onReset={handleReset}
+        onSkip={handleSkip}
       />
 
       {/* ☰ MORE PANEL PORTAL OVERLAY */}

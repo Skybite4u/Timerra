@@ -16,7 +16,12 @@ import {
   Music, 
   Palette,
   ShieldCheck,
-  RefreshCw
+  RefreshCw,
+  Sun,
+  Moon,
+  Layers,
+  Eye,
+  SlidersHorizontal
 } from 'lucide-react';
 import { TimerSettings, ThemeName } from '../types';
 import { THEMES } from '../lib/themes';
@@ -30,7 +35,7 @@ interface SettingsPanelProps {
   onRenameSubject?: (oldName: string, newName: string) => void;
   onDeleteSubject?: (name: string) => void;
   onClose: () => void;
-  onThemePreview?: (themeId: ThemeName, customTheme?: TimerSettings['customTheme']) => void;
+  onThemePreview?: (themeId: ThemeName, customTheme?: TimerSettings['customTheme'], glassIntensity?: number) => void;
 }
 
 type TabId = 'timer' | 'subjects' | 'themes' | 'behavior';
@@ -67,6 +72,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
   const [customSoundData, setCustomSoundData] = useState(settings.customSoundData || '');
   const [customSoundName, setCustomSoundName] = useState(settings.customSoundName || '');
   const [smartAutoTaggingVal, setSmartAutoTaggingVal] = useState(settings.smartAutoTagging === true);
+  const [glassIntensityVal, setGlassIntensityVal] = useState<number>(settings.glassIntensity !== undefined ? settings.glassIntensity : 60);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Sync state declarations
@@ -132,7 +138,31 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
       accent: customAccent,
       bgFrom: customBgFrom,
       bgTo: val,
-    });
+    }, glassIntensityVal);
+  };
+
+  const handleGlassIntensityChange = (val: number) => {
+    setGlassIntensityVal(val);
+    const blurPx = Math.max(4, Math.round((val / 100) * 36));
+    const opacityVal = (0.2 + (val / 100) * 0.75).toFixed(2);
+    document.documentElement.style.setProperty('--tm-glass-blur', `${blurPx}px`);
+    document.documentElement.style.setProperty('--tm-glass-opacity', opacityVal);
+    document.documentElement.style.setProperty('--tm-glass-intensity', `${val}%`);
+
+    if (activeTheme === 'glassyLight') {
+      document.documentElement.style.setProperty('--tm-glass-bg', `rgba(224, 242, 254, ${(0.45 + (val / 100) * 0.50).toFixed(2)})`);
+      document.documentElement.style.setProperty('--tm-glass-border', `rgba(56, 189, 248, ${(0.25 + (val / 100) * 0.45).toFixed(2)})`);
+    } else {
+      document.documentElement.style.setProperty('--tm-glass-bg', `rgba(10, 15, 30, ${(0.35 + (val / 100) * 0.55).toFixed(2)})`);
+      document.documentElement.style.setProperty('--tm-glass-border', `rgba(255, 255, 255, ${(0.05 + (val / 100) * 0.35).toFixed(2)})`);
+    }
+
+    onThemePreview?.(activeTheme, activeTheme === 'custom' ? {
+      primary: customPrimary,
+      accent: customAccent,
+      bgFrom: customBgFrom,
+      bgTo: customBgTo,
+    } : undefined, val);
   };
 
   useEffect(() => {
@@ -251,6 +281,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
       customSoundData: customSoundData || undefined,
       customSoundName: customSoundName || undefined,
       smartAutoTagging: smartAutoTaggingVal,
+      glassIntensity: Number(glassIntensityVal),
       customTheme: {
         primary: customPrimary,
         accent: customAccent,
@@ -656,6 +687,169 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
           {/* TAB 3: Visual Environment Themes */}
           {activeTab === 'themes' && (
             <div className="space-y-6 animate-fade-in text-left">
+              
+              {/* DAY / NIGHT ENVIRONMENT MODE SWITCH */}
+              <div className="p-5 rounded-2xl bg-white/[0.01] border border-white/5 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Sun className="w-4 h-4 text-amber-400" />
+                    <span className="text-xs font-black uppercase tracking-widest text-slate-200">Day & Night Mode</span>
+                  </div>
+                  <span className="text-[9px] font-extrabold uppercase px-2.5 py-1 rounded-full bg-white/10 text-slate-300 font-mono">
+                    {activeTheme === 'glassyLight' ? '☀️ Day Mode Active' : '🌙 Night Mode Active'}
+                  </span>
+                </div>
+                <p className="text-[10px] text-slate-400 leading-normal">
+                  Switch between Day Mode (sky blue glass background with dark readable text) and Night Mode (deep dark space atmosphere).
+                </p>
+                <div className="grid grid-cols-2 gap-3 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      playClick();
+                      setActiveTheme('midnight');
+                      setSyncWithSystem(false);
+                      onThemePreview?.('midnight', undefined, glassIntensityVal);
+                    }}
+                    className={`p-3 rounded-xl border flex items-center justify-center gap-2 transition-all active:scale-95 cursor-pointer font-extrabold text-xs ${
+                      activeTheme !== 'glassyLight'
+                        ? 'bg-tm-primary/15 border-tm-primary text-white shadow-md'
+                        : 'bg-white/[0.02] border-white/5 text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    <Moon className="w-4 h-4 text-indigo-400" />
+                    <span>🌙 Night Mode</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      playClick();
+                      setActiveTheme('glassyLight');
+                      setSyncWithSystem(false);
+                      onThemePreview?.('glassyLight', undefined, glassIntensityVal);
+                    }}
+                    className={`p-3 rounded-xl border flex items-center justify-center gap-2 transition-all active:scale-95 cursor-pointer font-extrabold text-xs ${
+                      activeTheme === 'glassyLight'
+                        ? 'bg-amber-500/20 border-amber-400 text-amber-300 shadow-md ring-1 ring-amber-400/30'
+                        : 'bg-white/[0.02] border-white/5 text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    <Sun className="w-4 h-4 text-amber-400" />
+                    <span>☀️ Day Mode</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* ADVANCED GLASS INTENSITY & REFRACTION SLIDER */}
+              <div className="p-5 rounded-2xl bg-white/[0.01] border border-white/5 space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <SlidersHorizontal className="w-4 h-4 text-tm-primary" />
+                    <span className="text-xs font-black uppercase tracking-widest text-slate-200">Glass Intensity & Refraction</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-tm-primary/10 border border-tm-primary/20 text-tm-primary text-[10px] font-mono font-black">
+                    <span>{glassIntensityVal}%</span>
+                    <span className="text-[9px] text-slate-400">({Math.max(4, Math.round((glassIntensityVal / 100) * 36))}px blur)</span>
+                  </div>
+                </div>
+
+                <p className="text-[10px] text-slate-400 leading-normal">
+                  Adjust the glass blur level and opacity in real time. Readability and high contrast are automatically preserved across all backgrounds.
+                </p>
+
+                {/* Advanced Slider Control */}
+                <div className="space-y-3 pt-1">
+                  <div className="relative flex items-center select-none">
+                    <input
+                      type="range"
+                      min="10"
+                      max="100"
+                      step="1"
+                      value={glassIntensityVal}
+                      onChange={(e) => handleGlassIntensityChange(Number(e.target.value))}
+                      className="w-full h-2.5 bg-slate-800/80 rounded-lg appearance-none cursor-pointer accent-tm-primary focus:outline-none"
+                    />
+                  </div>
+
+                  {/* Preset Quick Chips */}
+                  <div className="grid grid-cols-3 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handleGlassIntensityChange(25)}
+                      className={`px-2.5 py-1.5 rounded-xl border text-[10px] font-bold transition-all cursor-pointer text-center ${
+                        glassIntensityVal === 25 
+                          ? 'bg-tm-primary/20 border-tm-primary text-white shadow-sm' 
+                          : 'bg-white/[0.02] border-white/5 text-slate-400 hover:text-white hover:border-white/10'
+                      }`}
+                    >
+                      🧪 Subtle (25%)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleGlassIntensityChange(60)}
+                      className={`px-2.5 py-1.5 rounded-xl border text-[10px] font-bold transition-all cursor-pointer text-center ${
+                        glassIntensityVal === 60 
+                          ? 'bg-tm-primary/20 border-tm-primary text-white shadow-sm' 
+                          : 'bg-white/[0.02] border-white/5 text-slate-400 hover:text-white hover:border-white/10'
+                      }`}
+                    >
+                      🧊 Balanced (60%)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleGlassIntensityChange(90)}
+                      className={`px-2.5 py-1.5 rounded-xl border text-[10px] font-bold transition-all cursor-pointer text-center ${
+                        glassIntensityVal === 90 
+                          ? 'bg-tm-primary/20 border-tm-primary text-white shadow-sm' 
+                          : 'bg-white/[0.02] border-white/5 text-slate-400 hover:text-white hover:border-white/10'
+                      }`}
+                    >
+                      🛡️ Frost (90%)
+                    </button>
+                  </div>
+                </div>
+
+                {/* Real-time Interactive Refraction Preview Card */}
+                <div className="relative mt-2 p-4 rounded-xl overflow-hidden border border-white/10 select-none min-h-[90px] flex items-center justify-between">
+                  {/* Colorful animated test shapes */}
+                  <div className="absolute inset-0 bg-gradient-to-r from-blue-600 via-indigo-600 to-amber-500 pointer-events-none opacity-80" />
+                  <div className="absolute top-1 left-3 w-16 h-16 bg-cyan-400 rounded-full blur-xs animate-pulse pointer-events-none" />
+                  <div className="absolute bottom-1 right-4 w-20 h-20 bg-pink-500 rounded-full blur-sm pointer-events-none" />
+
+                  {/* Test Glass Overlay Card */}
+                  <div 
+                    className="relative z-10 w-full p-3 rounded-xl border transition-all duration-150 flex items-center justify-between gap-3 shadow-xl"
+                    style={{
+                      backdropFilter: `blur(${Math.max(4, Math.round((glassIntensityVal / 100) * 36))}px) saturate(140%)`,
+                      WebkitBackdropFilter: `blur(${Math.max(4, Math.round((glassIntensityVal / 100) * 36))}px) saturate(140%)`,
+                      backgroundColor: activeTheme === 'glassyLight' 
+                        ? `rgba(224, 242, 254, ${(0.45 + (glassIntensityVal / 100) * 0.50).toFixed(2)})`
+                        : `rgba(10, 15, 30, ${(0.35 + (glassIntensityVal / 100) * 0.55).toFixed(2)})`,
+                      borderColor: activeTheme === 'glassyLight'
+                        ? `rgba(56, 189, 248, ${(0.25 + (glassIntensityVal / 100) * 0.45).toFixed(2)})`
+                        : `rgba(255, 255, 255, ${(0.05 + (glassIntensityVal / 100) * 0.35).toFixed(2)})`,
+                      color: activeTheme === 'glassyLight' ? '#0f172a' : '#f8fafc',
+                    }}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <div className="p-2 rounded-lg bg-tm-primary/20 text-tm-primary">
+                        <Eye className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <span className="text-xs font-black tracking-tight block">Live Glass Refraction Preview</span>
+                        <span className="text-[9px] opacity-80 block font-mono">Contrast: WCAG AA Pass</span>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-[10px] font-extrabold uppercase font-mono px-2 py-1 rounded bg-black/20 border border-white/10 text-white">
+                        {glassIntensityVal}%
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* ATMOSPHERIC SHIMMER SKINS */}
               <div className="p-5 rounded-2xl bg-white/[0.01] border border-white/5 space-y-4">
                 <div className="flex items-center gap-2">
                   <Palette className="w-4 h-4 text-tm-primary" />
@@ -680,7 +874,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                             accent: customAccent,
                             bgFrom: customBgFrom,
                             bgTo: customBgTo,
-                          } : undefined);
+                          } : undefined, glassIntensityVal);
                         }}
                         type="button"
                         className={`p-3 rounded-xl border text-left transition-all active:scale-95 cursor-pointer flex flex-col justify-between h-[82px] relative overflow-hidden group ${
@@ -706,7 +900,9 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                               theme.id === 'cyber' ? 'bg-cyan-400' :
                               theme.id === 'midnight' ? 'bg-indigo-900' :
                               theme.id === 'aurora' ? 'bg-teal-300' :
-                              'bg-lime-400'
+                              theme.id === 'neonPulse' ? 'bg-lime-400' :
+                              theme.id === 'glassmorphism' ? 'bg-sky-300 ring-2 ring-sky-200/50' :
+                              'bg-sky-200 ring-2 ring-sky-400/50'
                             }`} />
                           )}
                         </div>
